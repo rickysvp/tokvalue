@@ -232,7 +232,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
   }
 
   return (
-    <div className="relative rounded-3xl border border-neutral-800 bg-[#0a0a0a] overflow-hidden bg-mesh-gradient-strong isolate animate-fade-in-up max-h-[calc(90vh-8rem)] flex flex-col">
+    <div className="relative rounded-3xl border border-neutral-800 bg-[#0a0a0a] overflow-hidden bg-mesh-gradient-strong isolate animate-fade-in-up flex flex-col flex-1 min-h-0">
       {/* 顶部光斑装饰 */}
       <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[500px] h-48 bg-[#FF0050]/15 rounded-full blur-3xl" />
       <div className="pointer-events-none absolute top-1/3 -right-24 w-72 h-72 bg-[#00F2EA]/10 rounded-full blur-3xl" />
@@ -268,19 +268,21 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
         </div>
 
         {/* ── 10 大模块网格 ── */}
-        <div className="mt-7 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {UNLOCK_MODULES.map((m, i) => {
             const Icon = m.icon
             const mod = dict.paidWall.unlockModules[i] || { title: '', desc: '' }
             return (
-              <div key={i} className="group relative rounded-xl border border-neutral-800 bg-[#111] p-3 transition-all hover:border-neutral-700 hover:bg-[#151515]">
-                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${m.bg} mb-2`}>
-                  <Icon className={`h-4 w-4 ${m.color}`} />
+              <div key={i} className="group relative flex items-start gap-3 rounded-xl border border-neutral-800 bg-[#111] p-4 transition-all hover:border-neutral-700 hover:bg-[#151515]">
+                <div className={`inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${m.bg}`}>
+                  <Icon className={`h-5 w-5 ${m.color}`} />
                 </div>
-                <div className="text-xs font-semibold text-white leading-tight">{mod.title}</div>
-                <div className="mt-1 text-[10px] text-neutral-500 leading-snug line-clamp-2">{mod.desc}</div>
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Lock className="h-3 w-3 text-neutral-600" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-white leading-tight">{mod.title}</div>
+                  <div className="mt-1 text-xs text-neutral-400 leading-relaxed">{mod.desc}</div>
+                </div>
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Lock className="h-3.5 w-3.5 text-neutral-600" />
                 </div>
               </div>
             )
