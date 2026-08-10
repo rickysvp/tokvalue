@@ -603,13 +603,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
                 </div>
               </div>
 
-              <div className="mb-10 flex items-center gap-2 rounded-xl border border-[#FF0050]/15 bg-[#FF0050]/5 px-4 py-3">
-                <Star className="h-4 w-4 shrink-0 text-[#FF0050]" />
-                <span className="text-xs text-neutral-400">
-                  {dict.evaluation.unlockTeaser} <span className="text-neutral-300">{dict.evaluation.unlockItems.incomeChannels}</span> · <span className="text-neutral-300">{dict.evaluation.unlockItems.monetizationPaths}</span> · <span className="text-neutral-300">{dict.evaluation.unlockItems.trendBrandMatching}</span> · <span className="text-neutral-300">{dict.evaluation.unlockItems.revenueForecast}</span>
-                </span>
-              </div>
-
               <SectionHeader step="02" title={dict.evaluation.sections.assessmentConclusion} icon={<Target className="h-4 w-4" />} />
               <div className="mb-10 rounded-2xl border border-[#00F2EA]/20 bg-gradient-to-br from-[#00F2EA]/5 to-[#FF0050]/5 p-6">
                 <div className="flex items-center gap-2 mb-4">
