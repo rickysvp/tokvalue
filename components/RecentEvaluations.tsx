@@ -19,7 +19,7 @@ function fmtUsd(n: number): string {
 
 /** 等级圆环（紧凑版，用于卡片） */
 function TierBadge({ tier, size = 44 }: { tier: string; size?: number }) {
-  const color = TIER_COLORS[tier] || '#FF0050'
+  const color = TIER_COLORS[tier] || '#E8A840'
   const stroke = 3
   const radius = (size - stroke) / 2
   return (
@@ -93,7 +93,7 @@ export function RecentEvaluations({ onSelect }: Props) {
         {/* Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {items.map((acc) => {
-            const tierColor = TIER_COLORS[acc.tier] || '#FF0050'
+            const tierColor = TIER_COLORS[acc.tier] || '#E8A840'
             return (
               <button
                 key={acc.username}
