@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { TIER_COLORS } from '@/lib/tier'
 import { Users, Heart, MapPin, BadgeCheck, Sparkles, ArrowRight, Lock, TrendingUp } from 'lucide-react'
 import type { RecentEvaluation } from '@/types'
+import { CtaButton } from './CtaButton'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -196,15 +197,16 @@ export function RecentEvaluations({ onSelect }: Props) {
           <p className="text-sm text-neutral-400 mb-3 leading-relaxed">
             Want to know <span className="text-[#FF0050] font-semibold">your</span> TikTok account&apos;s true business value?
           </p>
-          <button
+          <CtaButton
+            variant="gradient"
+            icon={<ArrowRight className="h-4 w-4" />}
             onClick={() => {
               const input = document.querySelector<HTMLInputElement>('input[aria-label*="username"], input[placeholder*="username"]')
               if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF0050] to-[#e60049] px-5 py-2.5 text-sm font-semibold text-white hover:from-[#e60049] hover:to-[#cc0040] transition-all shadow-lg shadow-[#FF0050]/25"
           >
-            Evaluate Your Account <ArrowRight className="h-4 w-4" />
-          </button>
+            Evaluate Your Account
+          </CtaButton>
         </div>
       </div>
     </section>
