@@ -4,13 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2, TrendingUp, Shield, Users, DollarSign, AlertTriangle, Lightbulb, Star, Briefcase, Film, Zap, Clock, BarChart3, Building2, BookOpen, Activity, Play, Gift, ShoppingBag, CheckCircle2, User, Rocket, Mail, ArrowRight, Sparkles } from 'lucide-react'
+import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 
-import { useI18n, t } from '@/lib/i18n'
-import { CREDIT_PACKAGES } from '@/lib/credits'
+import { useI18n } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken } from '@/lib/credits-client'
 import { ParticleBackground } from '@/components/ParticleBackground'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
@@ -20,24 +19,6 @@ import { SocialProofSection, UseCasesSection, PricingSection, CoreCapabilitiesSe
 
 export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
 
-// Client-side analytics tracking helper
-function trackEvent(event_type: string, metadata?: Record<string, unknown>) {
-  const body = JSON.stringify({
-    event_type,
-    path: typeof window !== 'undefined' ? window.location.pathname : '/',
-    metadata,
-    referrer: typeof window !== 'undefined' ? (document.referrer || '') : '',
-  })
-  fetch('/api/track', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    keepalive: true,
-  }).catch(err => {
-    console.warn(`[analytics] trackEvent ${event_type} failed:`, err)
-    try { navigator.sendBeacon('/api/track', body) } catch {}
-  })
-}
 
 export default function HomePage() {
   const { dict } = useI18n()

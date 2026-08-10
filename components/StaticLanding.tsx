@@ -1,4 +1,5 @@
 import { Zap, MessageCircle } from 'lucide-react'
+import Link from 'next/link'
 import { getServerDict } from '@/lib/i18n/server'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import { HomepageJsonLd } from '@/components/HomepageJsonLd'
@@ -84,12 +85,12 @@ export function StaticLanding() {
           <p className="text-neutral-400 max-w-xl mx-auto mb-6">
             In-depth articles on TikTok valuation, brand deal pricing, engagement benchmarks, and monetization strategies — methodology references industry data and our valuation engine.
           </p>
-          <a
+          <Link
             href="/blog"
             className="inline-flex items-center gap-2 rounded-full bg-[#00F2EA] px-8 py-3 text-sm font-semibold text-black transition hover:bg-[#00D4CE]"
           >
             Read the Blog →
-          </a>
+          </Link>
         </div>
       </section>
 

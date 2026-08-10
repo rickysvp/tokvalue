@@ -8,7 +8,7 @@ import { Evaluation } from '@/types'
 import { ScoreGauge } from '@/components/ScoreGauge'
 import { RadarChart } from '@/components/RadarChart'
 import { RiskList } from '@/components/RiskList'
-import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, ThumbsUp, AlertTriangle, Lightbulb, Target, BadgeCheck, MapPin, Star, Tag, Clock, UserCheck, BarChart3, Building2, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, Activity, Play, Gift, ShoppingBag, CheckCircle2, Users, Mail, Zap, Flame, Layers, Trophy, Scale, Share2, Briefcase, Film, User } from 'lucide-react'
+import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, ThumbsUp, AlertTriangle, Lightbulb, Target, BadgeCheck, MapPin, Star, Tag, Clock, UserCheck, BarChart3, Building2, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, Activity, Play, Gift, ShoppingBag, CheckCircle2, Users, Mail, Zap, Flame, Share2, Briefcase, Film, User } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import { GrowthPlanSection } from '@/components/sections/GrowthPlanSection'
 import { IncomeBreakdownSection } from '@/components/sections/IncomeBreakdownSection'
@@ -31,6 +31,7 @@ import { downloadPdf } from '@/lib/export-pdf'
 import { formatNumber } from '@/lib/format'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
+import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import { useI18n, t } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, claimCreditsApi, setSessionToken, promotePendingToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
@@ -100,7 +101,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [needPurchase, setNeedPurchase] = useState(false)
   const pendingUsername = useRef<string | null>(null)
-  const [isUnlocking, setIsUnlocking] = useState(false)
+  const [, setIsUnlocking] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -851,7 +852,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 }
 
 function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, isLoggedIn, onVerifyClick, onLogout }: {
-  dict: any
+  dict: EnDict
   creditBalance: CreditBalance | null
   balanceLoading: boolean
   paymentSuccess: boolean

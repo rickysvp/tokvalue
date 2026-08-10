@@ -41,6 +41,7 @@ interface CapabilitiesSectionProps extends BaseSectionProps {
   onFocusInput?: () => void
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface FAQSectionProps extends BaseSectionProps {}
 
 // ── Helpers ──
