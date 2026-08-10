@@ -58,7 +58,7 @@ export default async function TagPage({ params }: { params: Promise<{ tag: strin
         {/* Posts */}
         <div className="space-y-6">
           {posts.map(post => (
-            <article key={post.slug} className="rounded-2xl border border-neutral-800 bg-[#0a0a0a] p-6 hover:border-[#FF0050]/30 transition-colors">
+            <article key={post.slug} className="rounded-2xl border border-neutral-800 bg-[#0a0a0a] p-6 hover:border-[#00F2EA]/20 transition-colors">
               <Link href={`/blog/${post.slug}`}>
                 <h2 className="text-xl font-bold mb-2 hover:text-[#00F2EA] transition-colors">
                   {post.title}

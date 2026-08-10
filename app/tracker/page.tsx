@@ -147,7 +147,7 @@ export default function TrackerPage() {
               className={`rounded-xl border transition-colors cursor-pointer ${
                 selectedIds.includes(evaluation.id)
                   ? 'border-[#00F2EA]/40 bg-[#00F2EA]/5'
-                  : 'border-neutral-800 bg-[#141414] hover:border-neutral-700'
+                  : 'border-neutral-800 bg-[#141414] hover:border-[#00F2EA]/20'
               }`}
               onClick={() => toggleSelect(evaluation.id)}
             >

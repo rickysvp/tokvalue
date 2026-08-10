@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { TIER_COLORS, tierLabel } from '@/lib/tier'
 
 interface ScoreGaugeProps {
@@ -12,6 +12,7 @@ interface ScoreGaugeProps {
 }
 
 export function ScoreGauge({ score, tier, size = 160, stroke = 12, showLabel = false }: ScoreGaugeProps) {
+  const gradientId = useId()
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
   const progress = useMemo(() => clamp(score / 100, 0, 1) * circumference, [score, circumference])
@@ -28,6 +29,12 @@ export function ScoreGauge({ score, tier, size = 160, stroke = 12, showLabel = f
     <div className="inline-flex flex-col items-center">
       <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90" role="img" aria-label={`Tier ${tier} account, score ${score}`}>
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#FF0050" />
+              <stop offset="100%" stopColor="#00F2EA" />
+            </linearGradient>
+          </defs>
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -41,7 +48,7 @@ export function ScoreGauge({ score, tier, size = 160, stroke = 12, showLabel = f
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={color}
+            stroke={`url(#${gradientId})`}
             strokeWidth={stroke}
             fill="transparent"
             strokeLinecap="round"

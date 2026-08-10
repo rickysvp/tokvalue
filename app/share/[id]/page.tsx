@@ -498,7 +498,7 @@ export default function SharePage() {
             {businessValue.components.map((comp, i) => {
               const colors = ['#FF0050', '#00F2EA', '#f59e0b', '#22c55e', '#a855f7']
               return (
-                <div key={i} className="rounded-xl border border-neutral-800 bg-[#0f0f0f] p-4 hover:border-neutral-700 transition-colors">
+                <div key={i} className="rounded-xl border border-neutral-800 bg-[#0f0f0f] p-4 hover:border-[#00F2EA]/20 transition-colors">
                   <div className="text-xs text-neutral-500 mb-2 leading-tight">{comp.label}</div>
                   <div className="text-sm font-bold text-white mb-2">
                     {fmtUsd(comp.amount.low)}–{fmtUsd(comp.amount.high)}
@@ -1047,7 +1047,7 @@ export default function SharePage() {
               {DIMENSION_LABELS.map(({ key, label, desc }) => (
                 <div
                   key={key}
-                  className="flex items-start gap-3 p-3 rounded-xl border border-neutral-800 bg-[#0a0a0a]/50 hover:border-neutral-700 transition-colors"
+                  className="flex items-start gap-3 p-3 rounded-xl border border-neutral-800 bg-[#0a0a0a]/50 hover:border-[#00F2EA]/20 transition-colors"
                 >
                   <div className="shrink-0 mt-0.5 w-7 h-7 rounded-lg bg-[#FF0050]/10 border border-[#FF0050]/20 flex items-center justify-center">
                     <span className="text-[10px] font-bold text-[#FF0050]">{DIMENSION_LABELS.findIndex(d => d.key === key) + 1}</span>

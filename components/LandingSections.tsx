@@ -51,7 +51,7 @@ export function CapFeature({ icon, color, title, items }: {
   title: string
   items: readonly string[]
 }) {
-  const borderColor = color === 'pink' ? 'border-[#FF0050]/20 group-hover:border-[#FF0050]/40' : 'border-[#00F2EA]/20 group-hover:border-[#00F2EA]/40'
+  const borderColor = color === 'pink' ? 'border-[#FF0050]/20 group-hover:border-[#00F2EA]/20' : 'border-[#00F2EA]/20 group-hover:border-[#00F2EA]/20'
   const iconBg = color === 'pink' ? 'bg-[#FF0050]/10' : 'bg-[#00F2EA]/10'
   const iconColor = color === 'pink' ? 'text-[#FF0050]' : 'text-[#00F2EA]'
   const dotColor = color === 'pink' ? 'bg-[#FF0050]/60' : 'bg-[#00F2EA]/60'
@@ -183,7 +183,7 @@ export function UseCasesSection({ dict, interactive = true, onFocusInput, onScro
           ].map((item, i) => {
             const Icon = item.icon
             return (
-              <div key={i} className="group rounded-2xl border border-neutral-800 bg-[#141414] overflow-hidden hover:border-[#00F2EA]/30 transition-all hover:-translate-y-1">
+              <div key={i} className="group rounded-2xl border border-neutral-800 bg-[#141414] overflow-hidden hover:border-[#00F2EA]/20 transition-all hover:-translate-y-1">
                 <div className="relative h-40 overflow-hidden">
                   <Image
                     src={item.image}
@@ -376,7 +376,7 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
         </div>
 
         {/* 1. BUSINESS VALUATION */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#FF0050]/30 transition-all group">
+        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
           <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
             <div className="lg:w-[340px] shrink-0">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF0050]/10 border border-[#FF0050]/20 px-3 py-1 text-[10px] font-semibold text-[#FF0050] uppercase tracking-wider mb-4">
@@ -413,7 +413,7 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
         </div>
 
         {/* 2. AUTHORITY & RISK */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#00F2EA]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/30 transition-all group">
+        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#00F2EA]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
           <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
             <div className="lg:w-[340px] shrink-0">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00F2EA]/10 border border-[#00F2EA]/20 px-3 py-1 text-[10px] font-semibold text-[#00F2EA] uppercase tracking-wider mb-4">
@@ -470,7 +470,7 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
         </div>
 
         {/* 3. GROWTH & MONETIZATION */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#FF0050]/30 transition-all group">
+        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
           <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
             <div className="lg:w-[340px] shrink-0">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF0050]/10 border border-[#FF0050]/20 px-3 py-1 text-[10px] font-semibold text-[#FF0050] uppercase tracking-wider mb-4">
@@ -509,7 +509,7 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
               const icons = [FileDown, RefreshCw, Globe, BarChart3, LineChart, Wallet]
               const Icon = icons[i] || Radio
               return (
-                <div key={i} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-neutral-900/50 border border-neutral-800 hover:border-[#FF0050]/30 transition-colors text-center">
+                <div key={i} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-neutral-900/50 border border-neutral-800 hover:border-[#00F2EA]/20 transition-colors text-center">
                   <Icon className="h-4 w-4 text-[#00F2EA]" />
                   <span className="text-[11px] font-medium text-neutral-300">{item.label}</span>
                   <span className="text-[10px] text-neutral-500">{item.desc}</span>
