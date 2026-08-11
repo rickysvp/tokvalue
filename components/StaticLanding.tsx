@@ -6,8 +6,6 @@ import { HomepageJsonLd } from '@/components/HomepageJsonLd'
 import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
 import {
-  UseCasesSection,
-  CoreCapabilitiesSection,
   PricingSection,
   FAQSection,
 } from './LandingSections'
@@ -65,11 +63,30 @@ export function StaticLanding() {
         </div>
       </section>
 
-      {/* Use Cases */}
-      <UseCasesSection dict={d} interactive={false} />
+      {/* How It Works — Static summary */}
+      <section className="border-b border-neutral-800 py-16">
+        <div className="mx-auto max-w-2xl px-4 text-center">
+          <h2 className="text-2xl font-bold mb-4">From username to valuation in 10 seconds</h2>
+          <p className="text-neutral-400 leading-relaxed">
+            Type any public TikTok @username — your own, a competitor&apos;s, or an influencer you&apos;re considering hiring.
+            We scan 10 dimensions in real-time: engagement quality, follower authenticity, content consistency, and more.
+            Instantly see your tier rating, value range, and risk summary. No credit card required.
+          </p>
+        </div>
+      </section>
 
-      {/* Core Capabilities */}
-      <CoreCapabilitiesSection dict={d} interactive={false} />
+      {/* Free vs Pro — Static summary */}
+      <section className="border-b border-neutral-800 py-16">
+        <div className="mx-auto max-w-2xl px-4 text-center">
+          <h2 className="text-2xl font-bold mb-4">Free report, or go deeper</h2>
+          <p className="text-neutral-400 leading-relaxed mb-4">
+            The free report gives you tier rating, account value range, risk &amp; authenticity scan, and peer percentile ranking.
+          </p>
+          <p className="text-neutral-400 leading-relaxed">
+            Upgrade to Pro ($9 one-time) to unlock 5-channel revenue breakdown, brand deal pricing engine, 12-month growth forecast, AI content strategy, brand matching, and PDF/PNG export.
+          </p>
+        </div>
+      </section>
 
       {/* Pricing */}
       <PricingSection dict={d} interactive={false} checkoutLoading={false} onCheckout={noop} />

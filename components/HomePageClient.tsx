@@ -4,18 +4,20 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail } from 'lucide-react'
+import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail, Shield } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 
 import { useI18n } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken } from '@/lib/credits-client'
-import { ParticleBackground } from '@/components/ParticleBackground'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { RecentEvaluations } from '@/components/RecentEvaluations'
 import { CtaButton } from '@/components/CtaButton'
-import { SocialProofSection, UseCasesSection, PricingSection, CoreCapabilitiesSection, FAQSection } from '@/components/LandingSections'
+import { PricingSection, FAQSection } from '@/components/LandingSections'
+import { HowItWorks } from '@/components/HowItWorks'
+import { FreeVsPro } from '@/components/FreeVsPro'
+import { SocialProofBar } from '@/components/SocialProofBar'
 
 export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
 
@@ -223,15 +225,11 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-neutral-800">
+      {/* Hero — simplified */}
+      <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#FF0050]/10 via-transparent to-transparent" />
-        <ParticleBackground />
         <div className="mx-auto max-w-3xl px-4 py-20 sm:py-24 relative">
           <div className="text-center mb-8">
-            <p className="text-xs font-medium text-[#00F2EA] mb-4 uppercase tracking-widest">
-              {dict.home.hero.freeBadge}
-            </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
               {dict.home.hero.title}
             </h1>
@@ -247,7 +245,7 @@ export default function HomePage() {
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder={'@username → free report in 10s'}
+                placeholder={dict.home.hero.placeholder}
                 aria-label={dict.home.hero.ariaLabel}
                 autoComplete="off"
                 className="flex-1 bg-transparent text-lg outline-none placeholder:text-neutral-600"
@@ -273,28 +271,43 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <p className="text-center text-[11px] text-neutral-600 mt-4">
-            {dict.home.hero.trustBadge}
-          </p>
+          {/* Trust signals — no emoji, no fake stars */}
+          <div className="mt-6 flex items-center justify-center gap-8">
+            {[
+              { icon: Zap, label: 'Instant' },
+              { icon: BarChart3, label: 'AI-Powered' },
+              { icon: Shield, label: 'Private & Secure' },
+            ].map((item, i) => {
+              const Icon = item.icon
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs text-neutral-500">
+                  <Icon className="h-3.5 w-3.5 text-[#00F2EA]" />
+                  {item.label}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </section>
 
-      {/* Social Proof */}
-      <SocialProofSection
-        dict={dict}
-        stats={{ accountsEvaluated: stats.accountsEvaluated, totalValueAssessed: stats.totalValueAssessed, uniqueVisitors: stats.uniqueVisitors }}
+      {/* How It Works */}
+      <HowItWorks dict={dict.home.howItWorks} />
+
+      {/* Free vs Pro */}
+      <FreeVsPro
+        dict={dict.home.freeVsPro}
+        onProCta={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+        onFreeCta={() => {
+          const input = document.querySelector<HTMLInputElement>('input')
+          if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+        }}
       />
 
-      {/* Recently Evaluated Accounts */}
+      {/* Social Proof — renders null if no real API data */}
+      <SocialProofBar stats={stats} />
+
+      {/* Recently Evaluated */}
       <RecentEvaluations onSelect={(name) => router.push(`/evaluate/${encodeURIComponent(name)}`)} />
-
-      {/* Use Cases */}
-      <UseCasesSection
-        dict={dict}
-        interactive={true}
-        onFocusInput={() => document.querySelector('input')?.focus()}
-        onScrollToPricing={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
-      />
 
       {/* Pricing */}
       <PricingSection
@@ -302,16 +315,6 @@ export default function HomePage() {
         interactive={true}
         checkoutLoading={checkoutLoading}
         onCheckout={handlePricingCheckout}
-      />
-
-      {/* Core Capabilities */}
-      <CoreCapabilitiesSection
-        dict={dict}
-        interactive={true}
-        onFocusInput={() => {
-          const input = document.querySelector<HTMLInputElement>('input[placeholder*="username"]')
-          if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-        }}
       />
 
       {/* FAQ */}

@@ -98,37 +98,67 @@ const en = {
   // ── Home Page / Landing ──
   home: {
     hero: {
-      title: "What's Your TikTok Account Worth?",
-      subtitle: 'Free instant valuation. Tier rating, revenue estimate, and brand deal price — no sign-up, no credit card.',
-      placeholder: '@username',
+      title: "What's your account really worth?",
+      subtitle: '10-second free valuation. Tier rating, revenue estimate, and brand deal price. No sign-up. No credit card.',
+      placeholder: '@username → free report in 10s',
       ariaLabel: 'TikTok username',
       cta: 'Evaluate for Free',
-      freeBadge: '⚡ Free evaluation · Results in 10s · No sign-up required',
-      trustBadge: '★★★★★ 4.9 · 11,000+ evaluations · Secure & Private',
-      demoLink: 'See a sample report →',
+      demoLink: 'See @demo sample report →',
     },
-    socialProof: {
-      accountsEvaluated: 'Accounts Evaluated',
-      totalValueAssessed: 'Total Value Assessed',
-      uniqueVisitors: 'Users',
+
+    howItWorks: {
+      badge: 'How It Works',
+      title: 'From username to valuation in 10 seconds',
+      steps: [
+        {
+          number: '1',
+          title: 'Enter Username',
+          desc: "Type any public TikTok @username — your own, a competitor's, or an influencer you're considering hiring.",
+        },
+        {
+          number: '2',
+          title: 'AI Analysis',
+          desc: 'We scan 10 dimensions in real-time: engagement quality, follower authenticity, content consistency, and more.',
+        },
+        {
+          number: '3',
+          title: 'Get Your Report',
+          desc: 'Instantly see your tier rating, value range, and risk summary. Upgrade to unlock the full analysis.',
+        },
+      ],
+      cta: 'Get your tier rating, value range, and risk summary — no credit card required.',
     },
-    useCases: {
-      title: 'Who Uses TokValue?',
-      brands: {
-        title: 'Brands & Advertisers',
-        desc: 'Vet TikTok creators before you invest. Screen out fake followers and bot accounts so every dollar of your ad budget goes to real reach.',
+    freeVsPro: {
+      badge: 'Free vs Pro',
+      title: 'Free report, or go deeper',
+      free: {
+        label: 'Free',
+        desc: 'Instant overview. No sign-up.',
+        features: [
+          'Tier rating & score',
+          'Account value range',
+          'Risk & authenticity scan',
+          'Peer percentile ranking',
+        ],
         cta: 'Try Free',
       },
-      creators: {
-        title: 'Creators & Influencers',
-        desc: 'Know what your TikTok account is worth. Price your brand deals with confidence using data-backed valuation.',
-        cta: 'Check for Free',
+      pro: {
+        label: 'Pro',
+        desc: 'One-time $9. Full analysis.',
+        price: '$9',
+        priceLabel: 'one-time',
+        features: [
+          'Everything in Free',
+          '5-Channel revenue breakdown',
+          'Brand deal pricing engine',
+          '12-Month growth forecast',
+          'AI content strategy',
+          'Brand matching & commercialization',
+          'PDF & PNG export',
+        ],
+        cta: 'Unlock Pro — $9',
       },
-      agencies: {
-        title: 'Agencies & MCNs',
-        desc: 'Evaluate TikTok accounts at scale. Make data-driven roster decisions with instant account value evaluations.',
-        cta: 'See Pricing',
-      },
+      footer: 'One-time payment. No subscription. No auto-renewal.',
     },
     capabilities: {
       badge: 'What You Get',
@@ -305,13 +335,8 @@ const en = {
     },
     pricing: {
       title: 'Simple, Transparent Pricing',
-      subtitle: 'Start free. Upgrade when you need the full picture. One-time payment, no auto-renewal, no surprises.',
+      subtitle: 'One-time payment. Evaluations never expire. No auto-renewal, no surprises.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
-      trustBar: [
-        { icon: 'zap', title: 'Instant Delivery', desc: 'Results in 10 seconds — no waiting' },
-        { icon: 'mail', title: 'Email-Linked', desc: 'Access your evaluations from any device' },
-        { icon: 'card', title: 'No Subscription', desc: 'One-time payment, evaluations never expire' },
-      ],
       allPlansInclude: {
         title: 'Every paid plan includes everything',
         subtitle: 'All paid packages unlock the full analysis suite. The only difference is how many evaluations you get.',
@@ -330,25 +355,12 @@ const en = {
         },
         list: ['scoring', 'brandDeal', 'monetization', 'report', 'benchmark', 'history', 'growth', 'commerce', 'risk', 'ip', 'content'],
       },
-      freePlan: {
-        name: 'Free',
-        desc: 'Try it out — no strings attached',
-        cta: 'Try Free',
-        features: [
-          'Tier rating & score',
-          'Account value range',
-          'Risk scan summary',
-          'Overview tab (4 sections)',
-        ],
-      },
       plans: [
         {
           id: 'pack1',
           name: 'Single',
           desc: 'Best for individual creators and influencers',
           highlight: false,
-          originalPrice: 19,
-          savePercent: 53,
         },
         {
           id: 'pack6',
@@ -356,16 +368,12 @@ const en = {
           desc: 'Best for MCNs, talent agencies, and influencer marketing teams',
           highlight: true,
           badge: 'Best Value',
-          originalPrice: 49,
-          savePercent: 41,
         },
         {
           id: 'pack30',
           name: 'Studio',
           desc: 'Best for brands, market analysts, and large-scale campaign planners',
           highlight: false,
-          originalPrice: 149,
-          savePercent: 34,
         },
       ],
     },
@@ -382,44 +390,20 @@ const en = {
           a: 'The free report gives you the Overview tab — tier rating, score, account value range, and risk scan. Upgrading ($9 one-time) unlocks the full report: Growth strategy, Revenue breakdown with real dollar estimates, Brand matching & commercialization analysis, AI-powered content strategy, and PDF/PNG export. Same instant delivery, just more depth.',
         },
         q3: {
-          q: 'I just type a username and get a valuation? How long does it take?',
-          a: 'Yes. Enter any TikTok @username, hit evaluate, and you get a dollar valuation in about 10-20 seconds. The free report opens instantly in your browser — no email delivery wait, no PDF download delay.',
-        },
-        q4: {
           q: 'How accurate is the number? Why should I trust it?',
           a: 'Think of it like a Zillow estimate for TikTok accounts — not a guaranteed offer, but a data-backed starting point you can take to a negotiation. We score 10 dimensions (engagement, content quality, follower authenticity, risk signals, etc.), cross-reference with publicly reported brand deal data, and adjust by your region and niche. The final number gives you a low/mid/high range so you know the spread, not just a single number.',
         },
-        q5: {
+        q4: {
           q: 'What do I actually get after paying?',
           a: 'A full report with dollar valuation, tier rating (S/A/B/C/D), peer ranking, brand deal pricing, 12-month revenue projection, growth action plan, risk scan, brand matching suggestions, content strategy guide, and monetization paths. You can export as PDF or PNG. All immediately accessible in your browser and permanent under your History. Free reports include tier, score, value range, and risk scan.',
         },
-        q6: {
+        q5: {
           q: 'Do you need my TikTok password?',
           a: 'No — never. We only read what\'s publicly visible on TikTok: profile stats, video counts, engagement. Same information anyone can see by visiting a profile. We don\'t need and will never ask for your password, login, or private account access.',
         },
-        q7: {
-          q: 'Can I get a refund?',
-          a: 'Yes. Unused credits are fully refundable within 7 days of purchase. Once a credit is used to generate an evaluation report, that purchase is final — but the report is yours permanently. Email connect@tokvalue.com for refunds.',
-        },
-        q8: {
-          q: 'How is this different from Social Blade or other tools?',
-          a: 'Social Blade graphs your follower count. TikTok Analytics shows your views. Neither gives you a dollar value. TokValue is built specifically for commercial valuation — it tells you what your account is worth and why, with risk detection (bot followers, fake engagement) and channel-by-channel income estimates. Use it when money is on the table.',
-        },
-        q9: {
-          q: 'Are my reports public? Can anyone see them?',
-          a: 'Your evaluation results are private. They\'re linked to your email, and only you can access them from your History page after verifying that email. Other people can\'t see your reports unless you share them.',
-        },
-        q10: {
+        q6: {
           q: 'Do credits expire? What if I buy now but evaluate later?',
           a: 'Credits never expire. Buy a pack now, use them whenever — days, weeks, or months later. They stay linked to your email until you use them.',
-        },
-        q11: {
-          q: 'Only TikTok? What about Instagram or YouTube?',
-          a: 'Right now, TokValue only supports TikTok. We chose to go deep rather than spread thin — our valuation model is built specifically for TikTok\'s creator economy, engagement mechanics, and brand deal market. Other platforms may come in the future.',
-        },
-        q12: {
-          q: 'Can I value anyone\'s account, or just my own?',
-          a: 'Anyone\'s. You can look up your own account, a competitor\'s, a potential collaboration partner\'s, or an influencer you\'re considering hiring. As long as the account is public on TikTok, we can evaluate it.',
         },
       },
     },

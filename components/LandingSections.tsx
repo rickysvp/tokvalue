@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import {
-  Building2, User, Users, DollarSign, Globe, TrendingUp, Layers, Trophy,
+  Building2, DollarSign, Globe, TrendingUp, Layers, Trophy,
   Shield, Sparkles, Eye, Scale, AlertTriangle, Activity, Rocket, Lightbulb,
-  Flame, MessageCircle, Radio, FileDown, RefreshCw, BarChart3, LineChart,
-  Wallet, Zap, Mail, CreditCard, Star, CheckCircle2, ArrowRight, ChevronDown,
+  Flame, Radio, FileDown, RefreshCw, BarChart3, LineChart,
+  Wallet, Zap, Star, CheckCircle2, ArrowRight, ChevronDown, MessageCircle,
 } from 'lucide-react'
 import { t } from '@/lib/i18n'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
@@ -16,20 +15,9 @@ import { CtaButton } from './CtaButton'
 
 // ── Types ──
 
-export interface SocialProofStats {
-  accountsEvaluated: number
-  totalValueAssessed: number
-  uniqueVisitors: number
-}
-
 interface BaseSectionProps {
   dict: EnDict
   interactive?: boolean
-}
-
-interface UseCasesSectionProps extends BaseSectionProps {
-  onFocusInput?: () => void
-  onScrollToPricing?: () => void
 }
 
 interface PricingSectionProps extends BaseSectionProps {
@@ -76,13 +64,14 @@ export function CapFeature({ icon, color, title, items }: {
   )
 }
 
-function LandingFaqItem({ question, answer, interactive }: { question: string; answer: string; interactive: boolean }) {
-  // Interactive mode uses useState for accordion; static uses <details>
+function LandingFaqItem({ question, answer, interactive, defaultOpen = false }: {
+  question: string; answer: string; interactive: boolean; defaultOpen?: boolean
+}) {
   if (interactive) {
-    return <ClientFaqItem question={question} answer={answer} />
+    return <ClientFaqItem question={question} answer={answer} defaultOpen={defaultOpen} />
   }
   return (
-    <details className="group border-b border-neutral-800">
+    <details className="group border-b border-[#1F1D26]" open={defaultOpen}>
       <summary className="w-full flex items-center justify-between py-4 text-left text-sm font-medium text-white hover:text-[#00F2EA] transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         {question}
         <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
@@ -92,10 +81,12 @@ function LandingFaqItem({ question, answer, interactive }: { question: string; a
   )
 }
 
-function ClientFaqItem({ question, answer }: { question: string; answer: string }) {
-  const [open, setOpen] = useState(false)
+function ClientFaqItem({ question, answer, defaultOpen = false }: {
+  question: string; answer: string; defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-b border-neutral-800">
+    <div className="border-b border-[#1F1D26]">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-4 text-left text-sm font-medium text-white hover:text-[#00F2EA] transition-colors"
@@ -110,122 +101,12 @@ function ClientFaqItem({ question, answer }: { question: string; answer: string 
   )
 }
 
-// ── Social Proof ──
-
-export function SocialProofSection({ dict, stats }: { dict: EnDict; stats: SocialProofStats }) {
-  const hasStats = stats.accountsEvaluated > 0
-
-  return (
-    <section className="border-b border-neutral-800 bg-[#0a0a0a] py-12">
-      <div className="mx-auto max-w-5xl px-4">
-        <div className="grid grid-cols-3 gap-8 text-center">
-          {[
-            {
-              value: hasStats ? `${stats.accountsEvaluated.toLocaleString()}+` : '11+',
-              label: dict.home.socialProof.accountsEvaluated,
-            },
-            {
-              value: hasStats
-                ? `$${stats.totalValueAssessed >= 1_000_000_000
-                  ? (stats.totalValueAssessed / 1_000_000_000).toFixed(1) + 'B+'
-                  : stats.totalValueAssessed >= 1_000_000
-                  ? (stats.totalValueAssessed / 1_000_000).toFixed(1) + 'M+'
-                  : stats.totalValueAssessed.toLocaleString() + '+'
-                }`
-                : '$59.1M+',
-              label: dict.home.socialProof.totalValueAssessed,
-            },
-            {
-              value: hasStats ? `${stats.uniqueVisitors.toLocaleString()}+` : '117+',
-              label: dict.home.socialProof.uniqueVisitors,
-            },
-          ].map((stat, i) => (
-            <div key={i}>
-              <div className="text-2xl sm:text-3xl font-black text-white tabular-nums">{stat.value}</div>
-              <div className="mt-1 text-xs sm:text-sm text-neutral-500">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ── Use Cases ──
-
-export function UseCasesSection({ dict, interactive = true, onFocusInput, onScrollToPricing }: UseCasesSectionProps) {
-  return (
-    <section className="border-b border-neutral-800 py-16">
-      <div className="mx-auto max-w-5xl px-4">
-        <h2 className="text-2xl font-bold text-center mb-10">{dict.home.useCases.title}</h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              icon: Building2, title: dict.home.useCases.brands.title,
-              desc: dict.home.useCases.brands.desc,
-              cta: dict.home.useCases.brands.cta,
-              action: onFocusInput,
-              image: '/images/role-brands.jpg',
-            },
-            {
-              icon: User, title: dict.home.useCases.creators.title,
-              desc: dict.home.useCases.creators.desc,
-              cta: dict.home.useCases.creators.cta,
-              action: onFocusInput,
-              image: '/images/role-creators.jpg',
-            },
-            {
-              icon: Users, title: dict.home.useCases.agencies.title,
-              desc: dict.home.useCases.agencies.desc,
-              cta: dict.home.useCases.agencies.cta,
-              action: onScrollToPricing,
-              image: '/images/role-agencies.jpg',
-            },
-          ].map((item, i) => {
-            const Icon = item.icon
-            return (
-              <div key={i} className="group rounded-2xl border border-neutral-800 bg-[#141414] overflow-hidden hover:border-[#00F2EA]/20 transition-all hover:-translate-y-1">
-                <div className="relative h-40 overflow-hidden">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    width={400}
-                    height={200}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/20 to-transparent" />
-                </div>
-                <div className="p-6 pt-0 -mt-8 relative z-10">
-                  <div className="w-11 h-11 rounded-xl bg-[#00F2EA]/10 flex items-center justify-center mb-4">
-                    <Icon className="h-5 w-5 text-[#00F2EA]" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
-                  <p className="text-sm text-neutral-400 leading-relaxed mb-4">{item.desc}</p>
-                  {interactive ? (
-                    <button onClick={item.action} className="text-sm font-medium text-[#FF0050] hover:text-[#ff2d6a] transition-colors">
-                      {item.cta} →
-                    </button>
-                  ) : (
-                    <span className="text-sm font-medium text-[#FF0050]">
-                      {item.cta} →
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 // ── Pricing ──
 
 export function PricingSection({ dict, interactive = true, checkoutLoading, onCheckout }: PricingSectionProps) {
   return (
-    <section id="pricing" className="border-b border-neutral-800 py-20">
-      <div className="mx-auto max-w-6xl px-4">
+    <section id="pricing" className="py-20">
+      <div className="mx-auto max-w-5xl px-4">
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
             <Zap className="h-3.5 w-3.5" />
@@ -235,92 +116,16 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           <p className="mt-4 max-w-xl mx-auto text-neutral-400">{dict.home.pricing.subtitle}</p>
         </div>
 
-        {/* Trust Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-12 max-w-3xl mx-auto">
-          {dict.home.pricing.trustBar.map((item: { icon: string; title: string; desc: string }) => {
-            const Icon = item.icon === 'zap' ? Zap : item.icon === 'mail' ? Mail : CreditCard
-            return (
-              <div key={item.title} className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-[#0a0a0a] px-4 py-3">
-                <Icon className="h-5 w-5 text-[#00F2EA] shrink-0" />
-                <div>
-                  <div className="text-sm font-semibold text-white">{item.title}</div>
-                  <div className="text-xs text-neutral-500">{item.desc}</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Plans — 4 columns: Free + 3 paid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-          {/* ── Free Plan ── */}
-          <div className="relative rounded-2xl border-2 border-[#00F2EA]/30 bg-gradient-to-b from-[#00F2EA]/[0.04] to-transparent p-5 flex flex-col">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#00F2EA] px-3 py-1 text-[11px] font-bold text-black shadow-lg shadow-[#00F2EA]/25">
-                <Zap className="h-3 w-3" fill="currentColor" />
-                Start Here
-              </span>
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#00F2EA] mb-1 mt-1">{dict.home.pricing.freePlan.name}</p>
-            <p className="text-sm text-neutral-400 mb-4">{dict.home.pricing.freePlan.desc}</p>
-
-            <div className="flex items-baseline gap-0.5 mb-2">
-              <span className="text-neutral-500 text-lg">$</span>
-              <span className="text-5xl font-black text-white tracking-tight">0</span>
-            </div>
-            <p className="text-sm text-neutral-500">forever free</p>
-
-            <ul className="mt-4 mb-6 space-y-2 flex-1">
-              {dict.home.pricing.freePlan.features.map((f: string, i: number) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-neutral-300">
-                  <CheckCircle2 className="h-4 w-4 text-[#00F2EA] shrink-0 mt-0.5" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-
-            {interactive ? (
-              <CtaButton
-                variant="outline"
-                className="mt-auto w-full border-[#00F2EA]/40 text-[#00F2EA] hover:bg-[#00F2EA]/10"
-                onClick={() => {
-                  const input = document.querySelector<HTMLInputElement>('input[placeholder*="username"]')
-                  if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-                }}
-              >
-                {dict.home.pricing.freePlan.cta}
-              </CtaButton>
-            ) : (
-              <Link
-                href="/"
-                className="mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold border border-[#00F2EA]/40 text-[#00F2EA] hover:bg-[#00F2EA]/10 transition-all"
-              >
-                {dict.home.pricing.freePlan.cta}
-              </Link>
-            )}
-          </div>
-
-          {/* ── Paid Plans ── */}
+        {/* Plans — 3 columns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
           {CREDIT_PACKAGES.map(pkg => {
-            const plan = (dict.home.pricing.plans as unknown as Array<{
-              id: string
-              name: string
-              desc: string
-              highlight: boolean
-              badge?: string
-              originalPrice?: number
-              savePercent?: number
-            }>).find(p => p.id === pkg.id)
-            const originalPrice = plan?.originalPrice ?? 0
-            const savePercent = plan?.savePercent ?? 0
-
             return (
               <div
                 key={pkg.id}
-                className={`relative rounded-2xl border-2 p-5 transition-all flex flex-col ${
+                className={`relative rounded-2xl border-2 p-6 transition-all flex flex-col ${
                   pkg.highlight
-                    ? 'border-[#FF0050] bg-gradient-to-b from-[#FF0050]/[0.06] to-transparent shadow-lg shadow-[#FF0050]/5'
-                    : 'border-neutral-800 bg-[#0a0a0a] hover:border-neutral-700'
+                    ? 'border-[#FF0050]/30 bg-gradient-to-b from-[#FF0050]/[0.06] to-[#0E0E14] shadow-lg shadow-[#FF0050]/5'
+                    : 'border-[#1F1D26] bg-[#0E0E14] hover:border-neutral-600'
                 }`}
               >
                 {pkg.badge && (
@@ -332,37 +137,24 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                   </div>
                 )}
 
-                {originalPrice > 0 && (
-                  <div className="absolute -top-2 right-3">
-                    <span className="inline-flex items-center rounded-full bg-green-500/15 border border-green-500/30 px-2 py-0.5 text-[10px] font-bold text-green-400">
-                      Save {savePercent}%
-                    </span>
-                  </div>
-                )}
-
                 <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">
                   {dict.creditPackages[pkg.id as keyof typeof dict.creditPackages]?.label ?? pkg.label}
                 </p>
-                <p className="text-sm text-neutral-400 mb-4">{plan?.desc}</p>
 
-                <div className="flex items-baseline gap-0.5 mb-1">
+                <div className="flex items-baseline gap-0.5 mb-1 mt-3">
                   <span className="text-neutral-500 text-lg">$</span>
                   <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
                 </div>
-                {originalPrice > 0 && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-neutral-500 line-through">${originalPrice}</span>
-                  </div>
-                )}
-                <p className="text-sm text-neutral-500">
+                <p className="text-sm text-neutral-500 mb-5">
                   <span className="text-white font-semibold">{pkg.credits}</span> evaluations
+                  <span className="mx-1.5 text-neutral-700">·</span>
+                  {pkg.perUnit}
                 </p>
-                <p className="text-xs text-neutral-600 mt-0.5">{pkg.perUnit}</p>
 
                 {interactive ? (
                   <CtaButton
                     variant={pkg.highlight ? 'primary' : 'outline'}
-                    className="mt-5 w-full"
+                    className="mt-auto w-full"
                     disabled={checkoutLoading}
                     onClick={() => onCheckout(pkg.id)}
                   >
@@ -372,19 +164,19 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                         Redirecting...
                       </span>
                     ) : (
-                      dict.common.getStarted
+                      `Get $${pkg.price}`
                     )}
                   </CtaButton>
                 ) : (
                   <Link
                     href="/"
-                    className={`mt-5 w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                    className={`mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
                       pkg.highlight
                         ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20'
                         : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
                   >
-                    {dict.common.getStarted}
+                    Get ${pkg.price}
                   </Link>
                 )}
               </div>
@@ -614,8 +406,12 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
 // ── FAQ ──
 
 export function FAQSection({ dict, interactive = true }: FAQSectionProps) {
+  // Get questions array from dict
+  const questions = Object.entries(dict.home.faq.questions)
+  const firstTwoKeys = questions.slice(0, 2).map(([k]) => k)
+
   return (
-    <section className="border-b border-neutral-800 py-16">
+    <section className="py-20">
       <div className="mx-auto max-w-2xl px-4">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
@@ -625,8 +421,14 @@ export function FAQSection({ dict, interactive = true }: FAQSectionProps) {
           <h2 className="text-2xl font-bold">{dict.home.faq.title}</h2>
         </div>
 
-        {Object.entries(dict.home.faq.questions).map(([key, item]) => (
-          <LandingFaqItem key={key} question={item.q} answer={item.a} interactive={interactive} />
+        {questions.map(([key, item]) => (
+          <LandingFaqItem
+            key={key}
+            question={item.q}
+            answer={item.a}
+            interactive={interactive}
+            defaultOpen={firstTwoKeys.includes(key)}
+          />
         ))}
       </div>
     </section>
