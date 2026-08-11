@@ -26,6 +26,9 @@ import { DeepAnalysisSection } from '@/components/DeepAnalysisSection'
 import { SectionHeader } from '@/components/SectionHeader'
 import { SiteFooter } from '@/components/SiteFooter'
 import { ReportTabs } from '@/components/ReportTabs'
+import { LockedSection } from '@/components/LockedSection'
+import { FreeBanner } from '@/components/FreeBanner'
+import { UnlockFooter } from '@/components/UnlockFooter'
 import { saveToTracker, getTrackedByUsername } from '@/lib/tracker'
 import { downloadPdf } from '@/lib/export-pdf'
 import { formatNumber } from '@/lib/format'
@@ -101,6 +104,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [needPurchase, setNeedPurchase] = useState(false)
   const pendingUsername = useRef<string | null>(null)
+  const [isPremium, setIsPremium] = useState(false)
   const [, setIsUnlocking] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
@@ -176,21 +180,44 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
   // Handle unlock
   async function handleUnlock() {
-    setIsLoggedIn(true)
+    if (!result) return
+    const token = getSessionToken()
+    if (!token) {
+      // Not logged in — redirect to auth flow via PaidWall
+      setPaidWallMode('unlock')
+      setShowPaidWallModal(true)
+      return
+    }
     setIsUnlocking(true)
-    trackEvent('paywall_click', { username: pendingUsername.current || username })
+    trackEvent('upgrade_click', { username: result.username })
     try {
-      const email = getActiveEmail()
-      if (email) {
-        const fresh = await fetchBalance(email)
-        if (fresh) setCreditBalance(fresh)
+      // Call upgrade endpoint to enrich free evaluation with AI
+      const res = await fetch('/api/evaluate/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: result.username }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (res.status === 402) {
+          setNeedPurchase(true)
+          setPaidWallMode('unlock')
+          setShowPaidWallModal(true)
+        } else {
+          toast(data.error || dict.errors.evaluationFailed)
+        }
+        return
       }
-      setNeedPurchase(false)
-      setShowPaidWallModal(false)
-      const target = pendingUsername.current || username
-      if (target) {
-        await handleEvaluate(target)
-      }
+      // Refresh with full result
+      setResult(data)
+      setIsPremium(true)
+      toast('Report unlocked! 🎉')
+      setCreditBalance(prev => prev ? { ...prev, credits: Math.max(0, prev.credits - 1) } : null)
+    } catch {
+      toast(dict.errors.networkError)
     } finally {
       setIsUnlocking(false)
     }
@@ -231,9 +258,10 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     const target = (name ?? username).trim()
     if (!target) return
 
-    // @demo special case
+    // @demo special case — show full report as product demo
     if (target === '@demo' || target === 'demo') {
       setResult(DEMO_RESULT)
+      setIsPremium(true)
       setError('')
       setLoading(false)
       setIsLoading(false)
@@ -242,11 +270,45 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
     const token = getSessionToken()
     if (!token) {
+      // Free mode — call API directly (no auth required)
       pendingUsername.current = target
-      setPaidWallMode('evaluate')
-      setNeedPurchase(true)
-      setShowPaidWallModal(true)
+      setLoading(true)
+      setError('')
+      setResult(null)
+      setNeedPurchase(false)
       setIsLoading(false)
+      setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
+
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 45000)
+
+        const res = await fetch('/api/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: target }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        const data = await res.json()
+        if (!res.ok) {
+          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
+          setError(data.error || dict.errors.evaluationFailed)
+        } else {
+          setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
+          setResult(data)
+          setIsPremium(!data.isFree)
+        }
+      } catch (err) {
+        const errMsg = err instanceof DOMException && err.name === 'AbortError'
+          ? dict.errors.requestTimeout : dict.errors.networkError
+        setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: errMsg }))
+        setError(errMsg)
+      } finally {
+        setLoading(false)
+        setIsLoading(false)
+      }
       return
     }
 
@@ -281,6 +343,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           setPaidWallMode('evaluate')
           setNeedPurchase(true)
           setShowPaidWallModal(true)
+        } else if (res.status === 429 && data.code === 'FREE_RATE_LIMIT') {
+          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || 'Daily free limit reached' }))
+          setError(data.error || 'Daily free limit reached')
         } else {
           setEvaluatingModal(prev => ({
             ...prev,
@@ -292,6 +357,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       } else {
         setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
         setResult(data)
+        // Detect freemium mode from API response
+        setIsPremium(!data.isFree)
       }
     } catch (err) {
       const errMsg = err instanceof DOMException && err.name === 'AbortError'
@@ -546,6 +613,11 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             {/* Tab Navigation */}
             <ReportTabs active={activeTab} onChange={setActiveTab} />
 
+            {/* Free tier badge */}
+            {!isPremium && result && (
+              <FreeBanner tier={result.tier} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
+            )}
+
             {/* ═══ OVERVIEW TAB ═══ */}
             {activeTab === 'overview' && (<>
               <SectionHeader step="01" title={dict.evaluation.sections.businessValuation} icon={<Star className="h-4 w-4" />} />
@@ -704,49 +776,139 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             </>)}
 
             {/* ═══ GROWTH TAB ═══ */}
-            {activeTab === 'growth' && (<>
-              <SectionHeader step="05" title={dict.evaluation.sections.contentStrategy} icon={<Lightbulb className="h-4 w-4" />} />
-              <div className="mb-10">
-                <ContentStrategySection strategy={result.contentStrategy} />
-              </div>
-              <SectionHeader step="06" title={dict.evaluation.sections.trendAnalysis} icon={<Flame className="h-4 w-4" />} />
-              <div className="mb-10">
-                <TrendAnalysisSection trendAnalysis={result.trendAnalysis} />
-              </div>
-              <SectionHeader step="07" title={dict.evaluation.sections.contentStrategy} icon={<TrendingUp className="h-4 w-4" />} />
-              <div className="mb-10">
-                <GrowthPlanSection plan={result.growthPlan} />
-              </div>
-              <DeepAnalysisSection result={result} />
-            </>)}
+            {activeTab === 'growth' && (
+              isPremium ? (<>
+                <SectionHeader step="05" title={dict.evaluation.sections.contentStrategy} icon={<Lightbulb className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <ContentStrategySection strategy={result.contentStrategy} />
+                </div>
+                <SectionHeader step="06" title={dict.evaluation.sections.trendAnalysis} icon={<Flame className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <TrendAnalysisSection trendAnalysis={result.trendAnalysis} />
+                </div>
+                <SectionHeader step="07" title={dict.evaluation.sections.contentStrategy} icon={<TrendingUp className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <GrowthPlanSection plan={result.growthPlan} />
+                </div>
+                <DeepAnalysisSection result={result} />
+              </>) : (<>
+                <LockedSection
+                  step="05"
+                  title={dict.evaluation.sections.contentStrategy}
+                  icon={<Lightbulb className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">AI-powered content strategy analysis, trending formats, and posting schedule recommendations tailored to your niche.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <ContentStrategySection strategy={result.contentStrategy} />
+                </LockedSection>
+                <LockedSection
+                  step="06"
+                  title={dict.evaluation.sections.trendAnalysis}
+                  icon={<Flame className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Trend detection, hashtag optimization, and viral sound recommendations based on your content history.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <TrendAnalysisSection trendAnalysis={result.trendAnalysis} />
+                </LockedSection>
+                <LockedSection
+                  step="07"
+                  title="Growth Plan"
+                  icon={<TrendingUp className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Personalized 30/60/90 day growth roadmap with milestone targets and content pillars.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <GrowthPlanSection plan={result.growthPlan} />
+                </LockedSection>
+                <LockedSection
+                  step=""
+                  title="Deep Analysis"
+                  icon={<Activity className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Account health, content cadence, and engagement quality deep dive with benchmark comparisons.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <DeepAnalysisSection result={result} />
+                </LockedSection>
+              </>)
+            )}
 
             {/* ═══ REVENUE TAB ═══ */}
-            {activeTab === 'revenue' && (<>
-              <SectionHeader step="08" title={dict.evaluation.sections.incomeAndGrowth} icon={<DollarSign className="h-4 w-4" />} />
-              <div className="mb-10">
-                <IncomeBreakdownSection estimate={result.incomeEstimate} />
-              </div>
-              <SectionHeader step="09" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
-              <div className="mb-10">
-                <RevenueRoadmapSection roadmap={result.revenueRoadmap} />
-              </div>
-            </>)}
+            {activeTab === 'revenue' && (
+              isPremium ? (<>
+                <SectionHeader step="08" title={dict.evaluation.sections.incomeAndGrowth} icon={<DollarSign className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <IncomeBreakdownSection estimate={result.incomeEstimate} />
+                </div>
+                <SectionHeader step="09" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <RevenueRoadmapSection roadmap={result.revenueRoadmap} />
+                </div>
+              </>) : (<>
+                <LockedSection
+                  step="08"
+                  title={dict.evaluation.sections.incomeAndGrowth}
+                  icon={<DollarSign className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Estimated annual revenue by channel: brand sponsorships, creator fund, subscriptions, TikTok Shop, affiliate, Shopify DTC, LIVE gifts, and commerce.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <IncomeBreakdownSection estimate={result.incomeEstimate} />
+                </LockedSection>
+                <LockedSection
+                  step="09"
+                  title={dict.evaluation.sections.monetizationAdvice}
+                  icon={<DollarSign className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">12-month revenue roadmap with high-impact monetization strategies personalized to your account.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <RevenueRoadmapSection roadmap={result.revenueRoadmap} />
+                </LockedSection>
+              </>)
+            )}
 
             {/* ═══ COMMERCE TAB ═══ */}
-            {activeTab === 'commerce' && (<>
-              <SectionHeader step="08" title={dict.evaluation.sections.brandMatching} icon={<Building2 className="h-4 w-4" />} />
-              <div className="mb-10">
-                <BrandMatchingSection matching={result.brandMatching} />
-              </div>
-              <SectionHeader step="09" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
-              <div className="mb-10">
-                <CommercializationSection advice={result.commercializationAdvice} />
-              </div>
-              <SectionHeader step="10" title={dict.evaluation.sections.commerceReadiness} icon={<ShoppingBag className="h-4 w-4" />} />
-              <div className="mb-10">
-                <CommerceReadinessSection readiness={result.commerceReadiness} />
-              </div>
-            </>)}
+            {activeTab === 'commerce' && (
+              isPremium ? (<>
+                <SectionHeader step="10" title={dict.evaluation.sections.brandMatching} icon={<Building2 className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <BrandMatchingSection matching={result.brandMatching} />
+                </div>
+                <SectionHeader step="11" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <CommercializationSection advice={result.commercializationAdvice} />
+                </div>
+                <SectionHeader step="12" title={dict.evaluation.sections.commerceReadiness} icon={<ShoppingBag className="h-4 w-4" />} />
+                <div className="mb-10">
+                  <CommerceReadinessSection readiness={result.commerceReadiness} />
+                </div>
+              </>) : (<>
+                <LockedSection
+                  step="10"
+                  title={dict.evaluation.sections.brandMatching}
+                  icon={<Building2 className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">AI-matched brand partnership opportunities based on your audience demographics and content niche.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <BrandMatchingSection matching={result.brandMatching} />
+                </LockedSection>
+                <LockedSection
+                  step="11"
+                  title={dict.evaluation.sections.monetizationAdvice}
+                  icon={<DollarSign className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Custom commercialization strategy: which monetization paths to prioritize for your account profile.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <CommercializationSection advice={result.commercializationAdvice} />
+                </LockedSection>
+                <LockedSection
+                  step="12"
+                  title={dict.evaluation.sections.commerceReadiness}
+                  icon={<ShoppingBag className="h-4 w-4" />}
+                  teaser={<p className="text-sm text-neutral-400">Commerce readiness score: whether your audience is ready for merch, DTC products, or shop launches.</p>}
+                  onUnlock={handleUnlock}
+                >
+                  <CommerceReadinessSection readiness={result.commerceReadiness} />
+                </LockedSection>
+              </>)
+            )}
 
             {/* Footer */}
             <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-neutral-600 pt-4 border-t border-neutral-800">
@@ -759,11 +921,12 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             {/* Export Dropdown */}
             <div className="relative" ref={exportMenuRef}>
               <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
+                onClick={() => { if (!isPremium) return; setShowExportMenu(!showExportMenu) }}
                 aria-expanded={showExportMenu}
                 aria-haspopup="menu"
                 aria-controls="export-menu"
-                className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-sm font-medium hover:border-[#00F2EA] hover:text-[#00F2EA] transition-colors"
+                title={!isPremium ? 'Unlock to export' : undefined}
+                className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${!isPremium ? 'border-neutral-800 bg-neutral-900/50 text-neutral-600 cursor-not-allowed' : 'border-neutral-700 bg-neutral-900 hover:border-[#00F2EA] hover:text-[#00F2EA]'}`}
               >
                 <Download className="h-4 w-4" />
                 {dict.evaluation.exportReport}
@@ -799,11 +962,23 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
               </>
             )}
           </div>
+
+          {/* Free tier upgrade footer */}
+          {!isPremium && result && (
+            <UnlockFooter onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
+          )}
         </section>
       )}
 
       <SiteFooter />
       <ToastContainer toasts={toasts} dismiss={dismiss} />
+
+      {/* Mobile sticky unlock bar */}
+      {!isPremium && result && (
+        <div className="block sm:hidden">
+          <UnlockFooter sticky onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
+        </div>
+      )}
       <VerifyEmailModal
         isOpen={showVerifyModal}
         onClose={() => setShowVerifyModal(false)}

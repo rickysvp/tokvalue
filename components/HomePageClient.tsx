@@ -229,6 +229,9 @@ export default function HomePage() {
         <ParticleBackground />
         <div className="mx-auto max-w-3xl px-4 py-20 sm:py-24 relative">
           <div className="text-center mb-8">
+            <p className="text-xs font-medium text-[#00F2EA] mb-4 uppercase tracking-widest">
+              {dict.home.hero.freeBadge}
+            </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
               {dict.home.hero.title}
             </h1>
@@ -269,6 +272,10 @@ export default function HomePage() {
               @demo (sample data)
             </Link>
           </div>
+
+          <p className="text-center text-[11px] text-neutral-600 mt-4">
+            {dict.home.hero.trustBadge}
+          </p>
         </div>
       </section>
 

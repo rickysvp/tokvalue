@@ -75,6 +75,11 @@ async function initStore(): Promise<Store> {
       // Migration: add evaluated_by column for per-user history
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS evaluated_by TEXT`
       await getSql()`CREATE INDEX IF NOT EXISTS idx_evaluations_evaluated_by ON evaluations(evaluated_by)`
+      // Migration: freemium support
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS is_free BOOLEAN DEFAULT false`
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS upgraded_at TIMESTAMPTZ`
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS evaluated_by_ip TEXT`
+      await getSql()`CREATE INDEX IF NOT EXISTS idx_evaluations_is_free ON evaluations(is_free)`
       storeType = 'postgres'
       return storeType
     } catch (err) {
@@ -141,7 +146,20 @@ export async function findRecentEvaluations(limit = 50): Promise<Evaluation[]> {
   return [...store].sort((a, b) => +new Date(b.computedAt) - +new Date(a.computedAt)).slice(0, limit).map(normalizeEvaluation)
 }
 
-export async function saveEvaluation(evaluation: Evaluation, evaluatedBy?: string): Promise<Evaluation> {
+interface SaveOptions {
+  evaluatedBy?: string
+  isFree?: boolean
+  ip?: string
+}
+
+export async function saveEvaluation(evaluation: Evaluation, options?: string | SaveOptions): Promise<Evaluation> {
+  // Backward-compat: string arg → { evaluatedBy }
+  const opts: SaveOptions = typeof options === 'string'
+    ? { evaluatedBy: options }
+    : (options || {})
+  const evaluatedBy = opts.evaluatedBy
+  const isFree = opts.isFree ?? false
+  const ip = opts.ip
   const type = await initStore()
   if (type === 'postgres') {
     await getSql()`
@@ -150,7 +168,7 @@ export async function saveEvaluation(evaluation: Evaluation, evaluatedBy?: strin
          account_health, content_cadence, engagement_quality, peer_benchmark, brand_potential, monetization_path, growth_plan,
          income_estimate, business_value, revenue_roadmap, content_strategy, peer_ranking, brand_matching,
          trend_analysis, commercialization_advice, commerce_readiness, formula_version, calculation_metadata,
-         computed_at, avatar, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by)
+         computed_at, avatar, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip)
       VALUES
         (${evaluation.username}, ${evaluation.nickname}, ${evaluation.score}, ${evaluation.tier},
          ${JSON.stringify(evaluation.dimensions)}::jsonb, ${JSON.stringify(evaluation.summary)}::jsonb,
@@ -176,7 +194,7 @@ export async function saveEvaluation(evaluation: Evaluation, evaluatedBy?: strin
          ${evaluation.followerCount}, ${evaluation.followingCount}, ${evaluation.totalLikes}, ${evaluation.videoCount},
          ${evaluation.verified ?? null}, ${evaluation.region || null}, ${JSON.stringify(evaluation.posts || [])}::jsonb,
          ${JSON.stringify(evaluation.accountProfile)}::jsonb,
-         ${evaluatedBy || null})
+         ${evaluatedBy || null}, ${isFree}, ${ip || null})
       ON CONFLICT (username) DO UPDATE SET
         nickname = EXCLUDED.nickname,
         score = EXCLUDED.score,
@@ -216,8 +234,12 @@ export async function saveEvaluation(evaluation: Evaluation, evaluatedBy?: strin
         verified = EXCLUDED.verified,
         region = EXCLUDED.region,
         posts = EXCLUDED.posts,
-        account_profile = EXCLUDED.account_profile
+        account_profile = EXCLUDED.account_profile,
+        is_free = CASE WHEN evaluations.is_free IS FALSE THEN false ELSE EXCLUDED.is_free END,
+        evaluated_by_ip = CASE WHEN evaluations.is_free IS FALSE THEN evaluations.evaluated_by_ip ELSE EXCLUDED.evaluated_by_ip END,
+        upgraded_at = CASE WHEN evaluations.is_free IS true AND EXCLUDED.is_free IS false THEN NOW() ELSE evaluations.upgraded_at END
     `
+    // ON CONFLICT: once paid (is_free=false), never revert to free. Set upgraded_at on first upgrade.
     return evaluation
   }
 
@@ -573,4 +595,65 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
     formulaVersion: row.formula_version ? String(row.formula_version) as 'v2' : undefined,
     calculationMetadata: parseJson<Evaluation['calculationMetadata']>(row.calculation_metadata),
   })
+}
+
+// ── Freemium helpers ──
+
+/** Find a free evaluation (24h TTL — reject stale results). */
+export async function findFreeEvaluation(username: string): Promise<Evaluation | null> {
+  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+  const type = await initStore()
+  if (type === 'postgres') {
+    const rows = await getSql()`
+      SELECT * FROM evaluations
+      WHERE username = ${normalized}
+        AND is_free = true
+        AND computed_at > NOW() - INTERVAL '24 hours'
+      LIMIT 1`
+    return rows[0] ? rowToEvaluation(rows[0]) : null
+  }
+  const found = await findEvaluation(normalized)
+  if (!found) return null
+  const hours = (Date.now() - new Date(found.computedAt).getTime()) / 36e5
+  return hours < 24 ? found : null
+}
+
+/** Upgrade a free evaluation to paid — trigger AI enrichment externally. */
+export async function upgradeEvaluation(username: string, evaluatedBy: string): Promise<boolean> {
+  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+  const type = await initStore()
+  if (type === 'postgres') {
+    const result = await getSql()`
+      UPDATE evaluations
+      SET is_free = false, upgraded_at = NOW(), evaluated_by = ${evaluatedBy}
+      WHERE username = ${normalized} AND is_free = true`
+    // Neon serverless driver returns rows array for all statements
+    const rows = result as unknown as Array<Record<string, unknown>>
+    return rows.length > 0
+  }
+  // File/memory: mark the record
+  const evaluation = await findEvaluation(normalized)
+  if (!evaluation) return false
+  await saveEvaluation(evaluation, { evaluatedBy, isFree: false })
+  return true
+}
+
+/**
+ * IP-based free rate limiter.
+ * Uses a simple in-memory sliding window. For production, swap to Redis or DB.
+ */
+const freeRateWindow = new Map<string, { count: number; windowStart: number }>()
+const FREE_DAILY_LIMIT = 5
+
+export async function checkFreeRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
+  const now = Date.now()
+  const windowMs = 24 * 60 * 60 * 1000
+  const entry = freeRateWindow.get(ip)
+  if (!entry || now - entry.windowStart > windowMs) {
+    freeRateWindow.set(ip, { count: 1, windowStart: now })
+    return { allowed: true, remaining: FREE_DAILY_LIMIT - 1, resetMs: windowMs }
+  }
+  entry.count++
+  const remaining = Math.max(0, FREE_DAILY_LIMIT - entry.count)
+  return { allowed: entry.count <= FREE_DAILY_LIMIT, remaining, resetMs: windowMs - (now - entry.windowStart) }
 }

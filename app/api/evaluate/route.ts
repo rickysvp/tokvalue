@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
 import { scoreProfile } from '@/lib/scoring'
-import { findEvaluation, saveEvaluation, isCacheValid } from '@/lib/db'
+import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit } from '@/lib/db'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy, getLangFromAcceptLanguage } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit } from '@/lib/credits-server'
@@ -93,9 +93,17 @@ const CODE_TO_HTTP: Record<ApiCode, { status: number; message: string }> = {
   BALANCE_ERROR: { status: 500, message: getServerDict().api.evaluate.BALANCE_ERROR },
 }
 
+function getClientIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || '127.0.0.1'
+}
+
 export async function POST(req: NextRequest) {
   let userEmail = ''
   let normalized = ''
+  let isFreeMode = false
+
   try {
     const body = await req.json().catch(() => ({}))
     const username = String(body.username || '').trim()
@@ -105,70 +113,134 @@ export async function POST(req: NextRequest) {
     }
 
     normalized = username.replace(/^@/, '').toLowerCase()
+    const lang = getLangFromAcceptLanguage(req.headers.get('Accept-Language'))
 
-    // 认证校验（前置）：评估必须先登录（即邮箱已验证），无论是否命中缓存
+    // ── Mode detection: token present & valid → paid, else → free ──
     const token = getBearerToken(req)
-    if (!token) {
-      return NextResponse.json({ error: getServerDict().api.errors.NO_CREDITS, code: 'NO_CREDITS' }, { status: 402 })
-    }
-    const payload = await verifySessionToken(token)
-    if (!payload) {
-      return NextResponse.json({ error: getServerDict().api.errors.SESSION_EXPIRED, code: 'NO_CREDITS' }, { status: 402 })
-    }
-    userEmail = payload.email
+    let isPaidMode = false
 
-    // 24h cache to save RapidAPI quota
-    // 缓存命中时不扣减额度（节省 RapidAPI 配额），但鉴权必须通过（已在上文校验）
-    if (await isCacheValid(normalized, 24)) {
-      const cached = await findEvaluation(normalized)
-      if (cached) {
-        // 缓存命中也记录 evaluate_done（口径与非缓存一致，metadata.cached=true 区分）
-        recordEventFromRequest(req, {
-          event_type: 'evaluate_done',
-          username: normalized,
-          metadata: { score: cached.score, tier: cached.tier, cached: true },
-        }).catch(err => console.warn('[evaluate] recordEvent(cached) failed:', err))
-        return NextResponse.json({ ...cached, cached: true })
+    if (token) {
+      const payload = await verifySessionToken(token)
+      if (payload) {
+        userEmail = payload.email
+        isPaidMode = true
       }
     }
 
-    // 扣减 1 次额度（仅缓存未命中时消耗），传入username用于日志记录
-    const consumeResult = await consumeCredit(userEmail, normalized)
-    if (!consumeResult.ok) {
-      const msgs: Record<string, { msg: string; status: number }> = {
-        NOT_FOUND:  { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
-        NO_CREDITS: { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
+    // ═══════════════════════════════════════════
+    // PAID MODE — existing flow (unchanged)
+    // ═══════════════════════════════════════════
+    if (isPaidMode) {
+      // 24h cache to save RapidAPI quota
+      if (await isCacheValid(normalized, 24)) {
+        const cached = await findEvaluation(normalized)
+        if (cached) {
+          recordEventFromRequest(req, {
+            event_type: 'evaluate_done',
+            username: normalized,
+            metadata: { score: cached.score, tier: cached.tier, cached: true },
+          }).catch(err => console.warn('[evaluate] recordEvent(cached) failed:', err))
+          return NextResponse.json({ ...cached, cached: true, isFree: false })
+        }
       }
-      const err = msgs[consumeResult.reason || ''] || { msg: getServerDict().api.errors.CONSUME_ERROR, status: 400 }
-      return NextResponse.json({ error: err.msg, code: consumeResult.reason }, { status: err.status })
+
+      const consumeResult = await consumeCredit(userEmail, normalized)
+      if (!consumeResult.ok) {
+        const msgs: Record<string, { msg: string; status: number }> = {
+          NOT_FOUND:  { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
+          NO_CREDITS: { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
+        }
+        const err = msgs[consumeResult.reason || ''] || { msg: getServerDict().api.errors.CONSUME_ERROR, status: 400 }
+        return NextResponse.json({ error: err.msg, code: consumeResult.reason }, { status: err.status })
+      }
+
+      const profile = await fetchProfile(normalized)
+
+      recordEventFromRequest(req, {
+        event_type: 'evaluate_start',
+        username: normalized,
+        path: '/api/evaluate',
+      }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
+
+      let evaluation = scoreProfile(profile)
+      evaluation = await enrichWithAI(evaluation, lang)
+
+      await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
+
+      recordEventFromRequest(req, {
+        event_type: 'evaluate_done',
+        username: normalized,
+        metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
+      }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
+
+      return NextResponse.json({ ...evaluation, isFree: false })
+    }
+
+    // ═══════════════════════════════════════════
+    // FREE MODE — new freemium flow
+    // ═══════════════════════════════════════════
+    isFreeMode = true
+    const clientIp = getClientIp(req)
+
+    // Check free 24h cache (same username was evaluated recently for free)
+    const freeCached = await findFreeEvaluation(normalized)
+    if (freeCached) {
+      recordEventFromRequest(req, {
+        event_type: 'evaluate_done',
+        username: normalized,
+        metadata: { score: freeCached.score, tier: freeCached.tier, cached: true, free: true },
+      }).catch(err => console.warn('[evaluate] recordEvent(free-cached) failed:', err))
+      return NextResponse.json({ ...freeCached, cached: true, isFree: true })
+    }
+
+    // IP-based daily rate limit
+    const rateLimit = await checkFreeRateLimit(clientIp)
+    if (!rateLimit.allowed) {
+      recordEventFromRequest(req, {
+        event_type: 'api_error',
+        path: '/api/evaluate',
+        username: normalized,
+        metadata: { error_code: 'FREE_RATE_LIMIT', ip: clientIp },
+      }).catch(() => {})
+      return NextResponse.json(
+        {
+          error: 'Daily free evaluation limit reached. Upgrade to Premium for unlimited evaluations.',
+          code: 'FREE_RATE_LIMIT',
+          detail: `Remaining: ${rateLimit.remaining}. Resets in ${Math.ceil(rateLimit.resetMs / 3600000)}h.`,
+        },
+        { status: 429 }
+      )
     }
 
     const profile = await fetchProfile(normalized)
 
-    // Record evaluate_start event
     recordEventFromRequest(req, {
       event_type: 'evaluate_start',
       username: normalized,
       path: '/api/evaluate',
-    }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
+      metadata: { free: true },
+    }).catch(err => console.warn('[evaluate] recordEvent(free-start) failed:', err))
 
-    let evaluation = scoreProfile(profile)
-    const lang = getLangFromAcceptLanguage(req.headers.get('Accept-Language'))
-    evaluation = await enrichWithAI(evaluation, lang)
+    const evaluation = scoreProfile(profile)
+    // Free mode: skip AI enrichment to save DeepSeek costs
+    // The scoring engine alone provides enough value for the free tier
+    // (tier, score, value range, risk scan, business valuation)
 
-    await saveEvaluation(evaluation, userEmail)
+    await saveEvaluation(evaluation, { isFree: true, ip: clientIp })
 
-    // Record evaluate_done event
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',
       username: normalized,
-      metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
-    }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
+      metadata: { score: evaluation.score, tier: evaluation.tier, cached: false, free: true },
+    }).catch(err => console.warn('[evaluate] recordEvent(free-done) failed:', err))
 
-    return NextResponse.json(evaluation)
+    console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)
+
+    return NextResponse.json({ ...evaluation, isFree: true })
+
   } catch (err) {
-    // ── 额度回滚：fetchProfile/评分/保存失败时退还已扣额度 ──
-    if (userEmail) {
+    // ── Refund for paid mode ──
+    if (userEmail && !isFreeMode) {
       refundCredit(userEmail).catch(e =>
         console.error('[evaluate] refund failed:', e instanceof Error ? e.message : String(e))
       )
@@ -181,7 +253,6 @@ export async function POST(req: NextRequest) {
     const mapping = CODE_TO_HTTP[code] || CODE_TO_HTTP.API_ERROR
 
     console.error(`[evaluate] ${code} | user=${normalized || 'N/A'} | ${detail}`)
-    // Record api_error event
     recordEventFromRequest(req, {
       event_type: 'api_error',
       path: '/api/evaluate',
@@ -189,6 +260,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         error_code: code,
         error_message: detail.slice(0, 200),
+        free: isFreeMode,
       },
     }).catch(err => console.warn('[evaluate] recordEvent(error) failed:', err))
     return errorResponse(code, mapping.message, mapping.status)

@@ -102,6 +102,8 @@ const en = {
       subtitle: 'Get your tier rating, revenue estimate, and brand deal price in seconds.',
       placeholder: 'Enter TikTok username',
       ariaLabel: 'TikTok username',
+      freeBadge: '⚡ Free evaluation · Results in 10s · No sign-up required',
+      trustBadge: '★★★★★ 4.9 · 11,000+ evaluations · Secure & Private',
     },
     socialProof: {
       accountsEvaluated: 'Accounts Evaluated',
