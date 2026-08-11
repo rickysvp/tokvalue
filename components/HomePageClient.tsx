@@ -247,7 +247,7 @@ export default function HomePage() {
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder={dict.home.hero.placeholder}
+                placeholder={'@username → free report in 10s'}
                 aria-label={dict.home.hero.ariaLabel}
                 autoComplete="off"
                 className="flex-1 bg-transparent text-lg outline-none placeholder:text-neutral-600"
@@ -258,7 +258,7 @@ export default function HomePage() {
                 icon={loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 className="ml-3"
               >
-                {loading ? dict.common.analyzing : dict.common.evaluate}
+                {loading ? dict.common.analyzing : dict.home.hero.cta}
               </CtaButton>
             </div>
           </form>
@@ -269,7 +269,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-1.5 rounded-full border border-[#00F2EA]/40 bg-[#00F2EA]/10 px-4 py-1.5 text-sm font-medium text-[#00F2EA] hover:bg-[#00F2EA]/20 transition-colors"
             >
               <Play className="h-3.5 w-3.5" />
-              @demo (sample data)
+              {dict.home.hero.demoLink}
             </Link>
           </div>
 
