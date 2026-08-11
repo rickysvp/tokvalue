@@ -129,6 +129,38 @@ const en = {
       ],
       cta: 'Get your tier rating, value range, and risk summary — no credit card required.',
     },
+    reportPreview: {
+      badge: 'What You\'ll Get',
+      title: 'A professional valuation report — like this',
+      cta: 'See full report →',
+      ctaLabel: 'See @demo full report →',
+      cards: {
+        valuation: {
+          title: 'Account Valuation',
+          value: '$45K – $115K',
+          subtitle: 'For a 300K follower fitness account',
+          desc: 'A real dollar range backed by CPM benchmarks and region multipliers. Walk into brand negotiations with a number.',
+        },
+        brandDeal: {
+          title: 'Per-Video Brand Deal',
+          value: '$400 – $1,000',
+          subtitle: 'CPM $22 · Fitness niche',
+          desc: 'Know exactly what to charge per sponsored post. No more guessing or leaving money on the table.',
+        },
+        revenue: {
+          title: 'Revenue Breakdown',
+          value: '$2,500 – $3,500/mo',
+          subtitle: '8 monetization channels analyzed',
+          desc: 'See where the money comes from — brand deals, creator fund, TikTok Shop, LIVE gifts, affiliates, and more.',
+        },
+        comparison: {
+          title: 'Peer Comparison',
+          value: 'Top 25%',
+          subtitle: 'Engagement · Growth · Reach',
+          desc: 'Benchmark against similar creators. See where you outperform and where there\'s room to grow.',
+        },
+      },
+    },
     freeVsPro: {
       badge: 'Free vs Pro',
       title: 'Free report, or go deeper',

@@ -14,7 +14,7 @@ import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessi
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { RecentEvaluations } from '@/components/RecentEvaluations'
 import { CtaButton } from '@/components/CtaButton'
-import { PricingSection, FAQSection } from '@/components/LandingSections'
+import { PricingSection, ReportPreview, FAQSection } from '@/components/LandingSections'
 import { HowItWorks } from '@/components/HowItWorks'
 import { SocialProofBar } from '@/components/SocialProofBar'
 
@@ -295,6 +295,9 @@ export default function HomePage() {
 
       {/* How It Works */}
       <HowItWorks dict={dict.home.howItWorks} />
+
+      {/* Report Preview */}
+      <ReportPreview dict={dict} interactive={true} />
 
       {/* Pricing */}
       <PricingSection

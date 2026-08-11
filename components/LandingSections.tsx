@@ -397,6 +397,78 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
   )
 }
 
+// ── Report Preview ──
+
+interface ReportPreviewProps extends BaseSectionProps {
+  onSeeDemo?: () => void
+}
+
+export function ReportPreview({ dict, interactive = true, onSeeDemo: _onSeeDemo }: ReportPreviewProps) {
+  const preview = dict.home.reportPreview
+
+  return (
+    <section className="py-20">
+      <div className="mx-auto max-w-5xl px-4">
+        {/* Section header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#FF0050]/20 bg-[#FF0050]/5 px-4 py-1.5 text-xs font-medium text-[#FF0050] mb-4">
+            <Eye className="h-3.5 w-3.5" />
+            {preview.badge}
+          </div>
+          <h2 className="text-3xl font-bold sm:text-4xl mb-4">{preview.title}</h2>
+        </div>
+
+        {/* 4 cards grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
+          {/* Card 1: Valuation */}
+          <div className="group rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-all">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">{preview.cards.valuation.title}</p>
+            <p className="text-3xl font-black text-white mb-1">{preview.cards.valuation.value}</p>
+            <p className="text-sm text-neutral-400 mb-2">{preview.cards.valuation.subtitle}</p>
+            <p className="text-sm text-neutral-500 leading-relaxed">{preview.cards.valuation.desc}</p>
+          </div>
+
+          {/* Card 2: Brand Deal */}
+          <div className="group rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-all">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">{preview.cards.brandDeal.title}</p>
+            <p className="text-3xl font-black text-white mb-1">{preview.cards.brandDeal.value}</p>
+            <p className="text-sm text-neutral-400 mb-2">{preview.cards.brandDeal.subtitle}</p>
+            <p className="text-sm text-neutral-500 leading-relaxed">{preview.cards.brandDeal.desc}</p>
+          </div>
+
+          {/* Card 3: Revenue */}
+          <div className="group rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-all">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">{preview.cards.revenue.title}</p>
+            <p className="text-3xl font-black text-white mb-1">{preview.cards.revenue.value}</p>
+            <p className="text-sm text-neutral-400 mb-2">{preview.cards.revenue.subtitle}</p>
+            <p className="text-sm text-neutral-500 leading-relaxed">{preview.cards.revenue.desc}</p>
+          </div>
+
+          {/* Card 4: Comparison */}
+          <div className="group rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-all">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">{preview.cards.comparison.title}</p>
+            <p className="text-3xl font-black text-white mb-1">{preview.cards.comparison.value}</p>
+            <p className="text-sm text-neutral-400 mb-2">{preview.cards.comparison.subtitle}</p>
+            <p className="text-sm text-neutral-500 leading-relaxed">{preview.cards.comparison.desc}</p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="text-center">
+          {interactive ? (
+            <Link href="/evaluate/@demo" className="inline-flex items-center gap-2 text-sm font-semibold text-[#00F2EA] hover:text-[#00F2EA]/80 transition-colors">
+              {preview.ctaLabel}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <span className="text-sm text-[#00F2EA]">{preview.ctaLabel} →</span>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── FAQ ──
 
 export function FAQSection({ dict, interactive = true }: FAQSectionProps) {
