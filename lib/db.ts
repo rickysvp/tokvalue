@@ -643,7 +643,7 @@ export async function upgradeEvaluation(username: string, evaluatedBy: string): 
  * Uses a simple in-memory sliding window. For production, swap to Redis or DB.
  */
 const freeRateWindow = new Map<string, { count: number; windowStart: number }>()
-const FREE_DAILY_LIMIT = 5
+const FREE_DAILY_LIMIT = 2
 
 export async function checkFreeRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
   const now = Date.now()
