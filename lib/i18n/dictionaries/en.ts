@@ -335,8 +335,25 @@ const en = {
       },
     },
     pricing: {
-      title: 'Simple, Transparent Pricing',
-      subtitle: 'One-time payment. Evaluations never expire. No auto-renewal, no surprises.',
+      title: 'Turn data into dollars — starting at $9',
+      subtitle: 'Every report includes the numbers brands actually ask for. Use it to negotiate, benchmark, and make decisions with confidence.',
+      // Value cards shown BEFORE pricing cards — answers "why pay?"
+      valueCards: [
+        {
+          title: 'For Creators',
+          desc: 'Walk into brand calls with real data. Show them your CPM, engagement quality, and deal range — not just your follower count. One report pays for itself 100x over.',
+        },
+        {
+          title: 'For Agencies',
+          desc: 'Audit every creator on your roster in one place. Compare commercial value across talent, match the right creators to brand campaigns, and justify your fees with data.',
+        },
+        {
+          title: 'For Brands',
+          desc: 'Vet influencers before you sign. See actual reach, audience authenticity, and estimated ROI — stop guessing and start knowing who\'s worth the budget.',
+        },
+      ],
+      // Social proof callout between value cards and pricing
+      roiCallout: 'A $9 report helps you negotiate deals worth $5,000+. That\'s not an expense — it\'s leverage.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
       allPlansInclude: {
         title: 'Every paid plan includes everything',
@@ -360,20 +377,20 @@ const en = {
         {
           id: 'pack1',
           name: 'Single',
-          desc: 'Best for individual creators and influencers',
+          desc: 'One account, full report. Perfect for evaluating your own account or a single influencer.',
           highlight: false,
         },
         {
           id: 'pack6',
           name: 'Growth',
-          desc: 'Best for MCNs, talent agencies, and influencer marketing teams',
+          desc: 'Six accounts. Audit your roster, compare creators, or track growth over time.',
           highlight: true,
           badge: 'Best Value',
         },
         {
           id: 'pack30',
           name: 'Studio',
-          desc: 'Best for brands, market analysts, and large-scale campaign planners',
+          desc: 'Thirty accounts. Built for agencies running large-scale campaigns and brand discovery.',
           highlight: false,
         },
       ],

@@ -107,41 +107,63 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
   return (
     <section id="pricing" className="py-20">
       <div className="mx-auto max-w-5xl px-4">
-        <div className="text-center mb-4">
+        {/* Header */}
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
             <Zap className="h-3.5 w-3.5" />
             Pricing
           </div>
-          <h2 className="text-3xl font-bold sm:text-4xl">{dict.home.pricing.title}</h2>
-          <p className="mt-4 max-w-xl mx-auto text-neutral-400">{dict.home.pricing.subtitle}</p>
+          <h2 className="text-3xl font-bold sm:text-4xl mb-4">{dict.home.pricing.title}</h2>
+          <p className="max-w-xl mx-auto text-neutral-400 text-lg">{dict.home.pricing.subtitle}</p>
         </div>
+
+        {/* Value Cards — "why pay" before "how much" */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 max-w-4xl mx-auto">
+          {(dict.home.pricing.valueCards as readonly { title: string; desc: string }[]).map((card, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-colors"
+            >
+              <h3 className="text-base font-bold text-white mb-2">{card.title}</h3>
+              <p className="text-sm text-neutral-400 leading-relaxed">{card.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ROI Callout */}
+        <p className="text-center text-sm font-medium text-[#00F2EA] mb-12">
+          {dict.home.pricing.roiCallout}
+        </p>
 
         {/* Plans — 3 columns */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
-          {CREDIT_PACKAGES.map(pkg => {
+          {CREDIT_PACKAGES.map((pkg, i) => {
+            const plan = dict.home.pricing.plans[i] as { name: string; desc: string; badge?: string; highlight: boolean }
             return (
               <div
                 key={pkg.id}
                 className={`relative rounded-2xl border-2 p-6 transition-all flex flex-col ${
-                  pkg.highlight
+                  plan.highlight
                     ? 'border-[#FF0050]/30 bg-gradient-to-b from-[#FF0050]/[0.06] to-[#0E0E14] shadow-lg shadow-[#FF0050]/5'
                     : 'border-[#1F1D26] bg-[#0E0E14] hover:border-neutral-600'
                 }`}
               >
-                {pkg.badge && (
+                {plan.badge && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-[#FF0050]/25">
                       <Star className="h-3 w-3" fill="currentColor" />
-                      {dict.creditPackages[pkg.id as keyof typeof dict.creditPackages]?.badge ?? pkg.badge}
+                      {plan.badge}
                     </span>
                   </div>
                 )}
 
                 <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">
-                  {dict.creditPackages[pkg.id as keyof typeof dict.creditPackages]?.label ?? pkg.label}
+                  {plan.name}
                 </p>
+                
+                <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan.desc}</p>
 
-                <div className="flex items-baseline gap-0.5 mb-1 mt-3">
+                <div className="flex items-baseline gap-0.5 mb-1">
                   <span className="text-neutral-500 text-lg">$</span>
                   <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
                 </div>
@@ -153,7 +175,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
 
                 {interactive ? (
                   <CtaButton
-                    variant={pkg.highlight ? 'primary' : 'outline'}
+                    variant={plan.highlight ? 'primary' : 'outline'}
                     className="mt-auto w-full"
                     disabled={checkoutLoading}
                     onClick={() => onCheckout(pkg.id)}
@@ -171,7 +193,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                   <Link
                     href="/"
                     className={`mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                      pkg.highlight
+                      plan.highlight
                         ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20'
                         : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
