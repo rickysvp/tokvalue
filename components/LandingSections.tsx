@@ -104,10 +104,12 @@ function ClientFaqItem({ question, answer, defaultOpen = false }: {
 // ── Pricing ──
 
 export function PricingSection({ dict, interactive = true, checkoutLoading, onCheckout }: PricingSectionProps) {
+  const free = dict.home.pricing.freePlan as { name: string; desc: string; cta: string }
+  const paidPkgs = CREDIT_PACKAGES.filter(p => p.id !== 'pack30')
+
   return (
     <section id="pricing" className="py-20">
       <div className="mx-auto max-w-5xl px-4">
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
             <Zap className="h-3.5 w-3.5" />
@@ -117,27 +119,27 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           <p className="max-w-xl mx-auto text-neutral-400 text-lg">{dict.home.pricing.subtitle}</p>
         </div>
 
-        {/* Value Cards — "why pay" before "how much" */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 max-w-4xl mx-auto">
-          {(dict.home.pricing.valueCards as readonly { title: string; desc: string }[]).map((card, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-colors"
-            >
-              <h3 className="text-base font-bold text-white mb-2">{card.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed">{card.desc}</p>
+        {/* 3 cards: Free · $9 · $29 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-10">
+          {/* Free */}
+          <div className="rounded-2xl border border-[#00F2EA]/20 bg-[#00F2EA]/[0.04] p-6 flex flex-col">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#00F2EA] mb-3">{free.name}</p>
+            <p className="text-sm text-neutral-400 mb-4 leading-relaxed">{free.desc}</p>
+            <div className="flex items-baseline gap-0.5 mb-4">
+              <span className="text-5xl font-black text-white tracking-tight">$0</span>
             </div>
-          ))}
-        </div>
+            <p className="text-xs text-neutral-500 mb-5">No credit card required</p>
+            {interactive ? (
+              <a href="#hero" className="mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold border border-[#00F2EA]/30 text-[#00F2EA] hover:bg-[#00F2EA]/10 transition-all">
+                {free.cta}
+              </a>
+            ) : (
+              <Link href="/" className="mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold border border-[#00F2EA]/30 text-[#00F2EA]">{free.cta}</Link>
+            )}
+          </div>
 
-        {/* ROI Callout */}
-        <p className="text-center text-sm font-medium text-[#00F2EA] mb-12">
-          {dict.home.pricing.roiCallout}
-        </p>
-
-        {/* Plans — 3 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
-          {CREDIT_PACKAGES.map((pkg, i) => {
+          {/* Paid plans */}
+          {paidPkgs.map((pkg, i) => {
             const plan = dict.home.pricing.plans[i] as { name: string; desc: string; badge?: string; highlight: boolean }
             return (
               <div
@@ -156,23 +158,17 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                     </span>
                   </div>
                 )}
-
-                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">
-                  {plan.name}
-                </p>
-                
+                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">{plan.name}</p>
                 <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan.desc}</p>
-
                 <div className="flex items-baseline gap-0.5 mb-1">
                   <span className="text-neutral-500 text-lg">$</span>
                   <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
                 </div>
                 <p className="text-sm text-neutral-500 mb-5">
-                  <span className="text-white font-semibold">{pkg.credits}</span> evaluations
+                  <span className="text-white font-semibold">{pkg.credits}</span> evaluation{pkg.credits > 1 ? 's' : ''}
                   <span className="mx-1.5 text-neutral-700">·</span>
                   {pkg.perUnit}
                 </p>
-
                 {interactive ? (
                   <CtaButton
                     variant={plan.highlight ? 'primary' : 'outline'}
@@ -181,10 +177,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                     onClick={() => onCheckout(pkg.id)}
                   >
                     {checkoutLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        Redirecting...
-                      </span>
+                      <span className="flex items-center justify-center gap-2"><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Redirecting...</span>
                     ) : (
                       `Get $${pkg.price}`
                     )}
@@ -193,9 +186,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                   <Link
                     href="/"
                     className={`mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                      plan.highlight
-                        ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20'
-                        : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
+                      plan.highlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
                   >
                     Get ${pkg.price}
@@ -206,28 +197,9 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           })}
         </div>
 
-        {/* All plans include */}
-        <div className="mb-12">
-          <div className="text-center mb-6">
-            <h3 className="text-xl font-bold text-white mb-2">{dict.home.pricing.allPlansInclude.title}</h3>
-            <p className="text-sm text-neutral-500 max-w-xl mx-auto">{dict.home.pricing.allPlansInclude.subtitle}</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 max-w-3xl mx-auto">
-            {dict.home.pricing.allPlansInclude.list.map((f: string) => (
-              <div key={f} className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-[#00F2EA] shrink-0" />
-                <span className="text-neutral-300">{dict.home.pricing.allPlansInclude.features[f as keyof typeof dict.home.pricing.allPlansInclude.features]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="flex flex-wrap justify-center gap-6 text-xs text-neutral-600">
           {dict.home.pricing.footer.map((text: string, i: number) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-[#00F2EA]/50" />
-              {text}
-            </div>
+            <div key={i} className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-[#00F2EA]/50" />{text}</div>
           ))}
         </div>
       </div>

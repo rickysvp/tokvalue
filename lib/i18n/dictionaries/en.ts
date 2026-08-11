@@ -335,64 +335,13 @@ const en = {
       },
     },
     pricing: {
-      title: 'Turn data into dollars — starting at $9',
-      subtitle: 'Every report includes the numbers brands actually ask for. Use it to negotiate, benchmark, and make decisions with confidence.',
-      // Value cards shown BEFORE pricing cards — answers "why pay?"
-      valueCards: [
-        {
-          title: 'For Creators',
-          desc: 'Walk into brand calls with real data. Show them your CPM, engagement quality, and deal range — not just your follower count. One report pays for itself 100x over.',
-        },
-        {
-          title: 'For Agencies',
-          desc: 'Audit every creator on your roster in one place. Compare commercial value across talent, match the right creators to brand campaigns, and justify your fees with data.',
-        },
-        {
-          title: 'For Brands',
-          desc: 'Vet influencers before you sign. See actual reach, audience authenticity, and estimated ROI — stop guessing and start knowing who\'s worth the budget.',
-        },
-      ],
-      // Social proof callout between value cards and pricing
-      roiCallout: 'A $9 report helps you negotiate deals worth $5,000+. That\'s not an expense — it\'s leverage.',
+      title: 'Start free. Upgrade when you need more.',
+      subtitle: 'One-time payment. No subscription. No auto-renewal.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
-      allPlansInclude: {
-        title: 'Every paid plan includes everything',
-        subtitle: 'All paid packages unlock the full analysis suite. The only difference is how many evaluations you get.',
-        features: {
-          scoring: '10-Dimension AI Scoring',
-          brandDeal: 'Brand Deal Pricing Engine',
-          monetization: '8-Channel Revenue Breakdown',
-          report: 'Professional PDF Report',
-          benchmark: 'Peer Group Benchmarking',
-          history: 'Unlimited History Access',
-          growth: 'Growth Projection (12 Months)',
-          commerce: 'Commerce Readiness Score',
-          risk: 'Risk & Authenticity Audit',
-          ip: 'IP & Brand Asset Valuation',
-          content: 'Content Strategy Generator',
-        },
-        list: ['scoring', 'brandDeal', 'monetization', 'report', 'benchmark', 'history', 'growth', 'commerce', 'risk', 'ip', 'content'],
-      },
+      freePlan: { name: 'Free', desc: 'Instant overview — tier, score, value range, risk scan.', cta: 'Try Free' },
       plans: [
-        {
-          id: 'pack1',
-          name: 'Single',
-          desc: 'One account, full report. Perfect for evaluating your own account or a single influencer.',
-          highlight: false,
-        },
-        {
-          id: 'pack6',
-          name: 'Growth',
-          desc: 'Six accounts. Audit your roster, compare creators, or track growth over time.',
-          highlight: true,
-          badge: 'Best Value',
-        },
-        {
-          id: 'pack30',
-          name: 'Studio',
-          desc: 'Thirty accounts. Built for agencies running large-scale campaigns and brand discovery.',
-          highlight: false,
-        },
+        { id: 'pack1', name: 'Single', desc: 'One full report. Income breakdown, brand matching, growth forecast, PDF export.', highlight: false },
+        { id: 'pack6', name: 'Growth', desc: 'Six reports. Audit your roster, compare creators, track growth. Best value per report.', highlight: true, badge: 'Best Value' },
       ],
     },
     faq: {
