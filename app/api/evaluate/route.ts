@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
 import { scoreProfile } from '@/lib/scoring'
 import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit } from '@/lib/db'
-import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy, getLangFromAcceptLanguage } from '@/lib/deepseek'
+import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     normalized = username.replace(/^@/, '').toLowerCase()
-    const lang = getLangFromAcceptLanguage(req.headers.get('Accept-Language'))
+    const lang = 'en' // Fixed to English until multi-language dictionaries are ready
 
     // ── Mode detection: token present & valid → paid, else → free ──
     const token = getBearerToken(req)

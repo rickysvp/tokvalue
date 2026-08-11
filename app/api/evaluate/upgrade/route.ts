@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findEvaluation, saveEvaluation } from '@/lib/db'
-import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy, getLangFromAcceptLanguage } from '@/lib/deepseek'
+import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: err.msg, code: consumeResult.reason }, { status: err.status })
     }
 
-    const lang = getLangFromAcceptLanguage(req.headers.get('Accept-Language'))
+    const lang = 'en' // Fixed to English until multi-language dictionaries are ready
     const enriched = await enrichWithAI(evaluation, lang)
 
     await saveEvaluation(enriched, { evaluatedBy: userEmail, isFree: false })
