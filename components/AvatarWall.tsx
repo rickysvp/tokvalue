@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import type { RecentEvaluation } from '@/types'
 
 const TIER_COLORS: Record<string, string> = {
@@ -15,7 +15,6 @@ const TIER_COLORS: Record<string, string> = {
 }
 
 interface AvatarWallProps {
-  /** Fired when user clicks an avatar — navigate to /evaluate/{username} */
   onSelect: (username: string) => void
 }
 
@@ -33,37 +32,21 @@ export function AvatarWall({ onSelect }: AvatarWallProps) {
       .finally(() => setLoading(false))
   }, [])
 
-  // No data after fetch — don't render
   if (!loading && items.length === 0) return null
 
   const skeletonCount = 15
 
   return (
-    <section className="py-20">
-      <div className="mx-auto max-w-5xl px-4">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
-            <Users className="h-3.5 w-3.5" />
-            Social Proof
-          </div>
-          <h2 className="text-3xl font-bold mb-3">Trusted by creators worldwide</h2>
-          {loading ? (
-            <div className="h-5 w-64 mx-auto rounded bg-neutral-800 animate-pulse" />
-          ) : (
-            <p className="text-neutral-400 max-w-lg mx-auto">
-              {items.length}+ TikTok accounts evaluated. Real data, real valuations.
-            </p>
-          )}
-        </div>
+    <section className="py-16">
+      <div className="mx-auto max-w-4xl px-4">
 
-        {/* Avatar Grid — dense grid, responsive columns */}
-        <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto mb-8">
+        {/* Pure avatar grid — no title, no badge, no subtitle */}
+        <div className="flex flex-wrap justify-center gap-3 mb-4">
           {loading
             ? Array.from({ length: skeletonCount }).map((_, i) => (
                 <div
                   key={`skel-${i}`}
-                  className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-neutral-800 animate-pulse shrink-0"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-neutral-800 animate-pulse shrink-0"
                 />
               ))
             : items.map((acc) => {
@@ -73,38 +56,43 @@ export function AvatarWall({ onSelect }: AvatarWallProps) {
                 key={acc.username}
                 onClick={() => onSelect(acc.username)}
                 className="group relative shrink-0"
-                title={`@${acc.username} · Tier ${acc.tier} · Score ${acc.score}`}
+                title={`@${acc.username} · Tier ${acc.tier}`}
               >
-                {/* Tier ring */}
+                {/* Glow ring behind avatar */}
                 <div
-                  className="absolute -inset-[2px] rounded-full transition-all group-hover:scale-110 group-hover:opacity-100 opacity-60"
-                  style={{ boxShadow: `0 0 12px ${ringColor}44` }}
+                  className="absolute -inset-[3px] rounded-full transition-all group-hover:scale-105 group-hover:opacity-100 opacity-80"
+                  style={{ boxShadow: `0 0 16px ${ringColor}55` }}
                 />
-                {/* Avatar circle */}
+
+                {/* Avatar with tier ring */}
                 <div
-                  className="relative w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 transition-all"
-                  style={{ borderColor: ringColor, backgroundColor: '#1A1A24' }}
+                  className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center overflow-hidden transition-all"
+                  style={{
+                    border: `2.5px solid ${ringColor}`,
+                    backgroundColor: '#1A1A24',
+                  }}
                 >
                   {acc.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={acc.avatar}
                       alt={acc.nickname}
-                      className="w-full h-full object-cover rounded-full"
+                      className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform"
                     />
                   ) : (
-                    <span className="text-base sm:text-lg font-bold text-neutral-500">
+                    <span className="text-lg sm:text-xl font-bold text-neutral-500">
                       {acc.nickname.charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                {/* Tier badge — tiny label below avatar on hover or always visible */}
-                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                {/* Hover: tier chip */}
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <span
                     className="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap"
                     style={{ backgroundColor: `${ringColor}22`, color: ringColor }}
                   >
-                    Tier {acc.tier}
+                    {acc.tier}
                   </span>
                 </div>
               </button>
@@ -112,19 +100,32 @@ export function AvatarWall({ onSelect }: AvatarWallProps) {
           })}
         </div>
 
-        {/* CTA */}
-        <div className="text-center">
+        {/* Single line below the wall */}
+        {!loading && (
+          <p className="text-center text-[11px] text-neutral-600">
+            Trusted by {items.length}+ creators · Real valuations · No fake data
+          </p>
+        )}
+
+        {/* CTA — lightweight, just a link */}
+        <div className="text-center mt-5">
           <button
             onClick={() => {
-              const input = document.querySelector<HTMLInputElement>('input[aria-label*="username"], input[placeholder*="username"]')
-              if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+              const input = document.querySelector<HTMLInputElement>(
+                'input[aria-label*="username"], input[placeholder*="username"]'
+              )
+              if (input) {
+                input.focus()
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
             }}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#00F2EA] hover:text-[#00F2EA]/80 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-[#00F2EA] transition-colors"
           >
-            Evaluate your account — free first report
-            <ArrowRight className="h-4 w-4" />
+            Evaluate your account — free
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
+
       </div>
     </section>
   )
