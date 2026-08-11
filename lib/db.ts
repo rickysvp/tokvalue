@@ -262,7 +262,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
   return evaluation
 }
 
-export async function isCacheValid(username: string, ttlHours = 24): Promise<boolean> {
+export async function isCacheValid(username: string, ttlHours = 720): Promise<boolean> {
   const found = await findEvaluation(username)
   if (!found) return false
 

@@ -128,11 +128,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════
-    // PAID MODE — existing flow (unchanged)
+    // PAID MODE — 30-day cache, force=true to skip
     // ═══════════════════════════════════════════
     if (isPaidMode) {
-      // 24h cache to save RapidAPI quota
-      if (await isCacheValid(normalized, 24)) {
+      const forceRefresh = body.force === true
+      // 30-day cache to save RapidAPI + DeepSeek quota
+      if (!forceRefresh && await isCacheValid(normalized)) {
         const cached = await findEvaluation(normalized)
         if (cached) {
           recordEventFromRequest(req, {
