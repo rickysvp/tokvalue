@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
 import { scoreProfile } from '@/lib/scoring'
 import { findEvaluation, saveEvaluation, isCacheValid } from '@/lib/db'
-import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
+import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy, getLangFromAcceptLanguage } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
@@ -47,14 +47,14 @@ function isValidContentStrategy(v: unknown): boolean {
   return Array.isArray(c.pillars) && Array.isArray(c.recommendedHashtags)
 }
 
-async function enrichWithAI(evaluation: Evaluation): Promise<Evaluation> {
+async function enrichWithAI(evaluation: Evaluation, lang = 'en'): Promise<Evaluation> {
   const snapshot = buildSnapshot(evaluation)
 
   try {
     const [trendRes, commerceRes, strategyRes] = await Promise.allSettled([
-      generateTrendAnalysis(snapshot),
-      generateCommercializationAdvice(snapshot),
-      generateContentStrategy(snapshot),
+      generateTrendAnalysis(snapshot, lang),
+      generateCommercializationAdvice(snapshot, lang),
+      generateContentStrategy(snapshot, lang),
     ])
 
     if (trendRes.status === 'fulfilled' && trendRes.value && isValidTrendAnalysis(trendRes.value)) {
@@ -153,7 +153,8 @@ export async function POST(req: NextRequest) {
     }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
 
     let evaluation = scoreProfile(profile)
-    evaluation = await enrichWithAI(evaluation)
+    const lang = getLangFromAcceptLanguage(req.headers.get('Accept-Language'))
+    evaluation = await enrichWithAI(evaluation, lang)
 
     await saveEvaluation(evaluation, userEmail)
 

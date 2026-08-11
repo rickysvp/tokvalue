@@ -4,6 +4,56 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
 const AI_ENABLED = !!DEEPSEEK_API_KEY && DEEPSEEK_API_KEY !== 'your_deepseek_api_key_here'
 
+// ── Language support ──
+
+/** Maps locale codes to display names. Extend this list for new languages. */
+const LANG_NAMES: Record<string, string> = {
+  en: 'English',
+  zh: 'Chinese (Simplified)',
+  ja: 'Japanese',
+  ko: 'Korean',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+  pt: 'Portuguese',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian',
+}
+
+/** Languages that use CJK characters — no Chinese-detection check needed for these. */
+const CJK_LANGS = new Set(['zh', 'ja', 'ko'])
+
+/** Normalize an Accept-Language header to a primary lang code. */
+export function getLangFromAcceptLanguage(header: string | null): string {
+  if (!header) return 'en'
+  const primary = header.split(',')[0].trim()
+  return primary.split('-')[0].toLowerCase()
+}
+
+/** Detect Chinese characters (U+4E00–U+9FFF) in any string. */
+function containsChinese(text: string): boolean {
+  return /[\u4e00-\u9fff]/.test(text)
+}
+
+/**
+ * Generate a language-enforcement instruction for the AI prompt.
+ * Includes an explanation of *why* it's critical — the account data may contain
+ * the wrong language, and the model must translate/adapt.
+ */
+function getLanguageInstruction(lang: string): string {
+  const name = LANG_NAMES[lang] || LANG_NAMES.en || 'English'
+  return (
+    `CRITICAL LANGUAGE RULE: ALL text content in the JSON output MUST be written in ${name}.\n` +
+    `The account data below may contain text in another language — you must translate or adapt it to ${name} in your output.\n` +
+    `Do NOT mix languages. Do NOT output Chinese, Japanese, or any other language unless the target is specifically ${name}.\n` +
+    `Wrong-language output will be automatically detected and discarded.`
+  )
+}
+
+// ── Account snapshot ──
+
 interface AccountSnapshot {
   username: string
   nickname: string
@@ -19,6 +69,8 @@ interface AccountSnapshot {
   score: number
   videoDescriptions: string[]
 }
+
+// ── DeepSeek API client ──
 
 async function callDeepSeek(systemPrompt: string, userPrompt: string): Promise<string | null> {
   if (!AI_ENABLED) return null
@@ -56,6 +108,49 @@ async function callDeepSeek(systemPrompt: string, userPrompt: string): Promise<s
   }
 }
 
+/**
+ * Call DeepSeek with language validation. For non-CJK target languages,
+ * check the output for Chinese characters. If found, retry once with a
+ * stricter prompt. If the retry still fails, return null.
+ */
+async function callDeepSeekValidated(
+  systemPrompt: string,
+  userPrompt: string,
+  lang: string,
+): Promise<string | null> {
+  const result = await callDeepSeek(systemPrompt, userPrompt)
+  if (!result) return null
+
+  // Skip Chinese-check for CJK languages
+  if (CJK_LANGS.has(lang)) return result
+
+  if (containsChinese(result)) {
+    console.warn(
+      '[deepseek] Chinese characters detected in output (target: ' +
+        (LANG_NAMES[lang] || lang) +
+        '), retrying with stricter prompt…',
+    )
+
+    const stricterSystem = systemPrompt
+      + '\n\n---\n⚠️ YOUR PREVIOUS RESPONSE CONTAINED CHINESE CHARACTERS. '
+      + `ALL text values in the JSON MUST be in ${LANG_NAMES[lang] || 'English'} ONLY. `
+      + 'Chinese, Japanese, and any other CJK characters are FORBIDDEN in this output.'
+
+    const retryResult = await callDeepSeek(stricterSystem, userPrompt)
+    if (retryResult && !containsChinese(retryResult)) {
+      console.log('[deepseek] Retry successful — output is clean')
+      return retryResult
+    }
+
+    console.warn('[deepseek] Retry also failed language check — returning null')
+    return null
+  }
+
+  return result
+}
+
+// ── JSON helpers ──
+
 function extractJson(content: string): unknown {
   content = content.trim()
   // Strip markdown code block if present
@@ -72,22 +167,29 @@ function extractJson(content: string): unknown {
     return JSON.parse(content)
   } catch {
     // Try to fix common LLM JSON errors: unquoted string values after colon
-    // Only fix bare words that are NOT already inside quotes
     const fixed = content
       .replace(/:(\s*)(#[a-zA-Z0-9_]+)(?=[,}\]])/g, ': "$2"')
-      .replace(/:(\s*)([a-zA-Z][a-zA-Z0-9_]*)(\s*)(?=[,}\]])/g, (match, p1, p2, p3) => {
-        // Skip if the value is already quoted (check preceding context)
+      .replace(/:(\s*)([a-zA-Z][a-zA-Z0-9_]*)(\s*)(?=[,}\]])/g, (_match, p1, p2, p3) => {
         return `: "${p2}"${p3}`
       })
     return JSON.parse(fixed)
   }
 }
 
-// ========== AI-Powered Trend Analysis ==========
+// ═══════════════════════════════════════════════════════════════
+// AI-Powered Trend Analysis
+// ═══════════════════════════════════════════════════════════════
 
-export async function generateTrendAnalysis(snapshot: AccountSnapshot): Promise<TrendAnalysis | null> {
-  const systemPrompt = `You are a TikTok trend analysis expert. Based on account data, analyze the most suitable trending topics, sounds, content predictions, and best posting times for this account.
-Return ONLY valid JSON, no markdown code blocks. All text content must be in English.`
+export async function generateTrendAnalysis(
+  snapshot: AccountSnapshot,
+  lang = 'en',
+): Promise<TrendAnalysis | null> {
+  const langInstr = getLanguageInstruction(lang)
+
+  const systemPrompt =
+    `You are a TikTok trend analysis expert. Based on account data, analyze the most suitable trending topics, sounds, content predictions, and best posting times for this account.\n` +
+    `Return ONLY valid JSON, no markdown code blocks.\n` +
+    langInstr
 
   const userPrompt = `Analyze the following TikTok account and provide trend recommendations:
 
@@ -106,7 +208,7 @@ Account Info:
 Recent video descriptions:
 ${snapshot.videoDescriptions.slice(0, 5).map((d, i) => `${i + 1}. ${d}`).join('\n')}
 
-Return this JSON structure (all text in English):
+Return this JSON structure:
 {
   "trendingTopics": [
     { "topic": "Topic name", "hashtag": "HashtagFormat", "growth": number, "relevance": number(0-100) }
@@ -120,10 +222,10 @@ Return this JSON structure (all text in English):
   "bestPostTimes": [
     { "day": "Mon/Tue/Wed/Thu/Fri/Sat/Sun", "hour": number(0-23), "score": number(0-100) }
   ] (7 items, one per day),
-  "summary": "2-3 sentence trend analysis summary in English"
+  "summary": "2-3 sentence trend analysis summary"
 }`
 
-  const result = await callDeepSeek(systemPrompt, userPrompt)
+  const result = await callDeepSeekValidated(systemPrompt, userPrompt, lang)
   if (!result) return null
 
   try {
@@ -134,11 +236,20 @@ Return this JSON structure (all text in English):
   }
 }
 
-// ========== AI-Powered Commercialization Advice ==========
+// ═══════════════════════════════════════════════════════════════
+// AI-Powered Commercialization Advice
+// ═══════════════════════════════════════════════════════════════
 
-export async function generateCommercializationAdvice(snapshot: AccountSnapshot): Promise<CommercializationAdvice | null> {
-  const systemPrompt = `You are a TikTok monetization advisor. Based on account data, recommend the most suitable monetization directions and specific action steps.
-Return ONLY valid JSON, no markdown code blocks. All text content must be in English.`
+export async function generateCommercializationAdvice(
+  snapshot: AccountSnapshot,
+  lang = 'en',
+): Promise<CommercializationAdvice | null> {
+  const langInstr = getLanguageInstruction(lang)
+
+  const systemPrompt =
+    `You are a TikTok monetization advisor. Based on account data, recommend the most suitable monetization directions and specific action steps.\n` +
+    `Return ONLY valid JSON, no markdown code blocks.\n` +
+    langInstr
 
   const userPrompt = `Analyze the following TikTok account and recommend monetization directions:
 
@@ -169,7 +280,7 @@ For each direction, provide:
 - why this direction is recommended
 - 2-3 prerequisites
 
-Return JSON (all text in English):
+Return JSON:
 {
   "directions": [
     {
@@ -188,10 +299,10 @@ Return JSON (all text in English):
   "primaryRecommendation": "One-sentence summary of top recommendation",
   "secondaryRecommendation": "One-sentence summary of runner-up",
   "estimatedTotalMonthly": { "low": number, "mid": number, "high": number },
-  "summary": "2-3 sentence monetization summary in English"
+  "summary": "2-3 sentence monetization summary"
 }`
 
-  const result = await callDeepSeek(systemPrompt, userPrompt)
+  const result = await callDeepSeekValidated(systemPrompt, userPrompt, lang)
   if (!result) return null
 
   try {
@@ -202,11 +313,20 @@ Return JSON (all text in English):
   }
 }
 
-// ========== AI-Powered Content Strategy ==========
+// ═══════════════════════════════════════════════════════════════
+// AI-Powered Content Strategy
+// ═══════════════════════════════════════════════════════════════
 
-export async function generateContentStrategy(snapshot: AccountSnapshot): Promise<ContentStrategy | null> {
-  const systemPrompt = `You are a TikTok content strategy expert. Based on account data, provide customized content strategy recommendations.
-Return ONLY valid JSON, no markdown code blocks. All text content must be in English.`
+export async function generateContentStrategy(
+  snapshot: AccountSnapshot,
+  lang = 'en',
+): Promise<ContentStrategy | null> {
+  const langInstr = getLanguageInstruction(lang)
+
+  const systemPrompt =
+    `You are a TikTok content strategy expert. Based on account data, provide customized content strategy recommendations.\n` +
+    `Return ONLY valid JSON, no markdown code blocks.\n` +
+    langInstr
 
   const userPrompt = `Analyze the following TikTok account and provide content strategy recommendations:
 
@@ -225,7 +345,7 @@ Account Info:
 Recent video descriptions:
 ${snapshot.videoDescriptions.slice(0, 5).map((d, i) => `${i + 1}. ${d}`).join('\n')}
 
-Return JSON (all text in English):
+Return JSON:
 {
   "pillars": [
     {
@@ -246,10 +366,10 @@ Return JSON (all text in English):
   "collaborationIdeas": [
     { "type": "Collaboration type", "description": "Description", "potential": "high/medium/low" }
   ] (2-3 items),
-  "summary": "2-3 sentence content strategy summary in English"
+  "summary": "2-3 sentence content strategy summary"
 }`
 
-  const result = await callDeepSeek(systemPrompt, userPrompt)
+  const result = await callDeepSeekValidated(systemPrompt, userPrompt, lang)
   if (!result) return null
 
   try {
