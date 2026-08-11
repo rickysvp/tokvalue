@@ -16,7 +16,6 @@ import { RecentEvaluations } from '@/components/RecentEvaluations'
 import { CtaButton } from '@/components/CtaButton'
 import { PricingSection, FAQSection } from '@/components/LandingSections'
 import { HowItWorks } from '@/components/HowItWorks'
-import { FreeVsPro } from '@/components/FreeVsPro'
 import { SocialProofBar } from '@/components/SocialProofBar'
 
 export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
@@ -297,17 +296,7 @@ export default function HomePage() {
       {/* How It Works */}
       <HowItWorks dict={dict.home.howItWorks} />
 
-      {/* Free vs Pro */}
-      <FreeVsPro
-        dict={dict.home.freeVsPro}
-        onProCta={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
-        onFreeCta={() => {
-          const input = document.querySelector<HTMLInputElement>('input')
-          if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-        }}
-      />
-
-      {/* Pricing — the ONE place pricing appears */}
+      {/* Pricing */}
       <PricingSection
         dict={dict}
         interactive={true}
