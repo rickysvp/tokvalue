@@ -129,29 +129,6 @@ const en = {
       ],
       cta: 'Get your tier rating, value range, and risk summary — no credit card required.',
     },
-    whoIsThisFor: {
-      badge: 'Who is this for',
-      title: 'If this sounds like you, you need a valuation',
-      cards: {
-        creator: {
-          title: 'For Creators',
-          situation: 'You got a brand deal offer. You have no idea what to charge.',
-          value: 'Stop guessing. Know your exact per-video rate backed by audience data, CPM benchmarks, and peer comparisons. Walk into every negotiation with a number.',
-        },
-        brand: {
-          title: 'For Brands & Marketers',
-          situation: "You're about to pay an influencer. Is their audience real or fake?",
-          value: 'Audit any TikTok account before you spend. See engagement authenticity, fake follower estimates, and real value — not just vanity metrics.',
-        },
-        agency: {
-          title: 'For Agencies & MCNs',
-          situation: 'Managing a roster of creators. Which ones are worth investing in?',
-          value: 'Benchmark your entire roster. Compare 10 dimensions across creators. Identify who has real growth potential and who is plateauing.',
-        },
-      },
-      cta: 'Evaluate any account — free first report →',
-      ctaUrl: '/evaluate/@demo',
-    },
     freeVsPro: {
       badge: 'Free vs Pro',
       title: 'Free report, or go deeper',

@@ -397,51 +397,6 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
   )
 }
 
-// ── Who Is This For ──
-
-export function WhoIsThisFor({ dict, interactive = true }: BaseSectionProps) {
-  const section = dict.home.whoIsThisFor
-
-  return (
-    <section className="py-20">
-      <div className="mx-auto max-w-5xl px-4">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
-            {section.badge}
-          </div>
-          <h2 className="text-3xl font-bold">{section.title}</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
-          {(['creator', 'brand', 'agency'] as const).map((key) => {
-            const card = section.cards[key]
-            return (
-              <div key={key} className="rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 hover:border-[#00F2EA]/30 transition-all flex flex-col">
-                <p className="text-sm font-bold text-white mb-3">{card.title}</p>
-                <p className="text-sm text-[#FF0050] font-medium mb-4 leading-relaxed">{card.situation}</p>
-                <p className="text-sm text-neutral-400 leading-relaxed flex-1">{card.value}</p>
-              </div>
-            )
-          })}
-        </div>
-
-        {interactive ? (
-          <div className="text-center">
-            <Link href={section.ctaUrl} className="inline-flex items-center gap-2 text-sm font-semibold text-[#00F2EA] hover:text-[#00F2EA]/80 transition-colors">
-              {section.cta}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        ) : (
-          <div className="text-center">
-            <Link href={section.ctaUrl} className="text-sm text-[#00F2EA]">{section.cta} →</Link>
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
 // ── FAQ ──
 
 export function FAQSection({ dict, interactive = true }: FAQSectionProps) {

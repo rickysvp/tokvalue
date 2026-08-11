@@ -39,7 +39,7 @@ export async function GET() {
       WHERE username IS NOT NULL
         AND follower_count > 1000
       ORDER BY created_at DESC
-      LIMIT 12
+      LIMIT 100
     `
 
     const evaluations: RecentEvaluation[] = rows.map((r: Record<string, unknown>) => {
