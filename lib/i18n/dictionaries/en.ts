@@ -129,37 +129,28 @@ const en = {
       ],
       cta: 'Get your tier rating, value range, and risk summary — no credit card required.',
     },
-    reportPreview: {
-      badge: 'What You\'ll Get',
-      title: 'A professional valuation report — like this',
-      cta: 'See full report →',
-      ctaLabel: 'See @demo full report →',
+    whoIsThisFor: {
+      badge: 'Who is this for',
+      title: 'If this sounds like you, you need a valuation',
       cards: {
-        valuation: {
-          title: 'Account Valuation',
-          value: '$45K – $115K',
-          subtitle: 'For a 300K follower fitness account',
-          desc: 'A real dollar range backed by CPM benchmarks and region multipliers. Walk into brand negotiations with a number.',
+        creator: {
+          title: 'For Creators',
+          situation: 'You got a brand deal offer. You have no idea what to charge.',
+          value: 'Stop guessing. Know your exact per-video rate backed by audience data, CPM benchmarks, and peer comparisons. Walk into every negotiation with a number.',
         },
-        brandDeal: {
-          title: 'Per-Video Brand Deal',
-          value: '$400 – $1,000',
-          subtitle: 'CPM $22 · Fitness niche',
-          desc: 'Know exactly what to charge per sponsored post. No more guessing or leaving money on the table.',
+        brand: {
+          title: 'For Brands & Marketers',
+          situation: "You're about to pay an influencer. Is their audience real or fake?",
+          value: 'Audit any TikTok account before you spend. See engagement authenticity, fake follower estimates, and real value — not just vanity metrics.',
         },
-        revenue: {
-          title: 'Revenue Breakdown',
-          value: '$2,500 – $3,500/mo',
-          subtitle: '8 monetization channels analyzed',
-          desc: 'See where the money comes from — brand deals, creator fund, TikTok Shop, LIVE gifts, affiliates, and more.',
-        },
-        comparison: {
-          title: 'Peer Comparison',
-          value: 'Top 25%',
-          subtitle: 'Engagement · Growth · Reach',
-          desc: 'Benchmark against similar creators. See where you outperform and where there\'s room to grow.',
+        agency: {
+          title: 'For Agencies & MCNs',
+          situation: 'Managing a roster of creators. Which ones are worth investing in?',
+          value: 'Benchmark your entire roster. Compare 10 dimensions across creators. Identify who has real growth potential and who is plateauing.',
         },
       },
+      cta: 'Evaluate any account — free first report →',
+      ctaUrl: '/evaluate/@demo',
     },
     freeVsPro: {
       badge: 'Free vs Pro',
