@@ -289,6 +289,9 @@ export default function HomePage() {
             })}
           </div>
         </div>
+
+        {/* Avatar wall — live social proof inside Hero */}
+        <AvatarWall />
       </section>
 
       {/* Social Proof — moved to first viewport for instant trust */}
@@ -296,9 +299,6 @@ export default function HomePage() {
 
       {/* How It Works */}
       <HowItWorks dict={dict.home.howItWorks} />
-
-      {/* Avatar Wall — social proof */}
-      <AvatarWall onSelect={(name) => router.push(`/evaluate/${encodeURIComponent(name)}`)} />
 
       {/* Pricing */}
       <PricingSection

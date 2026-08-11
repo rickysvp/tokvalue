@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, ArrowRight } from 'lucide-react'
 import type { RecentEvaluation } from '@/types'
 
 const TIER_COLORS: Record<string, string> = {
@@ -14,57 +13,15 @@ const TIER_COLORS: Record<string, string> = {
   F: '#6B7280',
 }
 
-interface AvatarWallProps {
-  onSelect: (username: string) => void
-}
-
-function AvatarItem({ acc, onClick }: { acc: RecentEvaluation; onClick: () => void }) {
-  const ringColor = TIER_COLORS[acc.tier] || '#E8A840'
+function SkeletonCircle() {
   return (
-    <button
-      onClick={onClick}
-      className="group relative shrink-0 mx-1.5"
-      title={`@${acc.username} · Tier ${acc.tier} · Score ${acc.score}`}
-    >
-      {/* Glow ring */}
-      <div
-        className="absolute -inset-[2.5px] rounded-full opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
-        style={{ boxShadow: `0 0 18px ${ringColor}66` }}
-      />
-      {/* Avatar */}
-      <div
-        className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-105"
-        style={{
-          border: `2px solid ${ringColor}`,
-          backgroundColor: '#1A1A24',
-        }}
-      >
-        {acc.avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={acc.avatar}
-            alt={acc.nickname}
-            className="w-full h-full object-cover rounded-full"
-          />
-        ) : (
-          <span className="text-base font-bold text-neutral-500">
-            {acc.nickname.charAt(0).toUpperCase()}
-          </span>
-        )}
-      </div>
-    </button>
-  )
-}
-
-function SkeletonItem() {
-  return (
-    <div className="shrink-0 mx-1.5">
-      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-neutral-800 animate-pulse" />
+    <div className="shrink-0 mx-2.5">
+      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-neutral-800 animate-pulse" />
     </div>
   )
 }
 
-export function AvatarWall({ onSelect }: AvatarWallProps) {
+export function AvatarWall() {
   const [items, setItems] = useState<RecentEvaluation[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -80,90 +37,81 @@ export function AvatarWall({ onSelect }: AvatarWallProps) {
 
   if (!loading && items.length === 0) return null
 
-  // Split items into two rows for staggered marquee
-  const mid = Math.ceil(items.length / 2)
-  const row1 = loading ? [] : items.slice(0, mid)
-  const row2 = loading ? [] : items.slice(mid)
+  const mid = Math.ceil((loading ? 14 : items.length) / 2)
+  const all = loading
+    ? Array.from({ length: 14 }).map((_, i) => ({ _skel: i } as unknown as RecentEvaluation))
+    : items
+  const row1 = all.slice(0, mid)
+  const row2 = all.slice(mid)
 
-  // Triple each row for seamless loop
-  const marquee = (row: RecentEvaluation[]) =>
-    [...row, ...row, ...row].map((acc, i) => (
-      <AvatarItem key={`${acc.username}-${i}`} acc={acc} onClick={() => onSelect(acc.username)} />
-    ))
-
-  const skeletonRow = () =>
-    Array.from({ length: 20 }).map((_, i) => <SkeletonItem key={`skel-${i}`} />)
+  const tripledRow1 = [...row1, ...row1, ...row1]
+  const tripledRow2 = [...row2, ...row2, ...row2]
 
   return (
-    <section className="py-20 overflow-hidden">
-      <div className="mx-auto max-w-5xl px-4">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
-            <Users className="h-3.5 w-3.5" />
-            Social Proof
-          </div>
-          <h2 className="text-3xl font-bold mb-3">Trusted by creators worldwide</h2>
-          <p className="text-sm text-neutral-500 mb-2">
-            Real TikTok accounts evaluated by TokValue. Every avatar = a verified valuation.
-          </p>
-          {loading ? (
-            <div className="h-5 w-64 mx-auto rounded bg-neutral-800 animate-pulse" />
-          ) : (
-            <p className="text-neutral-400 max-w-lg mx-auto">
-              {items.length}+ TikTok accounts evaluated. Real data, real valuations.
-            </p>
+    <div className="mt-0 space-y-3 max-w-[100vw]">
+      {/* Row 1 — right to left, slow */}
+      <div className="relative overflow-hidden">
+        <div className="flex animate-marquee-slow">
+          {tripledRow1.map((acc, i) =>
+            loading ? (
+              <SkeletonCircle key={`s1-${i}`} />
+            ) : (
+              <AvatarCircle key={`${acc.username}-${i}`} tier={acc.tier} avatar={acc.avatar} nickname={acc.nickname} />
+            )
           )}
         </div>
       </div>
-
-      {/* Scrolling avatar rows — full-width */}
-      <div className="space-y-3 mb-8 max-w-[100vw]">
-        {/* Row 1 — scroll right-to-left */}
-        <div className="relative overflow-hidden">
-          <div className="flex animate-marquee">
-            {loading
-              ? skeletonRow()
-              : marquee(row1)}
-          </div>
-        </div>
-        {/* Row 2 — scroll left-to-right, faster */}
-        <div className="relative overflow-hidden">
-          <div className="flex animate-marquee-reverse">
-            {loading
-              ? skeletonRow()
-              : marquee(row2)}
-          </div>
+      {/* Row 2 — left to right, faster */}
+      <div className="relative overflow-hidden">
+        <div className="flex animate-marquee-reverse">
+          {tripledRow2.map((acc, i) =>
+            loading ? (
+              <SkeletonCircle key={`s2-${i}`} />
+            ) : (
+              <AvatarCircle key={`${acc.username}-${i}`} tier={acc.tier} avatar={acc.avatar} nickname={acc.nickname} />
+            )
+          )}
         </div>
       </div>
+    </div>
+  )
+}
 
-      <div className="mx-auto max-w-5xl px-4">
-        {/* Subtle line below the wall */}
-        {!loading && (
-          <p className="text-center text-[11px] text-neutral-600 mb-6">
-            {items.length}+ accounts · Tier S to F · Scores updated in real-time
-          </p>
+function AvatarCircle({
+  tier,
+  avatar,
+  nickname,
+}: {
+  tier: string
+  avatar?: string | null
+  nickname: string
+}) {
+  const color = TIER_COLORS[tier] || '#E8A840'
+  return (
+    <div
+      className="relative shrink-0 mx-2.5"
+      style={{ boxShadow: `0 0 24px ${color}55` }}
+    >
+      <div
+        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden"
+        style={{
+          border: `2.5px solid ${color}`,
+          backgroundColor: '#1A1A24',
+        }}
+      >
+        {avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatar}
+            alt={nickname}
+            className="w-full h-full object-cover rounded-full"
+          />
+        ) : (
+          <span className="text-xl font-bold text-neutral-500">
+            {nickname.charAt(0).toUpperCase()}
+          </span>
         )}
-
-        {/* CTA */}
-        <div className="text-center">
-          <button
-            onClick={() => {
-              const input = document.querySelector<HTMLInputElement>(
-                'input[aria-label*="username"], input[placeholder*="username"]'
-              )
-              if (input) {
-                input.focus()
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              }
-            }}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#00F2EA] hover:text-[#00F2EA]/80 transition-colors"
-          >
-            Evaluate your account — free first report
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
       </div>
-    </section>
+    </div>
   )
 }
