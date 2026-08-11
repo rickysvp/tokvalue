@@ -100,6 +100,7 @@ const en = {
     hero: {
       title: "What's your account really worth?",
       subtitle: '10-second free valuation. Tier rating, revenue estimate, and brand deal price. No sign-up. No credit card.',
+      forWhom: 'For TikTok creators, brand marketers & influencer agencies',
       placeholder: '@username → free report in 10s',
       ariaLabel: 'TikTok username',
       cta: 'Evaluate for Free',
@@ -156,7 +157,7 @@ const en = {
           'Brand matching & commercialization',
           'PDF & PNG export',
         ],
-        cta: 'Unlock Pro — $9',
+        cta: 'See Pricing ↓',
       },
       footer: 'One-time payment. No subscription. No auto-renewal.',
     },

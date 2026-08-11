@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Sparkles, ArrowRight } from 'lucide-react'
+import { Check, Sparkles } from 'lucide-react'
 import { CtaButton } from './CtaButton'
 
 interface FreeVsProProps {
@@ -78,10 +78,9 @@ export function FreeVsPro({ dict, onProCta, onFreeCta }: FreeVsProProps) {
             </div>
             <p className="text-sm text-neutral-400 mb-6">{dict.pro.desc}</p>
             
-            <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-5xl font-black text-white">{dict.pro.price}</span>
-            </div>
-            <p className="text-sm text-neutral-500 mb-6">{dict.pro.priceLabel}</p>
+            <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
+              Everything in Free, plus revenue breakdowns, brand matching, growth forecasts — all for a <span className="text-white font-semibold">one-time fee</span>. No subscription, no auto-renewal.
+            </p>
             
             <ul className="space-y-3 mb-8 flex-1">
               {dict.pro.features.map((f, i) => {
@@ -96,9 +95,8 @@ export function FreeVsPro({ dict, onProCta, onFreeCta }: FreeVsProProps) {
             </ul>
 
             <CtaButton
-              variant="primary"
-              className="w-full"
-              icon={<ArrowRight className="h-4 w-4" />}
+              variant="outline"
+              className="w-full border-[#FF0050]/40 hover:bg-[#FF0050]/10 text-[#FF0050]"
               onClick={onProCta}
             >
               {dict.pro.cta}

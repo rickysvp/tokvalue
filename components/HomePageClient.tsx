@@ -236,6 +236,7 @@ export default function HomePage() {
             <p className="text-lg text-neutral-400 max-w-xl mx-auto">
               {dict.home.hero.subtitle}
             </p>
+            <p className="text-sm text-neutral-500 mt-3">{dict.home.hero.forWhom}</p>
           </div>
 
           <form onSubmit={onSubmit} className="w-full">
@@ -290,6 +291,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Social Proof — moved to first viewport for instant trust */}
+      <SocialProofBar stats={stats} />
+
       {/* How It Works */}
       <HowItWorks dict={dict.home.howItWorks} />
 
@@ -303,13 +307,7 @@ export default function HomePage() {
         }}
       />
 
-      {/* Social Proof — renders null if no real API data */}
-      <SocialProofBar stats={stats} />
-
-      {/* Recently Evaluated */}
-      <RecentEvaluations onSelect={(name) => router.push(`/evaluate/${encodeURIComponent(name)}`)} />
-
-      {/* Pricing */}
+      {/* Pricing — the ONE place pricing appears */}
       <PricingSection
         dict={dict}
         interactive={true}
@@ -319,6 +317,9 @@ export default function HomePage() {
 
       {/* FAQ */}
       <FAQSection dict={dict} interactive={true} />
+
+      {/* Recently Evaluated — moved below FAQ as browse content */}
+      <RecentEvaluations onSelect={(name) => router.push(`/evaluate/${encodeURIComponent(name)}`)} />
 
       {/* Footer */}
       <SiteFooter />
