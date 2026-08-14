@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { validatePassword, signAdminToken, checkLoginRateLimit, recordLoginAttempt } from '@/lib/admin-auth'
+import {
+  validatePassword,
+  signAdminToken,
+  checkLoginRateLimit,
+  recordLoginAttempt,
+  ADMIN_TOKEN_COOKIE,
+} from '@/lib/admin-auth'
 import { rateLimitResponse } from '@/lib/rate-limit'
+
+// httpOnly cookie 参数（审计 M-15：token 不再暴露给前端 JS，XSS 无法窃取 24h 凭证）
+// - Secure 仅生产启用：本地 http 开发下 Secure cookie 会被浏览器丢弃
+// - Path 限定 /api/tiktokmaster：cookie 只随 admin API 请求发送，缩小暴露面
+// - Max-Age 86400 = 24h，与 JWT 有效期一致
+function adminTokenCookieOptions(maxAge: number) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/api/tiktokmaster',
+    maxAge,
+  }
+}
 
 export async function POST(req: NextRequest) {
   // DB 限流（跨实例共享计数）：5 次/小时/IP，超限统一 429，不泄漏其他信息
@@ -30,7 +50,10 @@ export async function POST(req: NextRequest) {
     await recordLoginAttempt(req, true)
 
     const token = await signAdminToken()
-    return NextResponse.json({ token })
+    // token 只经 Set-Cookie 下发（httpOnly），不再写入响应体，前端 JS 无需也无法读取
+    const res = NextResponse.json({ ok: true })
+    res.cookies.set(ADMIN_TOKEN_COOKIE, token, adminTokenCookieOptions(86400))
+    return res
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal error'
     // 如果是 JWT secret 未配置，返回明确的配置错误提示
@@ -44,4 +67,12 @@ export async function POST(req: NextRequest) {
     console.error('[admin-auth] login error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
+}
+
+// 登出：清除 httpOnly cookie。
+// httpOnly cookie 前端 JS 无法清除（document.cookie 不可见），必须由后端下发过期指令。
+export async function DELETE() {
+  const res = NextResponse.json({ ok: true })
+  res.cookies.set(ADMIN_TOKEN_COOKIE, '', adminTokenCookieOptions(0))
+  return res
 }

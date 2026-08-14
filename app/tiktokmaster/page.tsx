@@ -28,7 +28,8 @@ export default function AdminLoginPage() {
         setError(data.error || '密码错误')
         return
       }
-      localStorage.setItem('admin_token', data.token)
+      // token 已由服务端经 Set-Cookie 写入 httpOnly cookie（同源 fetch 自动携带），
+      // 前端 JS 不再接触 token，XSS 无法窃取
       router.push('/tiktokmaster/dashboard')
     } catch {
       setError('网络错误，请重试')

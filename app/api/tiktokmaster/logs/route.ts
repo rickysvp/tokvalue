@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/admin-api-utils'
+import { requireAdminAuth } from '@/lib/admin-auth'
 import { getRecentEvents } from '@/lib/analytics'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const authError = await verifyAdminRequest(req)
+  const authError = await requireAdminAuth(req)
   if (authError) return authError
 
   const url = new URL(req.url)

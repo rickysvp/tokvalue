@@ -10,12 +10,12 @@ import {
   getPvuvByDay,
 } from '@/lib/analytics'
 import { getEvaluationsByDay } from '@/lib/db'
-import { verifyAdminRequest } from '@/lib/admin-api-utils'
+import { requireAdminAuth } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const authError = await verifyAdminRequest(req)
+  const authError = await requireAdminAuth(req)
   if (authError) return authError
   const url = new URL(req.url)
   const period = url.searchParams.get('period') || '30d'

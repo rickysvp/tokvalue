@@ -8,6 +8,7 @@
 
 import { SignJWT, jwtVerify } from 'jose'
 import crypto from 'crypto'
+import { NextRequest, NextResponse } from 'next/server'
 import { checkIpRateLimit, ipBucketKey } from './rate-limit'
 import { recordEventFromRequest, type EventType } from './analytics'
 
@@ -94,6 +95,35 @@ export async function verifyAdminToken(token: string): Promise<AdminPayload | nu
   } catch {
     return null
   }
+}
+
+// ── Admin token 提取（审计 M-15 修复：httpOnly cookie 优先）──
+// 新方案：token 存 httpOnly cookie，XSS 无法通过 document.cookie 读取；
+// 旧方案（Authorization: Bearer 头）保留兜底一个部署周期，供平滑过渡，之后移除。
+export const ADMIN_TOKEN_COOKIE = 'admin_token'
+
+export function getAdminTokenFromRequest(req: NextRequest): string | null {
+  // 1) httpOnly cookie（新方案，优先）
+  const cookieToken = req.cookies.get(ADMIN_TOKEN_COOKIE)?.value
+  if (cookieToken) return cookieToken
+  // 2) 旧 Bearer 头兜底（过渡期兼容）
+  const authHeader = req.headers.get('authorization')
+  return authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+}
+
+// ── Admin route 统一鉴权 ──
+// 与 lib/admin-api-utils.ts 的 verifyAdminRequest 签名兼容（返回 null 表示鉴权通过），
+// 但 token 来源改为 cookie 优先 + Bearer 兜底（见 getAdminTokenFromRequest）。
+export async function requireAdminAuth(req: NextRequest): Promise<NextResponse | null> {
+  const token = getAdminTokenFromRequest(req)
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const payload = await verifyAdminToken(token)
+  if (!payload) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return null
 }
 
 export function validatePassword(password: string): boolean {

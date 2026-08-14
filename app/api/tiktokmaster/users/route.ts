@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/admin-api-utils'
+import { requireAdminAuth } from '@/lib/admin-auth'
 import { adminDeductCredits, adminDisableUser, adminEnableUser, adminDeleteUser } from '@/lib/admin-credits'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ const DEDUCT_REASONS = [
 ]
 
 export async function POST(req: NextRequest) {
-  const authError = await verifyAdminRequest(req)
+  const authError = await requireAdminAuth(req)
   if (authError) return authError
 
   try {

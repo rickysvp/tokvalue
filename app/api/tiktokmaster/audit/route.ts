@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuditLog } from '@/lib/analytics'
-import { verifyAdminRequest } from '@/lib/admin-api-utils'
+import { requireAdminAuth } from '@/lib/admin-auth'
 
 export async function GET(req: NextRequest) {
-  const authError = await verifyAdminRequest(req)
+  const authError = await requireAdminAuth(req)
   if (authError) return authError
   const url = new URL(req.url)
   const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200)

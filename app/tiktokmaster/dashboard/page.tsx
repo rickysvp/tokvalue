@@ -214,13 +214,11 @@ export default function AdminDashboard() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionResult, setActionResult] = useState<{ success: boolean; msg: string } | null>(null)
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null
-
   const fetchStats = useCallback(async () => {
-    if (!token) { router.push('/tiktokmaster'); return }
     try {
-      const res = await fetch(`/api/tiktokmaster/stats?period=${trendPeriod}`, { headers: { Authorization: `Bearer ${token}` } })
-      if (res.status === 401) { localStorage.removeItem('admin_token'); router.push('/tiktokmaster'); return }
+      // 鉴权依赖 httpOnly cookie（同源 fetch 自动携带），前端不再接触 token
+      const res = await fetch(`/api/tiktokmaster/stats?period=${trendPeriod}`)
+      if (res.status === 401) { router.push('/tiktokmaster'); return }
       const data = await res.json()
       if (!res.ok || data.error) {
         setError(data.detail ? `数据加载失败: ${data.detail}` : '数据加载失败')
@@ -252,22 +250,20 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [token, router, trendPeriod])
+  }, [router, trendPeriod])
 
   const fetchHistory = useCallback(async () => {
-    if (!token) return
     try {
-      const res = await fetch('/api/tiktokmaster/credits/history?limit=50', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch('/api/tiktokmaster/credits/history?limit=50')
       const data = await res.json()
       setHistory(data.items || [])
     } catch {}
-  }, [token])
+  }, [])
 
   const fetchLogs = useCallback(async () => {
-    if (!token) return
     setLogsLoading(true)
     try {
-      const res = await fetch('/api/tiktokmaster/logs?limit=100', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch('/api/tiktokmaster/logs?limit=100')
       const data = await res.json()
       setLogs(data.items || [])
     } catch {
@@ -275,14 +271,13 @@ export default function AdminDashboard() {
     } finally {
       setLogsLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => { fetchStats() }, [fetchStats])
   useEffect(() => { if (tab === 'ops') fetchHistory() }, [tab, fetchHistory])
   useEffect(() => { if (tab === 'logs') fetchLogs() }, [tab, fetchLogs])
 
   async function handleGrant() {
-    if (!token) return
     const emails = grantMode === 'single'
       ? [grantEmail]
       : grantBatchEmails.split(/[\n,]+/).map(e => e.trim()).filter(Boolean)
@@ -295,7 +290,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch('/api/tiktokmaster/credits/grant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails, credits: grantCredits, reason: grantReason }),
       })
       const data = await res.json()
@@ -315,13 +310,16 @@ export default function AdminDashboard() {
     }
   }
 
-  function logout() {
-    localStorage.removeItem('admin_token')
+  async function logout() {
+    // httpOnly cookie 前端 JS 无法清除，需调后端登出 route 下发过期指令
+    try {
+      await fetch('/api/tiktokmaster/auth', { method: 'DELETE' })
+    } catch {}
     router.push('/tiktokmaster')
   }
 
   async function handleUserAction() {
-    if (!token || !userAction) return
+    if (!userAction) return
     if (!actionReason) { setActionResult({ success: false, msg: '请选择操作原因' }); return }
 
     setActionLoading(true)
@@ -329,7 +327,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch('/api/tiktokmaster/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: userAction.type,
           email: userAction.email,

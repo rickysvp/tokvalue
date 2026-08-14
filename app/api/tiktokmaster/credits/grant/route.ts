@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminGrantCredits } from '@/lib/admin-credits'
-import { verifyAdminRequest } from '@/lib/admin-api-utils'
+import { requireAdminAuth } from '@/lib/admin-auth'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(req: NextRequest) {
-  const authError = await verifyAdminRequest(req)
+  const authError = await requireAdminAuth(req)
   if (authError) return authError
   try {
     const body = await req.json().catch(() => ({}))
