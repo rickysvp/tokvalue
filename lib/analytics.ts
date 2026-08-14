@@ -34,11 +34,12 @@ const DATABASE_URL = (process.env.DATABASE_URL || process.env.POSTGRES_URL || ''
 const TIMEZONE = 'Asia/Shanghai'
 
 // ip_hash HMAC 密钥（防止 sha256 截断被彩虹表反查）
+// 生产环境未配置时返回空串（hashIp 仍可工作，但安全性降级——不记录可识别 IP），绝不使用公开硬编码密钥
 const IP_HMAC_KEY = process.env.IP_HASH_SECRET || (() => {
   if (process.env.NODE_ENV === 'production') {
-    console.error('[analytics] ⚠️  IP_HASH_SECRET not set in production — IP hashes are reversible with default key. Set the IP_HASH_SECRET environment variable.')
+    console.error('[analytics] FATAL: IP_HASH_SECRET not set in production — IP hashes are insecure. Set the IP_HASH_SECRET environment variable.')
   }
-  return 'tokvalue-ip-hmac-v1'
+  return ''
 })()
 
 // ── DB init ──

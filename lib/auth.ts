@@ -48,7 +48,7 @@ async function ensurePg(): Promise<NeonQueryFunction<false, false> | null> {
 }
 
 // ── JWT Secret ──
-// 生产环境优先使用 JWT_SECRET；缺失时从 DATABASE_URL 派生 fallback，避免直接 crash。
+// 生产环境必须显式配置 JWT_SECRET；缺失时 fail-closed，绝不降级派生（DB 凭据泄露即可伪造会话）。
 function getJwtSecret(): Uint8Array {
   const raw = process.env.JWT_SECRET
   if (raw && raw.length >= 32) {
@@ -58,16 +58,9 @@ function getJwtSecret(): Uint8Array {
     console.warn('[auth] Using dev JWT secret — sessions will not survive restarts')
     return new TextEncoder().encode('dev-jwt-secret-min-32-bytes-long!')
   }
-  // 生产环境 fallback: 从 DATABASE_URL 派生 secret，避免 crash 导致验证流程中断
-  const fallbackSource = process.env.DATABASE_URL || process.env.POSTGRES_URL || ''
-  if (fallbackSource.length >= 16) {
-    console.error('[auth] JWT_SECRET not set! Deriving fallback from DATABASE_URL. Please set JWT_SECRET env var.')
-    const hash = crypto.createHash('sha256').update(fallbackSource).digest('hex')
-    return new TextEncoder().encode(hash)
-  }
+  // 生产环境：fail-closed，绝不降级
   throw new Error(
-    '[auth] JWT_SECRET is not set or too short (< 32 chars). ' +
-    'Set the JWT_SECRET environment variable in production.'
+    '[auth] FATAL: JWT_SECRET must be set (>=32 chars) in production. Refusing to serve.'
   )
 }
 

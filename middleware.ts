@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * 保护的路由：
  * - /api/evaluate (POST)：评估账号
  * - /api/history (GET)：用户历史记录
- * - /api/credit/*：积分相关操作
+ * - /api/credits/*：积分相关操作
  * 
  * 注意：管理后台路由 (/api/tiktokmaster/*) 使用独立的 verifyAdminRequest() 验证。
  */
@@ -16,8 +16,9 @@ const PROTECTED_API_PATTERNS = [
   '/api/evaluate',
   '/api/history',
   '/api/checkout',
-  '/api/credit/consume',
-  '/api/credit/refund',
+  '/api/credits/consume',
+  '/api/credits/claim',
+  '/api/credits/balance',
 ]
 
 export async function middleware(request: NextRequest) {

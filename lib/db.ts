@@ -1,5 +1,6 @@
 import type { Evaluation } from '@/types'
 import type { NeonQueryFunction } from '@neondatabase/serverless'
+import crypto from 'crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { withFileLock } from '@/lib/file-lock'
@@ -96,6 +97,14 @@ async function initStore(): Promise<Store> {
         )
       `
       await getSql()`CREATE INDEX IF NOT EXISTS idx_report_ratings_created ON report_ratings(created_at)`
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS free_rate_limits (
+          ip_hash TEXT NOT NULL,
+          date_key DATE NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (ip_hash, date_key)
+        )
+      `
       storeType = 'postgres'
       return storeType
       } catch (err) {
@@ -722,6 +731,26 @@ const FREE_DAILY_LIMIT = 2
 export async function checkFreeRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
   const now = Date.now()
   const windowMs = 24 * 60 * 60 * 1000
+  const type = await initStore()
+  if (type === 'postgres') {
+    try {
+      const ipHash = crypto.createHmac('sha256', process.env.IP_HASH_SECRET || '').update(ip).digest('hex').slice(0, 32)
+      const dateKey = new Date().toISOString().slice(0, 10)
+      const rows = await getSql()`
+        INSERT INTO free_rate_limits (ip_hash, date_key, count)
+        VALUES (${ipHash}, ${dateKey}::date, 1)
+        ON CONFLICT (ip_hash, date_key) DO UPDATE SET count = free_rate_limits.count + 1
+        RETURNING count
+      ` as Array<{ count: number }>
+      const count = Number(rows[0]?.count || 0)
+      const remaining = Math.max(0, FREE_DAILY_LIMIT - count)
+      return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetMs: windowMs }
+    } catch (err) {
+      console.warn('[db] Free rate limit check failed, allowing request', err)
+      return { allowed: true, remaining: FREE_DAILY_LIMIT - 1, resetMs: windowMs }
+    }
+  }
+  // file/memory 模式：保留内存限流逻辑（本地开发）
   const entry = freeRateWindow.get(ip)
   if (!entry || now - entry.windowStart > windowMs) {
     freeRateWindow.set(ip, { count: 1, windowStart: now })

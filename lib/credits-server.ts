@@ -241,18 +241,24 @@ export async function consumeCredit(email: string, username?: string): Promise<{
   await initUsageLogTable()
   const s = await getSql()
 
-  // Check current credits first
-  const current = await s`SELECT credits, disabled FROM credit_balances WHERE email = ${key}`
-  if (!current[0]) return { ok: false, reason: 'NOT_FOUND' }
-  if (current[0].disabled) return { ok: false, reason: 'DISABLED' }
-  if (Number(current[0].credits) <= 0) return { ok: false, reason: 'NO_CREDITS' }
-
-  // Atomic: decrement only if credits > 0
-  await s`
+  // Atomic: decrement only if credits > 0 AND not disabled.
+  // Neon serverless driver returns affected rows array for UPDATE
+  // (empty array = no row matched, i.e. not found / disabled / no credits).
+  // This single statement closes the TOCTOU race: concurrent requests cannot
+  // both pass a pre-check SELECT and both succeed.
+  const updateResult = await s`
     UPDATE credit_balances
     SET credits = credits - 1
-    WHERE email = ${key} AND credits > 0
+    WHERE email = ${key} AND credits > 0 AND disabled = false
   `
+
+  if (!updateResult || updateResult.length === 0) {
+    // Decrement failed: distinguish the reason with a single SELECT.
+    const row = await s`SELECT credits, disabled FROM credit_balances WHERE email = ${key}`
+    if (!row[0]) return { ok: false, reason: 'NOT_FOUND' }
+    if (row[0].disabled) return { ok: false, reason: 'DISABLED' }
+    return { ok: false, reason: 'NO_CREDITS' }
+  }
 
   // Read back the actual balance after UPDATE (avoids race condition on balance_after)
   const updated = await s`SELECT credits FROM credit_balances WHERE email = ${key}`
