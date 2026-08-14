@@ -1,18 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Lock, DollarSign, TrendingUp, Target, Shield, BarChart3,
   Building2, Lightbulb, Flame, Rocket, FileDown, Check, Mail,
-  KeyRound, ArrowRight, Loader2, Sparkles, Users, CheckCircle2,
-  Zap, Star, Clock, RefreshCw,
+  ArrowRight, Loader2, Sparkles, Users, CheckCircle2,
+  Zap, Star, RefreshCw,
 } from 'lucide-react'
 import type { Evaluation } from '@/types'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import {
-  getActiveEmail, setActiveEmail, setPendingEmail, clearPendingEmail, fetchBalance,
-  setSessionToken,
+  getActiveEmail, setActiveEmail, fetchBalance, getSessionToken,
 } from '@/lib/credits-client'
 import { useI18n, t } from '@/lib/i18n'
 
@@ -29,7 +28,9 @@ interface PaidWallProps {
   mode?: 'evaluate' | 'unlock'
 }
 
-type Step = 'choose' | 'email' | 'code' | 'success'
+// Guest Checkout 主流程：选套餐 → 输邮箱 → 直达 Creem 支付（无验证码往返），
+// 支付成功回跳后由回跳逻辑（claimCreditsApi）完成认领并换取会话 token
+type Step = 'choose' | 'email' | 'success'
 
 const UNLOCK_MODULES = [
   { icon: DollarSign,   color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
@@ -50,15 +51,9 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
   const [step, setStep] = useState<Step>('choose')
   const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[1])
   const [email, setEmail] = useState('')
-  const [code, setCode] = useState<string[]>(['', '', '', '', '', ''])
-  const [devCode, setDevCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [cooldown, setCooldown] = useState(0)
-  const [successBalance, setSuccessBalance] = useState<number | null>(null)
   const [balance, setBalance] = useState<CreditBalance | null>(existingBalance || null)
-  const codeRefs = useRef<(HTMLInputElement | null)[]>([])
-  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const username = result?.username || ''
 
@@ -74,155 +69,52 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
     }
   }, [existingBalance])
 
-  useEffect(() => {
-    return () => {
-      if (cooldownTimer.current) clearInterval(cooldownTimer.current)
-    }
-  }, [])
-
-  // Focus first code input when entering code step
-  useEffect(() => {
-    if (step === 'code') {
-      setTimeout(() => codeRefs.current[0]?.focus(), 100)
-    }
-  }, [step])
-
-  function startCooldown() {
-    setCooldown(60)
-    if (cooldownTimer.current) clearInterval(cooldownTimer.current)
-    cooldownTimer.current = setInterval(() => {
-      setCooldown(c => {
-        if (c <= 1) {
-          if (cooldownTimer.current) clearInterval(cooldownTimer.current)
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
-  }
-
-  async function handleSendCode(e?: React.FormEvent) {
+  // Guest Checkout 主路径：输入邮箱 → 直接创建 Creem 支付会话并跳转。
+  // 有本地 token 时带 Authorization 走 JWT 通道；否则 body 携带 email 走 guest 通道，
+  // 邮箱同步传给 Creem（customer.email），支付页自动预填。
+  async function handleCheckout(e?: React.FormEvent) {
     e?.preventDefault()
     if (loading) return
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const trimmed = email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError(dict.paidWall.invalidEmail)
       return
     }
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/auth/send-code', {
+      const token = getSessionToken()
+      const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), packageId: selectedPkg.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
       })
       const data = await res.json().catch(() => ({ error: dict.paidWall.sendFailed }))
       if (!res.ok) throw new Error(data.error || dict.paidWall.sendFailed)
-      setDevCode(data.devCode || null)
-      setPendingEmail(email.trim(), selectedPkg.id)
-      setStep('code')
-      startCooldown()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  async function handleResend() {
-    if (cooldown > 0 || loading) return
-    await handleSendCode()
-  }
-
-  async function handleVerify(codeOverride?: string) {
-    const fullCode = codeOverride || code.join('')
-    console.log('[PaidWall] handleVerify email=', email.trim(), 'code=', fullCode)
-    if (fullCode.length !== 6) {
-      setError(dict.paidWall.invalidCode)
-      return
-    }
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code: fullCode }),
-      })
-      const data = await res.json().catch(() => ({ error: dict.paidWall.verifyFailed }))
-      if (!res.ok) throw new Error(data.error || dict.paidWall.verifyFailed)
-
-      clearPendingEmail()
-      setActiveEmail(email.trim())
-
-      // Returning user flow — no purchase, just verify email and get token
-      if (data.returning) {
-        if (data.token) setSessionToken(data.token)
-        const bal = await fetchBalance(email.trim())
-        if (bal) setBalance(bal)
+      // DEV_SKIP_PAYMENT：本地开发跳过 Creem，直接进入解锁态
+      if (data.devMode) {
         setStep('success')
-        setTimeout(() => {
-          onUnlock()
-        }, 1500)
+        setTimeout(() => onUnlock(), 800)
         return
       }
 
-      if (data.token) setSessionToken(data.token)
-
-      if (data.requiresPayment && data.checkoutUrl) {
+      if (data.checkoutUrl) {
+        // 跳转前记住邮箱：支付成功回跳（?paid=success&email=...）后，
+        // 回跳逻辑调 claimCreditsApi()（无 token 时自动带此邮箱走 guest 认领）
+        setActiveEmail(trimmed)
         window.location.href = data.checkoutUrl
         return
       }
 
-      setBalance({
-        email: email.trim(),
-        credits: data.balance,
-        totalPurchased: data.granted,
-        verifiedAt: Date.now(),
-        purchases: [],
-      })
-      setSuccessBalance(data.balance)
-      setStep('success')
-      // auto-unlock after a brief moment
-      setTimeout(() => {
-        onUnlock()
-      }, 1500)
+      throw new Error(dict.paidWall.sendFailed)
     } catch (err) {
-      setError(err instanceof Error ? err.message : dict.paidWall.verifyFailed)
-      setCode(['', '', '', '', '', ''])
-      setTimeout(() => codeRefs.current[0]?.focus(), 50)
+      setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
     } finally {
       setLoading(false)
-    }
-  }
-
-  function handleCodeChange(idx: number, value: string) {
-    const v = value.replace(/\D/g, '').slice(-1)
-    const newCode = [...code]
-    newCode[idx] = v
-    setCode(newCode)
-    setError('')
-    if (v && idx < 5) {
-      codeRefs.current[idx + 1]?.focus()
-    }
-    if (newCode.every(c => c !== '')) {
-      setTimeout(() => handleVerify(newCode.join('')), 100)
-    }
-  }
-
-  function handleCodeKeyDown(idx: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Backspace' && !code[idx] && idx > 0) {
-      codeRefs.current[idx - 1]?.focus()
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent) {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      e.preventDefault()
-      const chars = pasted.split('')
-      setCode(chars)
-      setTimeout(() => handleVerify(pasted), 100)
     }
   }
 
@@ -311,11 +203,9 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
             <div className="flex-1 h-px bg-neutral-800" />
             <div className="flex items-center gap-1.5">
               {step === 'email' && <Mail className="h-3.5 w-3.5 text-[#FF0050]" />}
-              {step === 'code' && <KeyRound className="h-3.5 w-3.5 text-[#FF0050]" />}
               {step === 'success' && <CheckCircle2 className="h-3.5 w-3.5 text-[#00F2EA]" />}
               <span>
                 {step === 'email' && dict.paidWall.stepEmail}
-                {step === 'code' && dict.paidWall.stepCode}
                 {step === 'success' && dict.paidWall.stepSuccess}
               </span>
             </div>
@@ -430,9 +320,9 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
           </>
         )}
 
-        {/* ── 输入邮箱 ── */}
+        {/* ── 输入邮箱（Guest Checkout：直接发起支付，无验证码往返）── */}
         {step === 'email' && (
-          <form onSubmit={handleSendCode} className="mt-6 max-w-md mx-auto">
+          <form onSubmit={handleCheckout} className="mt-6 max-w-md mx-auto">
             <div className="rounded-2xl border border-neutral-800 bg-[#111] p-5">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-[#FF0050]/10 flex items-center justify-center flex-shrink-0">
@@ -462,7 +352,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
                 disabled={loading}
                 className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><KeyRound className="h-4 w-4" />{dict.paidWall.sendCode}</>}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Zap className="h-4 w-4" />{t(dict.paidWall.ctaButton, { price: selectedPkg.price, count: selectedPkg.credits })}</>}
               </button>
               <button
                 type="button"
@@ -472,81 +362,10 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
                 {dict.paidWall.backToPackages}
               </button>
             </div>
-            <div className="mt-3 flex items-start gap-2 text-[10px] text-neutral-500">
-              <Clock className="h-3 w-3 mt-0.5 flex-shrink-0" />
-              <span>{dict.paidWall.codeValid}</span>
-            </div>
-          </form>
-        )}
-
-        {/* ── 输入验证码 ── */}
-        {step === 'code' && (
-          <div className="mt-6 max-w-md mx-auto">
-            <div className="rounded-2xl border border-neutral-800 bg-[#111] p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[#00F2EA]/10 flex items-center justify-center flex-shrink-0">
-                  <KeyRound className="h-5 w-5 text-[#00F2EA]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-white">{dict.paidWall.codeTitle}</div>
-                  <div className="text-[11px] text-neutral-500 truncate">{t(dict.paidWall.codeSent, { email })}</div>
-                </div>
-              </div>
-
-              {devCode && (
-                <div className="mb-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-[11px] text-yellow-300">
-                  <span className="font-semibold">{dict.paidWall.devCodeLabel}</span> <code className="font-mono font-bold bg-yellow-500/20 px-1.5 py-0.5 rounded ml-1">{devCode}</code> <span>{t(dict.paidWall.devNotice)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-center gap-2" onPaste={handlePaste}>
-                {code.map((c, i) => (
-                  <input
-                    key={i}
-                    ref={el => { codeRefs.current[i] = el }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={c}
-                    aria-label={t(dict.paidWall.digitAria, { n: i + 1 })}
-                    onChange={e => handleCodeChange(i, e.target.value)}
-                    onKeyDown={e => handleCodeKeyDown(i, e)}
-                    className="w-11 h-12 sm:w-12 sm:h-14 rounded-xl border border-neutral-700 bg-[#0a0a0a] text-center text-xl sm:text-2xl font-black text-white outline-none focus:border-[#FF0050] focus:ring-2 focus:ring-[#FF0050]/20 transition-colors"
-                  />
-                ))}
-              </div>
-
-              {error && <div className="mt-3 text-center text-xs text-red-400">{error}</div>}
-
-              <button
-                onClick={() => handleVerify()}
-                disabled={loading || code.some(c => !c)}
-                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4" />{dict.paidWall.verifyAndUnlock}</>}
-              </button>
-
-              <div className="mt-3 flex items-center justify-between text-xs">
-                <button
-                  onClick={() => { setStep('email'); setCode(['', '', '', '', '', '']); setError('') }}
-                  className="text-neutral-500 hover:text-neutral-300 transition-colors"
-                >
-                  {dict.paidWall.changeEmail}
-                </button>
-                <button
-                  onClick={handleResend}
-                  disabled={cooldown > 0 || loading}
-                  className="text-[#00F2EA] hover:text-[#00dccb] disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors"
-                >
-                  {cooldown > 0 ? t(dict.paidWall.resendIn, { s: cooldown }) : dict.paidWall.resendCode}
-                </button>
-              </div>
-            </div>
-
             <div className="mt-3 rounded-xl bg-neutral-900/50 px-4 py-2.5 text-[11px] text-neutral-500 text-center">
               {t(dict.paidWall.purchaseSummary, { label: selectedPkg.label, price: selectedPkg.price, count: selectedPkg.credits })}
             </div>
-          </div>
+          </form>
         )}
 
         {/* ── 成功态 ── */}
@@ -557,9 +376,11 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
                 <CheckCircle2 className="h-8 w-8 text-[#00F2EA]" />
               </div>
               <div className="text-lg font-bold text-white">{dict.paidWall.successTitle}</div>
-              <div className="mt-1 text-sm text-neutral-400">
-                {successBalance !== null && t(dict.paidWall.successMessage, { email, balance: successBalance })}
-              </div>
+              {email && (
+                <div className="mt-1 text-sm text-neutral-400">
+                  {t(dict.paidWall.successMessage, { email, balance: balance?.credits ?? 0 })}
+                </div>
+              )}
               <div className="mt-3 text-xs text-neutral-500">{dict.paidWall.successLoading}</div>
             </div>
           </div>

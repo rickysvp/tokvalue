@@ -10,7 +10,7 @@ import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 
 import { useI18n } from '@/lib/i18n'
-import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken } from '@/lib/credits-client'
+import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken, claimCreditsApi, promotePendingToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { AvatarWall } from '@/components/AvatarWall'
 import { CtaButton } from '@/components/CtaButton'
@@ -47,6 +47,36 @@ export default function HomePage() {
       setBalanceLoading(true)
       fetchBalance(email).then(b => { if (b) setCreditBalance(b) }).finally(() => setBalanceLoading(false))
     }
+  }, [])
+
+  // Handle ?paid=success callback（guest checkout 回跳：认领积分并建立登录态）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('paid') !== 'success') return
+    const paidEmail = params.get('email')
+    if (!paidEmail) return
+    // 清理 URL 参数，避免刷新/分享时重复触发
+    params.delete('paid')
+    params.delete('email')
+    const qs = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    setActiveEmail(paidEmail)
+    promotePendingToken()
+    setIsLoggedIn(true)
+    setPaymentSuccess(true)
+    setBalanceLoading(true)
+    ;(async () => {
+      // claimCreditsApi 无 token 时自动走 guest 通道(body 带 email)，成功响应含 token 并已存储
+      const result = await claimCreditsApi()
+      if (result && result.claimed) {
+        setCreditBalance({ email: paidEmail, credits: result.credits, totalPurchased: result.credits, purchases: [], verifiedAt: Date.now() })
+      } else {
+        // webhook 已发放但 pending 过期等场景：回退查余额
+        const b = await fetchBalance(paidEmail)
+        if (b) setCreditBalance(b)
+      }
+      setBalanceLoading(false)
+    })()
   }, [])
 
   // Fetch real stats

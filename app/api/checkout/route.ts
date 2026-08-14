@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySessionToken } from '@/lib/auth'
+import { verifySessionToken, getBearerToken } from '@/lib/auth'
 import { storePendingPurchase } from '@/lib/credits-server'
 import { findPackage } from '@/lib/credits'
 import { getServerDict } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 25
+
+// 邮箱格式校验（与前端 PaidWall 保持一致）
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const CREEM_API_KEY = process.env.CREEM_API_KEY || ''
 const CREEM_WEBHOOK_SECRET = process.env.CREEM_WEBHOOK_SECRET || ''
@@ -46,18 +49,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Package ID required', code: 'INVALID_PACKAGE' }, { status: 400 })
     }
 
-    // Verify JWT token
-    const auth = req.headers.get('authorization')
-    if (!auth || !auth.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, { status: 401 })
+    // ── 双通道身份解析（Guest Checkout）──
+    // 1) JWT 通道：携带 Bearer token 的老用户，从 token 解出 email（行为不变）
+    // 2) Guest 通道：无 token 时直接采信 body.email（仅格式校验），
+    //    先支付、回跳后凭 pending 记录 + Creem 反查认领，移除付费前的验证码往返
+    let email = ''
+    const token = getBearerToken(req)
+    if (token) {
+      const payload = await verifySessionToken(token)
+      if (!payload || !payload.email) {
+        return NextResponse.json({ error: 'Invalid or expired session', code: 'UNAUTHORIZED' }, { status: 401 })
+      }
+      email = payload.email.toLowerCase().trim()
+    } else {
+      email = String(body.email || '').toLowerCase().trim()
+      if (!EMAIL_RE.test(email)) {
+        return NextResponse.json({ error: 'Valid email required', code: 'INVALID_EMAIL' }, { status: 400 })
+      }
     }
-    const token = auth.slice(7)
-    const payload = await verifySessionToken(token)
-    if (!payload || !payload.email) {
-      return NextResponse.json({ error: 'Invalid or expired session', code: 'UNAUTHORIZED' }, { status: 401 })
-    }
-
-    const email = payload.email.toLowerCase().trim()
 
     // Resolve package
     const pkg = findPackage(packageId)
