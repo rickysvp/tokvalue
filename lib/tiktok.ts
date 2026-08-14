@@ -68,8 +68,14 @@ function normalizeUsername(input: string): string {
 function toNumber(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
   if (typeof value === 'string') {
-    const parsed = parseInt(value.replace(/[^0-9]/g, ''), 10)
-    return Number.isNaN(parsed) ? 0 : parsed
+    // 支持 "1.5M"/"10K"/"2.3B" 缩写与 "1,234" 逗号分隔格式
+    const match = value.trim().match(/^([\d.,]+)\s*([kmb])?$/i)
+    if (!match) return 0
+    const num = parseFloat(match[1].replace(/,/g, ''))
+    if (Number.isNaN(num)) return 0
+    const suffix = match[2]?.toLowerCase()
+    const multiplier = suffix === 'k' ? 1e3 : suffix === 'm' ? 1e6 : suffix === 'b' ? 1e9 : 1
+    return num * multiplier
   }
   return 0
 }

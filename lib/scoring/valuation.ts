@@ -140,6 +140,34 @@ export function getMarketAnchor(tier: FollowerTier, categories: string[]): numbe
   return anchors.default ?? 0
 }
 
+/**
+ * 粉丝分层单条报价上限锚点（USD/条，仅 nano/micro/mid 生效；macro/mega 走 MARKET_ANCHORS 夹紧）
+ * cap = min(flatCap 分层封顶, per10KFollowers × followerCount / 10000)
+ *
+ * 锚点依据（行业公开报价行情的保守上沿 + 爆款容差，量纲与本文件 CPM × multiplier 体系对齐）：
+ * - nano（<1万粉）：  市场行情 $50-800/条   → $3,500/万粉、封顶 $2,500（小号爆款粉比普遍 10x+，
+ *                    公式输出相对粉丝规模偏高，线性项仅在极小粉丝量生效：3K 粉 ≈ $1,050）
+ * - micro（1-10万粉）：市场行情 $200-3,000/条 → $2,100/万粉、封顶 $12,000（5 万粉 ≈ $10,500）
+ * - mid（10-50万粉）： 市场行情 $1,000-10,000/条 → $1,200/万粉、封顶 $12,000（≥10 万粉即接近触顶）
+ *
+ * 修复背景（审计 Major）：报价公式 8 个乘数堆叠（CPM × tierPremium × erMult × region × momentum
+ * × risk × verified），中腰部账号极端"播放 × 参与率"组合（如 20 万粉 + 千万级均播 + er≥15%）
+ * 曾算出 $486K/条，超过 MrBeast 级锚点，造成估值倒挂。此上限只裁剪异常尾部：
+ * 正常账号（粉比 ≤3x、互动率 3-9%）的公式输出远低于锚点，不受影响。
+ */
+const BRAND_DEAL_CAP_BY_TIER: Partial<Record<FollowerTier, { per10KFollowers: number; flatCap: number }>> = {
+  nano: { per10KFollowers: 3500, flatCap: 2500 },
+  micro: { per10KFollowers: 2100, flatCap: 12000 },
+  mid: { per10KFollowers: 1200, flatCap: 12000 },
+}
+
+/** followerCount → 单条报价上限（USD）；macro/mega 返回 0（由 MARKET_ANCHORS 管） */
+export function getBrandDealFollowerCap(tier: FollowerTier, followers: number): number {
+  const cap = BRAND_DEAL_CAP_BY_TIER[tier]
+  if (!cap || followers <= 0) return 0
+  return Math.min(cap.flatCap, (cap.per10KFollowers * followers) / 10000)
+}
+
 /** playGrowth → momentumMultiplier */
 export function calcMomentumMultiplier(playGrowth: number): number {
   if (playGrowth >= MOMENTUM_PARAMS.highGrowthThreshold) return MOMENTUM_PARAMS.highGrowthMultiplier
@@ -284,6 +312,8 @@ export interface BrandDealResult {
     riskDiscount: number
     verifiedMultiplier: number
     marketAnchored: boolean
+    /** 是否被粉丝分层报价上限锚点裁剪（nano/micro/mid 异常尾部） */
+    followerCapAnchored: boolean
   }
 }
 
@@ -310,6 +340,16 @@ export function calcBrandDealValue(input: BrandDealInput): BrandDealResult {
   const verifiedMultiplier = calcVerifiedMultiplier(verified)
 
   let perVideoMid = (effectiveAvgPlays / 1000) * categoryCpm * tierPremium * engagementMult * regionMult * momentumMultiplier * riskDiscount * verifiedMultiplier
+
+  // 粉丝分层报价上限锚点（nano/micro/mid）：裁剪"极端播放 × 极端参与率"组合的异常尾部报价
+  // （如 20 万粉 + 千万级均播曾算出 $486K/条）；正常账号输出远低于锚点，不受影响。
+  // 放在 mega/macro 市场锚点夹紧之前，与市场锚点同层级生效（两者按 tier 互斥）。
+  let followerCapAnchored = false
+  const followerCap = getBrandDealFollowerCap(tier, followers)
+  if (followerCap > 0 && perVideoMid > followerCap) {
+    perVideoMid = followerCap
+    followerCapAnchored = true
+  }
 
   // mega/macro 市场基准夹紧（先夹紧，再应用播放折损，避免折损被锚点下限覆盖）
   let marketAnchored = false
@@ -363,6 +403,7 @@ export function calcBrandDealValue(input: BrandDealInput): BrandDealResult {
       riskDiscount,
       verifiedMultiplier,
       marketAnchored,
+      followerCapAnchored,
     },
   }
 }
@@ -804,7 +845,7 @@ export function buildIncomeEstimate(input: BuildIncomeInput): IncomeEstimate {
       monthlyAmount: { low: brand.monthlyLow, mid: brand.monthlyMid, high: brand.monthlyHigh },
       percentage: 0,
       confidence: metrics.engagementRate >= 3 ? 'high' : 'medium',
-      detail: `${categoryLabel} CPM $${categoryCpm} × Avg Plays ${Math.round(metrics.effectiveAvgPlays).toLocaleString()} × Engagement Factor ${brand.detail.engagementMult.toFixed(1)} × ${regionLabel} Multiplier ${regionMult.toFixed(2)} × Tier Premium ${brand.detail.tierPremium.toFixed(1)}x, ~${brand.monthlyBrandPosts} posts/month${brand.detail.marketAnchored ? ' (Market-Anchored)' : ''}`,
+      detail: `${categoryLabel} CPM $${categoryCpm} × Avg Plays ${Math.round(metrics.effectiveAvgPlays).toLocaleString()} × Engagement Factor ${brand.detail.engagementMult.toFixed(1)} × ${regionLabel} Multiplier ${regionMult.toFixed(2)} × Tier Premium ${brand.detail.tierPremium.toFixed(1)}x, ~${brand.monthlyBrandPosts} posts/month${brand.detail.marketAnchored ? ' (Market-Anchored)' : ''}${brand.detail.followerCapAnchored ? ' (Follower-Cap Anchored)' : ''}`,
     },
     {
       source: 'creator_program', label: 'Creator Program', icon: '🎬',
@@ -1002,7 +1043,15 @@ export function buildBusinessValue(input: BuildValueInput): BusinessValue {
   }
 
   const totalLow = components.reduce((s, c) => s + c.amount.low, 0)
-  const totalHigh = components.reduce((s, c) => s + c.amount.high, 0)
+  let totalHigh = components.reduce((s, c) => s + c.amount.high, 0)
+  // 对称 cap：totalHigh 同样受全局上限约束（按 high 区间系数放大），
+  // 避免 mid 被 cap 而 high 端仍展示失控估值（报价锚点 clamp 后 brandDealValue 已回归合理基准）
+  if (brandDealValue > 0) {
+    const globalCapHigh = brandDealValue * GLOBAL_CAP_MULTIPLE * INCOME_LOW_HIGH_FACTORS.high
+    if (totalHigh > globalCapHigh) {
+      totalHigh = globalCapHigh
+    }
+  }
 
   const summary = totalMid >= 500000
     ? `Extremely high commercial value (median $${Math.round(totalMid).toLocaleString()}) — top-tier IP asset, brand partnerships + IP premium are the core value drivers`

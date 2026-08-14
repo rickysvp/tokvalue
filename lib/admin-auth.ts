@@ -1,5 +1,5 @@
 /**
- * Admin authentication — JWT sign/verify + in-memory rate limiting.
+ * Admin authentication — JWT sign/verify + DB 登录限流 + 登录审计日志。
  * Only import from API routes / server components.
  *
  * 安全策略：ADMIN_JWT_SECRET 未配置时拒绝签发与校验（生产环境必须配置）。
@@ -8,7 +8,8 @@
 
 import { SignJWT, jwtVerify } from 'jose'
 import crypto from 'crypto'
-import { getClientIp } from './ip'
+import { checkIpRateLimit, ipBucketKey } from './rate-limit'
+import { recordEventFromRequest, type EventType } from './analytics'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
 const ADMIN_JWT_SECRET_RAW = process.env.ADMIN_JWT_SECRET || ''
@@ -30,28 +31,40 @@ function getJwtSecret(): Uint8Array {
 
 const TOKEN_MAX_AGE = '24h'
 
-// ── Rate limiting (in-memory, per-IP) ──
-const attempts = new Map<string, { count: number; lockedUntil: number }>()
+// ── 登录限流（DB 共享计数，serverless 多实例下生效）──
+// 旧实现为进程内存 Map，在 Vercel 等 serverless 多实例环境下各实例独立计数，
+// 防爆破彻底失效。现复用 lib/rate-limit.ts 的 checkIpRateLimit：
+// - bucket key = `admin-login:{ipHash}`（IP 经 HMAC 哈希，不存明文）
+// - 原子计数（INSERT ... ON CONFLICT DO UPDATE），按小时窗口截断
+// - 该模块自身 fail-open：DB 故障时放行（console.warn），不牺牲登录可用性
+const LOGIN_RATE_LIMIT = { limit: 5, windowHours: 1 }
 
-export function checkRateLimit(request: Request): { allowed: boolean; retryAfterSec: number } {
-  const ip = getClientIp(request)
-  const now = Date.now()
-  const entry = attempts.get(ip)
+export function checkLoginRateLimit(request: Request): Promise<boolean> {
+  return checkIpRateLimit(ipBucketKey('admin-login', request), LOGIN_RATE_LIMIT)
+}
 
-  if (entry && entry.lockedUntil > now) {
-    return { allowed: false, retryAfterSec: Math.ceil((entry.lockedUntil - now) / 1000) }
+// ── 登录审计日志 ──
+// 写入 analytics_events（event_type='admin_login_attempt'，metadata.success 标记成败），
+// 复用 recordEventFromRequest 自动提取 ip_hash / user_agent，created_at 由 DB 默认值填充。
+// 不选用 admin_audit_log：该表面向积分操作审计（target_email/credits 必填、无 ip_hash 列），
+// 与登录场景不匹配。
+// 安全约束：绝不记录用户提交的密码（含错误密码），metadata 只含 success 布尔值。
+// 注意：lib/analytics.ts 的 EventType 为封闭联合类型且不可修改，
+// 此处经 string 中转断言扩展事件名（event_type 为 TEXT 列，无 DB 层约束，运行时安全）。
+const LOGIN_EVENT_TYPE: string = 'admin_login_attempt'
+
+export async function recordLoginAttempt(request: Request, success: boolean): Promise<void> {
+  try {
+    await recordEventFromRequest(request, {
+      event_type: LOGIN_EVENT_TYPE as EventType,
+      path: '/api/tiktokmaster/auth',
+      metadata: { success },
+    })
+  } catch (err) {
+    // 审计写入失败不阻断登录流程，仅告警
+    console.warn('[admin-auth] login audit log failed (non-blocking):',
+      err instanceof Error ? err.message : String(err))
   }
-
-  if (!entry || entry.lockedUntil < now) {
-    attempts.set(ip, { count: 1, lockedUntil: 0 })
-  } else {
-    entry.count++
-    if (entry.count > 5) {
-      entry.lockedUntil = now + 15 * 60 * 1000 // 15 min lockout
-    }
-  }
-
-  return { allowed: true, retryAfterSec: 0 }
 }
 
 // ── Admin JWT ──
