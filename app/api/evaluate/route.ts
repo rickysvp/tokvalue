@@ -77,6 +77,50 @@ async function enrichWithAI(evaluation: Evaluation, lang = 'en'): Promise<Evalua
 
 type ApiCode = ApiErrorResponse['code']
 
+/**
+ * 免费模式字段白名单裁剪（付费墙核心修复）：
+ * 只下发免费用户界面实际渲染的字段（账号头部卡 + Overview tab + 评分卡/雷达图/风险列表）。
+ * 付费模块数据（增长计划/内容策略/趋势分析/收入预估/变现路线/品牌匹配/带货分析/深度分析/同业排名等）
+ * 一律不下发，防止通过 devtools Network 响应绕过付费墙白嫖。
+ * 注意：数据库仍存全量（saveEvaluation 不变），用户付费升级后由 upgrade 路由从缓存补发完整报告。
+ */
+function stripForFreeMode(evaluation: Evaluation): Partial<Evaluation> & { isFree: true } {
+  return {
+    isFree: true,
+    // ── 账号基础信息（头部卡片 + 基础统计）──
+    username: evaluation.username,
+    nickname: evaluation.nickname,
+    avatar: evaluation.avatar,
+    avatarData: evaluation.avatarData,
+    bio: evaluation.bio,
+    verified: evaluation.verified,
+    mock: evaluation.mock,
+    region: evaluation.region,
+    followerCount: evaluation.followerCount,
+    followingCount: evaluation.followingCount,
+    totalLikes: evaluation.totalLikes,
+    videoCount: evaluation.videoCount,
+    accountProfile: evaluation.accountProfile,
+    // ── 评分与 Overview 免费区 ──
+    score: evaluation.score,
+    tier: evaluation.tier,
+    summary: evaluation.summary,
+    verdict: evaluation.verdict,
+    advice: evaluation.advice,
+    priceAdvice: evaluation.priceAdvice,
+    dimensions: evaluation.dimensions,
+    metrics: evaluation.metrics,
+    riskFlags: evaluation.riskFlags,
+    businessValue: evaluation.businessValue,
+    brandDealPerVideo: evaluation.brandDealPerVideo,
+    brandPotential: evaluation.brandPotential,
+    peerBenchmark: evaluation.peerBenchmark,
+    // peerRanking 在免费 Overview step 04 实际渲染（PeerRankingSection），必须下发
+    peerRanking: evaluation.peerRanking,
+    computedAt: evaluation.computedAt,
+  }
+}
+
 function errorResponse(code: ApiCode, message: string, httpStatus: number, detail?: string) {
   const body: ApiErrorResponse = { error: message, code }
   if (detail) body.detail = detail
@@ -189,7 +233,8 @@ export async function POST(req: NextRequest) {
         username: normalized,
         metadata: { score: freeCached.score, tier: freeCached.tier, cached: true, free: true },
       }).catch(err => console.warn('[evaluate] recordEvent(free-cached) failed:', err))
-      return NextResponse.json({ ...freeCached, cached: true, isFree: true })
+      // 免费缓存命中同样只下发白名单字段（缓存中是全量数据，必须裁剪）
+      return NextResponse.json({ ...stripForFreeMode(freeCached), cached: true })
     }
 
     // IP-based daily rate limit
@@ -242,7 +287,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)
 
-    return NextResponse.json({ ...evaluation, isFree: true })
+    // 免费模式只下发白名单字段（数据库已存全量，付费升级后可取回完整报告）
+    return NextResponse.json(stripForFreeMode(evaluation))
 
   } catch (err) {
     // ── Refund for paid mode ──

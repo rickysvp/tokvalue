@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { X, Copy, Check, Mail, Send, Loader2, Link2 } from 'lucide-react'
+import { getSessionToken } from '@/lib/credits-client'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -19,9 +20,15 @@ export function ShareModal({ isOpen, onClose, username }: ShareModalProps) {
     setLoading(true)
     setError('')
     try {
+      // share 接口已要求鉴权：仅付费用户可分享自己评估过的账号
+      const token = getSessionToken()
+      if (!token) throw new Error('LOGIN_REQUIRED')
       const res = await fetch('/api/share', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ username }),
       })
       const data = await res.json()
@@ -29,7 +36,9 @@ export function ShareModal({ isOpen, onClose, username }: ShareModalProps) {
       setShareUrl(data.shareUrl)
     } catch (err) {
       console.error('[share-link] failed:', err)
-      setError('Failed to create share link. Please try again.')
+      setError(err instanceof Error && err.message === 'LOGIN_REQUIRED'
+        ? 'Please verify your email first — sharing is available after unlocking.'
+        : 'Failed to create share link. Please try again.')
     } finally {
       setLoading(false)
     }

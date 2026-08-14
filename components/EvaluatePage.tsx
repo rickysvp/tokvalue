@@ -125,6 +125,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const router = useRouter()
   const paidHandled = useRef(false)
   const evaluatedRef = useRef(false)
+  const evaluatingRef = useRef(false)
 
   // Load credit balance on mount
   useEffect(() => {
@@ -256,29 +257,76 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   }
 
   const handleEvaluate = useCallback(async (name?: string) => {
-    const target = (name ?? username).trim()
-    if (!target) return
+    // Re-entrancy guard: prevent concurrent evaluations (double-submit / double-deduct)
+    if (evaluatingRef.current) return
+    evaluatingRef.current = true
 
-    // @demo special case — show full report as product demo
-    if (target === '@demo' || target === 'demo') {
-      setResult(DEMO_RESULT)
-      setIsPremium(true)
-      setError('')
-      setLoading(false)
-      setIsLoading(false)
-      return
-    }
+    try {
+      const target = (name ?? username).trim()
+      if (!target) return
 
-    const token = getSessionToken()
-    if (!token) {
-      // Free mode — call API directly (no auth required)
-      pendingUsername.current = target
+      // @demo special case — show full report as product demo
+      if (target === '@demo' || target === 'demo') {
+        setResult(DEMO_RESULT)
+        setIsPremium(true)
+        setError('')
+        setLoading(false)
+        setIsLoading(false)
+        return
+      }
+
+      const token = getSessionToken()
+      if (!token) {
+        // Free mode — call API directly (no auth required)
+        pendingUsername.current = target
+        setLoading(true)
+        setError('')
+        setResult(null)
+        setNeedPurchase(false)
+        setIsLoading(false)
+        setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
+
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 45000)
+
+          const res = await fetch('/api/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: target }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
+
+          const data = await res.json()
+          if (!res.ok) {
+            setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
+            setError(data.error || dict.errors.evaluationFailed)
+          } else {
+            setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
+            setResult(data)
+            setIsPremium(!data.isFree)
+          }
+        } catch (err) {
+          const errMsg = err instanceof DOMException && err.name === 'AbortError'
+            ? dict.errors.requestTimeout : dict.errors.networkError
+          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: errMsg }))
+          setError(errMsg)
+        } finally {
+          setLoading(false)
+          setIsLoading(false)
+        }
+        return
+      }
+
       setLoading(true)
       setError('')
       setResult(null)
       setNeedPurchase(false)
-      setIsLoading(false)
+      pendingUsername.current = target
       setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
+
+      trackEvent('search', { username: target })
 
       try {
         const controller = new AbortController()
@@ -286,7 +334,10 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
         const res = await fetch('/api/evaluate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({ username: target }),
           signal: controller.signal,
         })
@@ -294,11 +345,26 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
         const data = await res.json()
         if (!res.ok) {
-          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
-          setError(data.error || dict.errors.evaluationFailed)
+          if (res.status === 402) {
+            setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
+            setPaidWallMode('evaluate')
+            setNeedPurchase(true)
+            setShowPaidWallModal(true)
+          } else if (res.status === 429 && data.code === 'FREE_RATE_LIMIT') {
+            setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || 'Daily free limit reached' }))
+            setError(data.error || 'Daily free limit reached')
+          } else {
+            setEvaluatingModal(prev => ({
+              ...prev,
+              status: 'error',
+              errorMessage: data.error || dict.errors.evaluationFailed,
+            }))
+            setError(data.error || dict.errors.evaluationFailed)
+          }
         } else {
           setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
           setResult(data)
+          // Detect freemium mode from API response
           setIsPremium(!data.isFree)
         }
       } catch (err) {
@@ -310,65 +376,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         setLoading(false)
         setIsLoading(false)
       }
-      return
-    }
-
-    setLoading(true)
-    setError('')
-    setResult(null)
-    setNeedPurchase(false)
-    pendingUsername.current = target
-    setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
-
-    trackEvent('search', { username: target })
-
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 45000)
-
-      const res = await fetch('/api/evaluate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ username: target }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      const data = await res.json()
-      if (!res.ok) {
-        if (res.status === 402) {
-          setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
-          setPaidWallMode('evaluate')
-          setNeedPurchase(true)
-          setShowPaidWallModal(true)
-        } else if (res.status === 429 && data.code === 'FREE_RATE_LIMIT') {
-          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || 'Daily free limit reached' }))
-          setError(data.error || 'Daily free limit reached')
-        } else {
-          setEvaluatingModal(prev => ({
-            ...prev,
-            status: 'error',
-            errorMessage: data.error || dict.errors.evaluationFailed,
-          }))
-          setError(data.error || dict.errors.evaluationFailed)
-        }
-      } else {
-        setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
-        setResult(data)
-        // Detect freemium mode from API response
-        setIsPremium(!data.isFree)
-      }
-    } catch (err) {
-      const errMsg = err instanceof DOMException && err.name === 'AbortError'
-        ? dict.errors.requestTimeout : dict.errors.networkError
-      setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: errMsg }))
-      setError(errMsg)
     } finally {
-      setLoading(false)
-      setIsLoading(false)
+      evaluatingRef.current = false
     }
   }, [username, dict.errors.networkError, dict.errors.requestTimeout, dict.errors.evaluationFailed])
 

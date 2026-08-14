@@ -10,7 +10,11 @@ interface LockedSectionProps {
   icon: React.ReactNode
   /** Preview content shown above the blur gradient */
   teaser: React.ReactNode
-  /** Full content (rendered hidden for PDF export compatibility) */
+  /**
+   * 兼容旧调用方的占位 prop（原本为 PDF 导出而隐藏渲染完整付费内容）。
+   * 安全约束：锁定态下绝不渲染 children —— 付费数据一旦进入 DOM 即可被
+   * devtools / 爬虫白嫖，此处只保留锁态占位 UI，由付费后的完整数据渲染付费模块。
+   */
   children?: React.ReactNode
   unlockLabel?: string
   priceLabel?: string
@@ -21,14 +25,13 @@ interface LockedSectionProps {
  * LockedSection — Freemium tier locked content block.
  *
  * Shows section header + teaser preview + frosted-glass gradient overlay
- * with inline unlock CTA. Full content is rendered hidden.
+ * with inline unlock CTA. Full paid content is NOT rendered in the DOM.
  */
 export function LockedSection({
   step,
   title,
   icon,
   teaser,
-  children,
   unlockLabel = 'Unlock',
   priceLabel = '$9',
   onUnlock,
@@ -62,16 +65,6 @@ export function LockedSection({
         {/* Subtle top-edge glow line */}
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#FF0050]/40 to-transparent" />
       </div>
-
-      {/* Full content — hidden, kept for PDF export */}
-      {children && (
-        <div className="hidden locked-content" data-locked-section={step}>
-          <SectionHeader step={step} title={title} icon={icon} />
-          <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 sm:p-8">
-            {children}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
