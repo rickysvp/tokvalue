@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { hashIp } from '@/lib/analytics'
+import { getClientIp } from '@/lib/ip'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,12 +10,6 @@ const TO_EMAIL = 'connect@tokvalue.com'
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const RATE_LIMIT_MAX = 5
 const submissions = new Map<string, { count: number; windowStart: number }>()
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  return request.headers.get('x-real-ip') || '0.0.0.0'
-}
 
 function isRateLimited(ipHash: string): boolean {
   const now = Date.now()

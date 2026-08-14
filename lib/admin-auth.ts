@@ -8,6 +8,7 @@
 
 import { SignJWT, jwtVerify } from 'jose'
 import crypto from 'crypto'
+import { getClientIp } from './ip'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
 const ADMIN_JWT_SECRET_RAW = process.env.ADMIN_JWT_SECRET || ''
@@ -31,14 +32,6 @@ const TOKEN_MAX_AGE = '24h'
 
 // ── Rate limiting (in-memory, per-IP) ──
 const attempts = new Map<string, { count: number; lockedUntil: number }>()
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  const realIp = request.headers.get('x-real-ip')
-  if (realIp) return realIp.trim()
-  return '127.0.0.1'
-}
 
 export function checkRateLimit(request: Request): { allowed: boolean; retryAfterSec: number } {
   const ip = getClientIp(request)

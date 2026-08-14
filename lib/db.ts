@@ -173,7 +173,8 @@ export async function findEvaluation(username: string): Promise<Evaluation | nul
 export async function findRecentEvaluations(limit = 50): Promise<Evaluation[]> {
   const type = await initStore()
   if (type === 'postgres') {
-    const rows = await getSql()`SELECT * FROM evaluations ORDER BY computed_at DESC LIMIT ${limit}`
+    // 列裁剪：列表展示只需以下字段，避免拉取十余个巨型 JSONB 与 base64 头像列（SELECT * 可达数 MB）
+    const rows = await getSql()`SELECT username, nickname, score, tier, avatar_data, computed_at, region, follower_count FROM evaluations ORDER BY computed_at DESC LIMIT ${limit}`
     return rows.map(rowToEvaluation)
   }
   const store = type === 'file' ? readFileStore() : memoryFallback
@@ -642,8 +643,8 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
       ? row.risk_flags as Evaluation['riskFlags']
       : parseJson<Evaluation['riskFlags']>(row.risk_flags)
       ?? (row.riskFlags as Evaluation['riskFlags']),
-    verdict: String(row.verdict),
-    advice: String(row.advice),
+    verdict: row.verdict != null ? String(row.verdict) : '',
+    advice: row.advice != null ? String(row.advice) : '',
     priceAdvice: String(row.price_advice ?? row.priceAdvice ?? ''),
     accountHealth: parseJson<Evaluation['accountHealth']>(row.account_health),
     contentCadence: parseJson<Evaluation['contentCadence']>(row.content_cadence),
@@ -668,10 +669,10 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
     avatar: row.avatar ? String(row.avatar) : undefined,
     avatarData: row.avatar_data ? String(row.avatar_data) : undefined,
     bio: row.bio ? String(row.bio) : undefined,
-    followerCount: Number(row.follower_count ?? row.followerCount),
-    followingCount: Number(row.following_count ?? row.followingCount),
-    totalLikes: Number(row.total_likes ?? row.totalLikes),
-    videoCount: Number(row.video_count ?? row.videoCount),
+    followerCount: Number(row.follower_count ?? row.followerCount ?? 0),
+    followingCount: Number(row.following_count ?? row.followingCount ?? 0),
+    totalLikes: Number(row.total_likes ?? row.totalLikes ?? 0),
+    videoCount: Number(row.video_count ?? row.videoCount ?? 0),
     verified: row.verified != null ? Boolean(row.verified) : undefined,
     region: row.region ? String(row.region) : undefined,
     posts: Array.isArray(parseJson<Evaluation['posts']>(row.posts)) ? parseJson<Evaluation['posts']>(row.posts) : [],
@@ -696,7 +697,7 @@ export async function findFreeEvaluation(username: string): Promise<Evaluation |
     return rows[0] ? rowToEvaluation(rows[0]) : null
   }
   const found = await findEvaluation(normalized)
-  if (!found) return null
+  if (!found || !((found as { isFree?: boolean }).isFree)) return null  // 加 isFree 校验，避免付费评估当免费缓存返回给未登录用户
   const hours = (Date.now() - new Date(found.computedAt).getTime()) / 36e5
   return hours < 24 ? found : null
 }
