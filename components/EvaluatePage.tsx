@@ -20,6 +20,7 @@ import { MonetizationChecklist } from '@/components/sections/MonetizationCheckli
 import { TrendAnalysisSection } from '@/components/sections/TrendAnalysisSection'
 import { CommercializationSection } from '@/components/sections/CommercializationSection'
 import { CommerceReadinessSection } from '@/components/sections/CommerceReadinessSection'
+import { ValuationMethodology } from '@/components/ValuationMethodology'
 import { PaidWallModal } from '@/components/PaidWallModal'
 import { EvaluatingModal, type EvaluatingStatus } from '@/components/EvaluatingModal'
 import { DeepAnalysisSection } from '@/components/DeepAnalysisSection'
@@ -684,6 +685,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
                   </div>
                 </div>
               </div>
+
+              {/* 估值方法透明化（免费可见）：公式概览 + 实际因子 + 免责声明 */}
+              <ValuationMethodology result={result} />
 
               <SectionHeader step="02" title={dict.evaluation.sections.assessmentConclusion} icon={<Target className="h-4 w-4" />} />
               <div className="mb-10 rounded-2xl border border-[#00F2EA]/20 bg-gradient-to-br from-[#00F2EA]/5 to-[#FF0050]/5 p-6">
