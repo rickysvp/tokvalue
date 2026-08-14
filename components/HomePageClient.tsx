@@ -117,24 +117,45 @@ export default function HomePage() {
   async function handlePricingCheckout(packageId: string) {
     if (checkoutLoading) return
     setCheckoutLoading(true)
+    const doFetch = (useToken: boolean, email: string) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const token = getSessionToken()
+      if (useToken && token) headers['Authorization'] = `Bearer ${token}`
+      return fetch('/api/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(useToken ? { packageId } : { packageId, email }),
+      })
+    }
     try {
       const token = getSessionToken()
-      if (!token) {
+      const activeEmail = getActiveEmail()
+      let res: Response
+      if (token) {
+        res = await doFetch(true, '')
+        // token 过期/无效 → 清掉 stale token，有邮箱时降级 guest 通道重试
+        if (res.status === 401) {
+          setSessionToken(null)
+          if (activeEmail) {
+            res = await doFetch(false, activeEmail)
+          } else {
+            setVerifyModalMode('evaluate')
+            setShowVerifyModal(true)
+            return
+          }
+        }
+      } else if (activeEmail) {
+        // guest 通道：有活跃邮箱直接下单（Creem 支付页已预填 email）
+        res = await doFetch(false, activeEmail)
+      } else {
+        // 完全新用户：旧验证码弹窗兜底
         setVerifyModalMode('evaluate')
         setShowVerifyModal(true)
         return
       }
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ packageId }),
-      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok || !data.checkoutUrl) {
-        toast('Payment service error. Please try again.')
+        toast(data.error || 'Payment service error. Please try again.')
         return
       }
       window.location.href = data.checkoutUrl
