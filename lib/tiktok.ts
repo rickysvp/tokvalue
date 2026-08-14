@@ -259,6 +259,22 @@ function inferRegionFromContent(bio: string, nickname: string, posts: Post[]): s
       return words * 4
     }, region: 'PT' },
 
+    // 中文（繁体优先：命中繁体特征字→TW，否则简体→CN）
+    { test: (t) => {
+      const han = (t.match(/[\u4e00-\u9fff]/g) || []).length
+      if (han < 4) return 0 // 汉字太少不判断
+      const traditional = (t.match(/[們這來時裡後為說對過讓還點樣麼書龍國語體壇學藝傳經濟觀點轉發複習選擇公開與灣臺鄉間個於無發關東樂車馬門風飛魚鳥萬長開兒實覺際體會現獨習畫話讀誰變處歲從當幹麼製鐘鈡點線還進遠裡邊價買賣錢課謝您幹嗎話語詞彙認知識題數歲月份週禮樂歡慶]/g) || []).length
+      return han * 4 + traditional * 6
+    }, region: 'TW' },
+
+    // 简体中文（放在繁体之后，命中简体特征字时）
+    { test: (t) => {
+      const han = (t.match(/[\u4e00-\u9fff]/g) || []).length
+      if (han < 4) return 0
+      const simplified = (t.match(/[们这来时里后为说对过让还点样么书龙国语体坛学艺传经济观点转发复习选择公开与湾乡间个于无发关东乐车马门风飞鱼鸟万长开儿实觉际体会现独习画话读谁变处岁从当干么制钟点线还进远里边价买卖钱课谢您干吗话语词汇认知识题数岁月份周礼乐欢庆]/g) || []).length
+      return han * 4 + simplified * 6
+    }, region: 'CN' },
+
     // 英语（兜底检测，放在最后避免误判）
     // 只有英文内容占比极高（>80% ASCII）且没有其他语言特征时才会命中
     { test: (t) => {

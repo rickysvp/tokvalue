@@ -12,12 +12,11 @@ import type { CreditBalance } from '@/lib/credits'
 import { useI18n } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
-import { RecentEvaluations } from '@/components/RecentEvaluations'
+import { AvatarWall } from '@/components/AvatarWall'
 import { CtaButton } from '@/components/CtaButton'
-import { PricingSection, FAQSection } from '@/components/LandingSections'
+import { PricingSection, FAQSection, CoreCapabilitiesSection } from '@/components/LandingSections'
 import { HowItWorks } from '@/components/HowItWorks'
 import { SocialProofBar } from '@/components/SocialProofBar'
-import { AvatarWall } from '@/components/AvatarWall'
 
 export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
 
@@ -36,6 +35,7 @@ export default function HomePage() {
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [verifyModalMode, setVerifyModalMode] = useState<'evaluate' | 'unlock'>('evaluate')
   const [stats, setStats] = useState({ accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0 })
+  const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
   // Load credit balance on mount
@@ -123,6 +123,11 @@ export default function HomePage() {
     setLoading(true)
     router.push(`/evaluate/${encodeURIComponent(target)}`)
   }
+
+  const handleFocusInput = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setTimeout(() => inputRef.current?.focus(), 400)
+  }, [])
 
   return (
     <main className="min-h-screen pb-20">
@@ -243,6 +248,7 @@ export default function HomePage() {
             <div className="flex items-center rounded-2xl border border-neutral-700 bg-neutral-900/80 backdrop-blur px-4 py-3 glow-pink focus-within:border-[#FF0050] transition-colors">
               <span className="text-neutral-500 text-lg mr-3">@</span>
               <input
+                ref={inputRef}
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
@@ -300,6 +306,9 @@ export default function HomePage() {
       {/* How It Works */}
       <HowItWorks dict={dict.home.howItWorks} />
 
+      {/* Core Value Proposition — what the product actually does */}
+      <CoreCapabilitiesSection dict={dict} interactive={true} onFocusInput={handleFocusInput} />
+
       {/* Pricing */}
       <PricingSection
         dict={dict}
@@ -310,9 +319,6 @@ export default function HomePage() {
 
       {/* FAQ */}
       <FAQSection dict={dict} interactive={true} />
-
-      {/* Recently Evaluated — moved below FAQ as browse content */}
-      <RecentEvaluations onSelect={(name) => router.push(`/evaluate/${encodeURIComponent(name)}`)} />
 
       {/* Footer */}
       <SiteFooter />

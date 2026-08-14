@@ -107,6 +107,7 @@ export interface Evaluation {
   mock?: boolean
   cached?: boolean
   avatar?: string
+  avatarData?: string
   bio?: string
   followerCount: number
   followingCount: number
@@ -455,6 +456,7 @@ export interface RecentEvaluation {
   username: string
   nickname: string
   avatar: string | null
+  avatarData?: string | null
   tier: string
   score: number
   followerCount: number

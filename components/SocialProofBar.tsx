@@ -1,11 +1,13 @@
 'use client'
 
-import { Globe, Users, BarChart3 } from 'lucide-react'
+import { Globe, Users, BarChart3, DollarSign, TrendingUp } from 'lucide-react'
 
 interface SocialProofStats {
   accountsEvaluated: number
   totalValueAssessed: number
   uniqueVisitors: number
+  totalFollowers?: number
+  countriesReached?: number
 }
 
 interface SocialProofBarProps {
@@ -14,7 +16,12 @@ interface SocialProofBarProps {
 
 export function SocialProofBar({ stats }: SocialProofBarProps) {
   // Don't render anything if API hasn't returned real data
-  if (stats.accountsEvaluated === 0 && stats.totalValueAssessed === 0 && stats.uniqueVisitors === 0) {
+  if (
+    stats.accountsEvaluated === 0 &&
+    stats.totalValueAssessed === 0 &&
+    stats.uniqueVisitors === 0 &&
+    (stats.totalFollowers ?? 0) === 0
+  ) {
     return null
   }
 
@@ -33,17 +40,27 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
 
   const items = [
     {
+      icon: DollarSign,
+      value: formatCurrency(stats.totalValueAssessed),
+      label: 'Creator Value Assessed',
+    },
+    {
+      icon: Users,
+      value: formatValue(stats.totalFollowers ?? 0),
+      label: 'Audience Reach',
+    },
+    {
+      icon: Globe,
+      value: String(stats.countriesReached ?? 0),
+      label: 'Countries Covered',
+    },
+    {
       icon: BarChart3,
       value: formatValue(stats.accountsEvaluated),
       label: 'Accounts Evaluated',
     },
     {
-      icon: Globe,
-      value: formatCurrency(stats.totalValueAssessed),
-      label: 'Total Value Assessed',
-    },
-    {
-      icon: Users,
+      icon: TrendingUp,
       value: formatValue(stats.uniqueVisitors),
       label: 'Active Users',
     },
@@ -55,7 +72,7 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
         <p className="text-center text-sm text-neutral-500 mb-8">
           Trusted by creators, brands &amp; agencies worldwide
         </p>
-        <div className="grid grid-cols-3 gap-8 text-center max-w-xl mx-auto">
+        <div className="grid grid-cols-2 gap-8 text-center sm:grid-cols-5 max-w-4xl mx-auto">
           {items.map((item, i) => {
             const Icon = item.icon
             return (

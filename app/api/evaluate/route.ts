@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
+import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { scoreProfile } from '@/lib/scoring'
 import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit } from '@/lib/db'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
@@ -165,6 +166,8 @@ export async function POST(req: NextRequest) {
 
       let evaluation = scoreProfile(profile)
       evaluation = await enrichWithAI(evaluation, lang)
+      // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
+      evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
 
       await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
 
@@ -223,6 +226,8 @@ export async function POST(req: NextRequest) {
     }).catch(err => console.warn('[evaluate] recordEvent(free-start) failed:', err))
 
     const evaluation = scoreProfile(profile)
+    // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
+    evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
     // Free mode: skip AI enrichment to save DeepSeek costs
     // The scoring engine alone provides enough value for the free tier
     // (tier, score, value range, risk scan, business valuation)

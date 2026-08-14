@@ -23,10 +23,13 @@ async function initStore(): Promise<Store> {
   if (storeType !== 'memory') return storeType
 
   if (DATABASE_URL) {
-    try {
-      const { neon } = await import('@neondatabase/serverless')
-      sql = neon(DATABASE_URL)
-      await getSql()`
+    // 冷启动时 Neon 无服务器连接可能瞬时抖动（ECONNRESET），重试几次再降级
+    let lastErr: unknown = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { neon } = await import('@neondatabase/serverless')
+        sql = neon(DATABASE_URL)
+        await getSql()`
         CREATE TABLE IF NOT EXISTS evaluations (
           username TEXT PRIMARY KEY,
         nickname TEXT,
@@ -41,6 +44,7 @@ async function initStore(): Promise<Store> {
         price_advice TEXT,
         computed_at TIMESTAMPTZ,
         avatar TEXT,
+        avatar_data TEXT,
         bio TEXT,
         follower_count INTEGER,
         following_count INTEGER,
@@ -80,13 +84,34 @@ async function initStore(): Promise<Store> {
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS upgraded_at TIMESTAMPTZ`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS evaluated_by_ip TEXT`
       await getSql()`CREATE INDEX IF NOT EXISTS idx_evaluations_is_free ON evaluations(is_free)`
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS avatar_data TEXT`
+      // 报告满意度评分表（用于首页社会证明的真实数据源）
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS report_ratings (
+          id SERIAL PRIMARY KEY,
+          username TEXT,
+          rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+          ip_hash TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+      await getSql()`CREATE INDEX IF NOT EXISTS idx_report_ratings_created ON report_ratings(created_at)`
       storeType = 'postgres'
       return storeType
-    } catch (err) {
-      console.warn('[db] Postgres init failed, falling back to file/memory', err)
+      } catch (err) {
+        lastErr = err
+        sql = null
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, attempt * 500))
+        }
+      }
     }
+    // DATABASE_URL 已配置但重试均失败：重置状态，下次请求再重试，不 fallback 到 file 脏数据
+    console.warn('[db] Postgres init failed after retries (will retry next request):', lastErr instanceof Error ? lastErr.message : lastErr)
+    return 'memory'
   }
 
+  // 未配置 DATABASE_URL → file/memory fallback（仅本地开发）
   try {
     if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
     if (!existsSync(DATA_PATH)) writeFileSync(DATA_PATH, '[]', 'utf-8')
@@ -168,7 +193,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
          account_health, content_cadence, engagement_quality, peer_benchmark, brand_potential, monetization_path, growth_plan,
          income_estimate, business_value, revenue_roadmap, content_strategy, peer_ranking, brand_matching,
          trend_analysis, commercialization_advice, commerce_readiness, formula_version, calculation_metadata,
-         computed_at, avatar, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip)
+         computed_at, avatar, avatar_data, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip)
       VALUES
         (${evaluation.username}, ${evaluation.nickname}, ${evaluation.score}, ${evaluation.tier},
          ${JSON.stringify(evaluation.dimensions)}::jsonb, ${JSON.stringify(evaluation.summary)}::jsonb,
@@ -190,7 +215,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
          ${JSON.stringify(evaluation.commerceReadiness)}::jsonb,
          ${evaluation.formulaVersion || null},
          ${JSON.stringify(evaluation.calculationMetadata || null)}::jsonb,
-         ${evaluation.computedAt}, ${evaluation.avatar || null}, ${evaluation.bio || null},
+         ${evaluation.computedAt}, ${evaluation.avatar || null}, ${evaluation.avatarData || null}, ${evaluation.bio || null},
          ${evaluation.followerCount}, ${evaluation.followingCount}, ${evaluation.totalLikes}, ${evaluation.videoCount},
          ${evaluation.verified ?? null}, ${evaluation.region || null}, ${JSON.stringify(evaluation.posts || [])}::jsonb,
          ${JSON.stringify(evaluation.accountProfile)}::jsonb,
@@ -226,6 +251,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
         calculation_metadata = EXCLUDED.calculation_metadata,
         computed_at = EXCLUDED.computed_at,
         avatar = EXCLUDED.avatar,
+        avatar_data = EXCLUDED.avatar_data,
         bio = EXCLUDED.bio,
         follower_count = EXCLUDED.follower_count,
         following_count = EXCLUDED.following_count,
@@ -294,16 +320,63 @@ export async function getEvaluationStats(): Promise<{ count: number; totalValueA
     return { count, totalValueAssessed }
   }
 
-  const countRows = await getSql()`SELECT COUNT(*) as count FROM evaluations`
+  // postgres 查询重试：连接抖动时重试，避免瞬时返回 0
+  let countRows: Array<Record<string, unknown>> = []
+  let valueRows: Array<Record<string, unknown>> = []
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      countRows = await getSql()`SELECT COUNT(*) as count FROM evaluations`
+      valueRows = await getSql()`
+        SELECT COALESCE(SUM((business_value->'totalValue'->>'high')::numeric), 0) as total
+        FROM evaluations
+        WHERE business_value->'totalValue'->>'high' IS NOT NULL
+      `
+      break
+    } catch (err) {
+      if (attempt === 3) throw err
+      await new Promise(r => setTimeout(r, attempt * 400))
+    }
+  }
   const count = Number(countRows[0]?.count || 0)
-
-  const valueRows = await getSql()`
-    SELECT COALESCE(SUM((business_value->'totalValue'->>'high')::numeric), 0) as total
-    FROM evaluations
-    WHERE business_value->'totalValue'->>'high' IS NOT NULL
-  `
   const totalValueAssessed = Number(valueRows[0]?.total || 0)
   return { count, totalValueAssessed }
+}
+
+/**
+ * 覆盖维度统计：总粉丝数（覆盖受众规模）+ 去重国家数（覆盖地理范围）。
+ * 用于公开 stats 端点。region 为空的记录不参与国家去重（不虚构）。
+ */
+export async function getAudienceReach(): Promise<{ totalFollowers: number; countriesReached: number }> {
+  const type = await initStore()
+  if (type !== 'postgres') {
+    const store = type === 'file' ? readFileStore() : memoryFallback
+    const totalFollowers = store.reduce((sum, e) => {
+      const f = e.followerCount
+      return sum + (typeof f === 'number' && Number.isFinite(f) ? f : 0)
+    }, 0)
+    const regionSet = new Set<string>()
+    for (const e of store) {
+      const r = (e.region || '').trim().toUpperCase()
+      if (r) regionSet.add(r)
+    }
+    return { totalFollowers, countriesReached: regionSet.size }
+  }
+
+  let followersRows: Array<Record<string, unknown>> = []
+  let countryRows: Array<Record<string, unknown>> = []
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      followersRows = await getSql()`SELECT COALESCE(SUM(follower_count), 0) as total FROM evaluations`
+      countryRows = await getSql()`SELECT COUNT(DISTINCT UPPER(TRIM(region))) as c FROM evaluations WHERE region IS NOT NULL AND TRIM(region) != ''`
+      break
+    } catch (err) {
+      if (attempt === 3) throw err
+      await new Promise(r => setTimeout(r, attempt * 400))
+    }
+  }
+  const totalFollowers = Number(followersRows[0]?.total || 0)
+  const countriesReached = Number(countryRows[0]?.c || 0)
+  return { totalFollowers, countriesReached }
 }
 
 /**
@@ -584,6 +657,7 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
     },
     computedAt: String(row.computed_at ?? row.computedAt),
     avatar: row.avatar ? String(row.avatar) : undefined,
+    avatarData: row.avatar_data ? String(row.avatar_data) : undefined,
     bio: row.bio ? String(row.bio) : undefined,
     followerCount: Number(row.follower_count ?? row.followerCount),
     followingCount: Number(row.following_count ?? row.followingCount),
@@ -656,4 +730,41 @@ export async function checkFreeRateLimit(ip: string): Promise<{ allowed: boolean
   entry.count++
   const remaining = Math.max(0, FREE_DAILY_LIMIT - entry.count)
   return { allowed: entry.count <= FREE_DAILY_LIMIT, remaining, resetMs: windowMs - (now - entry.windowStart) }
+}
+
+/**
+ * 报告满意度评分：保存一条用户评分（1-5 星）。
+ * ip_hash 用于同一 IP 去重（防止刷分），仅存 hash 不存明文。
+ */
+export async function saveReportRating(username: string, rating: number, ipHash: string): Promise<{ ok: boolean }> {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false }
+  const type = await initStore()
+  if (type !== 'postgres') {
+    // file/memory 模式：无真实持久化，静默返回 ok（不影响本地开发体验）
+    return { ok: true }
+  }
+  await getSql()`INSERT INTO report_ratings (username, rating, ip_hash) VALUES (${username}, ${rating}, ${ipHash || null})`
+  return { ok: true }
+}
+
+/**
+ * 报告满意度统计：平均分 + 评分总数。
+ * 用于首页社会证明（真实评分数据，评分太少时不展示以避免误导）。
+ */
+export async function getReportRatingStats(): Promise<{ average: number; count: number }> {
+  const type = await initStore()
+  if (type !== 'postgres') return { average: 0, count: 0 }
+  let rows: Array<Record<string, unknown>> = []
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      rows = await getSql()`SELECT AVG(rating) as avg, COUNT(*)::int as cnt FROM report_ratings`
+      break
+    } catch (err) {
+      if (attempt === 3) throw err
+      await new Promise(r => setTimeout(r, attempt * 400))
+    }
+  }
+  const average = Number(rows[0]?.avg || 0)
+  const count = Number(rows[0]?.cnt || 0)
+  return { average, count }
 }

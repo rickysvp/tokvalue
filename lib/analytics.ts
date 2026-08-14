@@ -712,27 +712,34 @@ export async function getPVUV(): Promise<PVUVData> {
   // UV 用 ip_hash 去重，ip_hash 为空时回退 session_id
   const UV_COL = sql.unsafe("COALESCE(NULLIF(ip_hash, ''), session_id)")
 
-  try {
-    const [total, today, week, month] = await Promise.all([
-      sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view'`,
-      sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${todayStart}::timestamptz`,
-      sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${weekStart}::timestamptz`,
-      sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${monthStart}::timestamptz`,
-    ]) as Array<Array<{ pv: string; uv: string }>>
+  // 连接抖动重试
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const [total, today, week, month] = await Promise.all([
+        sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view'`,
+        sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${todayStart}::timestamptz`,
+        sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${weekStart}::timestamptz`,
+        sql`SELECT COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv FROM analytics_events WHERE event_type = 'page_view' AND created_at >= ${monthStart}::timestamptz`,
+      ]) as Array<Array<{ pv: string; uv: string }>>
 
-    const num = (r: { pv: string; uv: string }) => ({ pv: Number(r.pv), uv: Number(r.uv) })
-    const t = num(total[0]), td = num(today[0]), tw = num(week[0]), tm = num(month[0])
+      const num = (r: { pv: string; uv: string }) => ({ pv: Number(r.pv), uv: Number(r.uv) })
+      const t = num(total[0]), td = num(today[0]), tw = num(week[0]), tm = num(month[0])
 
-    return {
-      totalPV: t.pv, totalUV: t.uv,
-      pvToday: td.pv, uvToday: td.uv,
-      pvWeek: tw.pv, uvWeek: tw.uv,
-      pvMonth: tm.pv, uvMonth: tm.uv,
+      return {
+        totalPV: t.pv, totalUV: t.uv,
+        pvToday: td.pv, uvToday: td.uv,
+        pvWeek: tw.pv, uvWeek: tw.uv,
+        pvMonth: tm.pv, uvMonth: tm.uv,
+      }
+    } catch (err) {
+      if (attempt === 3) {
+        console.error('[analytics] getPVUV query failed:', err instanceof Error ? err.message : String(err))
+      } else {
+        await new Promise(r => setTimeout(r, attempt * 400))
+      }
     }
-  } catch (err) {
-    console.error('[analytics] getPVUV query failed:', err instanceof Error ? err.message : String(err))
-    return { totalPV: 0, totalUV: 0, pvToday: 0, uvToday: 0, pvWeek: 0, uvWeek: 0, pvMonth: 0, uvMonth: 0 }
   }
+  return { totalPV: 0, totalUV: 0, pvToday: 0, uvToday: 0, pvWeek: 0, uvWeek: 0, pvMonth: 0, uvMonth: 0 }
 }
 
 // ── Query: Users List ──

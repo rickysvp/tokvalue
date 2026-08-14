@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findEvaluation, saveEvaluation } from '@/lib/db'
+import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit } from '@/lib/credits-server'
@@ -122,6 +123,10 @@ export async function POST(req: NextRequest) {
 
     const lang = 'en' // Fixed to English until multi-language dictionaries are ready
     const enriched = await enrichWithAI(evaluation, lang)
+    // 兜底：免费阶段若头像编码失败，付费升级时补抓
+    if (!enriched.avatarData) {
+      enriched.avatarData = (await fetchAndEncodeAvatar(enriched.avatar)) ?? undefined
+    }
 
     await saveEvaluation(enriched, { evaluatedBy: userEmail, isFree: false })
 

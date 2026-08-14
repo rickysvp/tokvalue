@@ -3,12 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  Building2, DollarSign, Globe, TrendingUp, Layers, Trophy,
-  Shield, Sparkles, Eye, Scale, AlertTriangle, Activity, Rocket, Lightbulb,
-  Flame, Radio, FileDown, RefreshCw, BarChart3, LineChart,
-  Wallet, Zap, Star, CheckCircle2, ArrowRight, ChevronDown, MessageCircle,
+  DollarSign,
+  Shield, Sparkles,
+  Zap, Star, ArrowRight, ChevronDown, MessageCircle,
+  Search, Check,
 } from 'lucide-react'
-import { t } from '@/lib/i18n'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import { CtaButton } from './CtaButton'
@@ -33,36 +32,6 @@ interface CapabilitiesSectionProps extends BaseSectionProps {
 interface FAQSectionProps extends BaseSectionProps {}
 
 // ── Helpers ──
-
-export function CapFeature({ icon, color, title, items }: {
-  icon: React.ReactNode
-  color: 'pink' | 'cyan'
-  title: string
-  items: readonly string[]
-}) {
-  const borderColor = color === 'pink' ? 'border-[#FF0050]/20 group-hover:border-[#00F2EA]/20' : 'border-[#00F2EA]/20 group-hover:border-[#00F2EA]/20'
-  const iconBg = color === 'pink' ? 'bg-[#FF0050]/10' : 'bg-[#00F2EA]/10'
-  const iconColor = color === 'pink' ? 'text-[#FF0050]' : 'text-[#00F2EA]'
-  const dotColor = color === 'pink' ? 'bg-[#FF0050]/60' : 'bg-[#00F2EA]/60'
-  return (
-    <div className={`rounded-xl border ${borderColor} bg-neutral-900/40 p-4 transition-all`}>
-      <div className="flex items-center gap-2.5 mb-3">
-        <div className={`flex items-center justify-center h-7 w-7 rounded-lg ${iconBg} ${iconColor}`}>
-          {icon}
-        </div>
-        <h4 className="text-sm font-semibold text-white">{title}</h4>
-      </div>
-      <ul className="space-y-2">
-        {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-[12px] text-neutral-400 leading-relaxed">
-            <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${dotColor}`} />
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 function LandingFaqItem({ question, answer, interactive, defaultOpen = false }: {
   question: string; answer: string; interactive: boolean; defaultOpen?: boolean
@@ -210,10 +179,16 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
 // ── Core Capabilities ──
 
 export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput }: CapabilitiesSectionProps) {
+  const storyIcons = [DollarSign, Shield, Search]
+  const storyAccents = [
+    { icon: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10', border: 'border-[#FF0050]/20' },
+    { icon: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10', border: 'border-[#00F2EA]/20' },
+    { icon: 'text-[#E8A840]', bg: 'bg-[#E8A840]/10', border: 'border-[#E8A840]/20' },
+  ]
   return (
-    <section id="capabilities" className="border-b border-neutral-800 py-20">
+    <section id="capabilities" className="py-20">
       <div className="mx-auto max-w-5xl px-4">
-        <div className="text-center mb-14">
+        <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
             <Sparkles className="h-3.5 w-3.5" />
             {dict.home.capabilities.badge}
@@ -221,157 +196,46 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">
             {dict.home.capabilities.title}
           </h2>
-          <p className="text-neutral-500 text-sm max-w-2xl mx-auto leading-relaxed">
-            {dict.home.capabilities.description}
+          <p className="text-neutral-500 text-sm max-w-xl mx-auto leading-relaxed">
+            {dict.home.capabilities.subtitle}
           </p>
         </div>
 
-        {/* 1. BUSINESS VALUATION */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
-            <div className="lg:w-[340px] shrink-0">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF0050]/10 border border-[#FF0050]/20 px-3 py-1 text-[10px] font-semibold text-[#FF0050] uppercase tracking-wider mb-4">
-                <DollarSign className="h-3 w-3" /> {dict.home.capabilities.valuation.badge}
-              </span>
-              <h3 className="text-xl font-bold mb-2">{dict.home.capabilities.valuation.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed mb-5">
-                {dict.home.capabilities.valuation.desc}
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FF0050]/5 border border-[#FF0050]/10">
-                  <DollarSign className="h-5 w-5 text-[#FF0050] shrink-0" />
-                  <div>
-                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">{dict.home.capabilities.valuation.rangeLabel}</div>
-                    <div className="text-base font-bold text-[#FF0050]">{dict.home.capabilities.valuation.rangeValue}</div>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {dict.home.capabilities.story.map((card, i) => {
+            const Icon = storyIcons[i] || DollarSign
+            const accent = storyAccents[i] || storyAccents[0]
+            return (
+              <div
+                key={i}
+                className={`rounded-2xl border ${accent.border} bg-gradient-to-b from-[#0f0f0f] to-[#0a0a0a] p-7 flex flex-col hover:-translate-y-1 transition-transform duration-300`}
+              >
+                <div className={`flex items-center justify-center h-11 w-11 rounded-xl ${accent.bg} ${accent.icon} mb-5`}>
+                  <Icon className="h-5 w-5" />
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FF0050]/5 border border-[#FF0050]/10">
-                  <Globe className="h-5 w-5 text-[#FF0050] shrink-0" />
-                  <div>
-                    <div className="text-[10px] text-neutral-500 uppercase tracking-wider">{dict.home.capabilities.valuation.coverageLabel}</div>
-                    <div className="text-sm font-semibold text-white">{dict.home.capabilities.valuation.coverageValue}</div>
-                  </div>
+
+                <h3 className="text-lg font-semibold text-white mb-2">{card.title}</h3>
+                <p className="text-sm text-neutral-400 leading-relaxed mb-5 flex-1">
+                  {card.desc}
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {card.tags.map((tag, j) => (
+                    <span
+                      key={j}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900/60 px-2.5 py-1 text-[11px] font-medium text-neutral-300"
+                    >
+                      <Check className="h-3 w-3 text-[#00F2EA]" />
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               </div>
-            </div>
-            <div className="flex-1 grid gap-3 sm:grid-cols-2">
-              <CapFeature icon={<DollarSign className="h-4 w-4" />} color="pink" title={dict.home.capabilities.valuation.features.incomeBreakdown.title} items={dict.home.capabilities.valuation.features.incomeBreakdown.items} />
-              <CapFeature icon={<TrendingUp className="h-4 w-4" />} color="pink" title={dict.home.capabilities.valuation.features.revenueRoadmap.title} items={dict.home.capabilities.valuation.features.revenueRoadmap.items} />
-              <CapFeature icon={<Layers className="h-4 w-4" />} color="pink" title={dict.home.capabilities.valuation.features.valueBreakdown.title} items={dict.home.capabilities.valuation.features.valueBreakdown.items} />
-              <CapFeature icon={<Trophy className="h-4 w-4" />} color="pink" title={dict.home.capabilities.valuation.features.peerBenchmarking.title} items={dict.home.capabilities.valuation.features.peerBenchmarking.items} />
-            </div>
-          </div>
+            )
+          })}
         </div>
 
-        {/* 2. AUTHORITY & RISK */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#00F2EA]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
-            <div className="lg:w-[340px] shrink-0">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00F2EA]/10 border border-[#00F2EA]/20 px-3 py-1 text-[10px] font-semibold text-[#00F2EA] uppercase tracking-wider mb-4">
-                <Shield className="h-3 w-3" /> {dict.home.capabilities.authority.badge}
-              </span>
-              <h3 className="text-xl font-bold mb-2">{dict.home.capabilities.authority.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed mb-5">
-                {dict.home.capabilities.authority.desc}
-              </p>
-              <div className="mb-4 space-y-2">
-                <div className="text-[10px] text-neutral-500 uppercase tracking-wider mb-2">{dict.home.capabilities.authority.valueLevels.title}</div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-500/5 border border-amber-500/15">
-                  <div className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mt-0.5">
-                    <Trophy className="h-4 w-4 text-amber-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-amber-300">{dict.home.capabilities.authority.valueLevels.premium.label}</div>
-                    <div className="text-[11px] text-neutral-400 leading-relaxed">{dict.home.capabilities.authority.valueLevels.premium.desc}</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-[#00F2EA]/10 to-[#00F2EA]/5 border border-[#00F2EA]/15">
-                  <div className="shrink-0 w-8 h-8 rounded-lg bg-[#00F2EA]/20 flex items-center justify-center mt-0.5">
-                    <TrendingUp className="h-4 w-4 text-[#00F2EA]" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#00F2EA]">{dict.home.capabilities.authority.valueLevels.growth.label}</div>
-                    <div className="text-[11px] text-neutral-400 leading-relaxed">{dict.home.capabilities.authority.valueLevels.growth.desc}</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-purple-500/10 to-purple-500/5 border border-purple-500/15">
-                  <div className="shrink-0 w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mt-0.5">
-                    <Sparkles className="h-4 w-4 text-purple-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-purple-300">{dict.home.capabilities.authority.valueLevels.developing.label}</div>
-                    <div className="text-[11px] text-neutral-400 leading-relaxed">{dict.home.capabilities.authority.valueLevels.developing.desc}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-[#00F2EA]/5 border border-[#00F2EA]/10">
-                <Eye className="h-5 w-5 text-[#00F2EA] shrink-0" />
-                <div className="text-xs text-neutral-400">
-                  {t(dict.home.capabilities.authority.brandCheck, { pct: '85' })}
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 grid gap-3 sm:grid-cols-2">
-              <CapFeature icon={<Scale className="h-4 w-4" />} color="cyan" title={dict.home.capabilities.authority.features.radarScoring.title} items={dict.home.capabilities.authority.features.radarScoring.items} />
-              <CapFeature icon={<AlertTriangle className="h-4 w-4" />} color="cyan" title={dict.home.capabilities.authority.features.riskIntelligence.title} items={dict.home.capabilities.authority.features.riskIntelligence.items} />
-              <CapFeature icon={<Building2 className="h-4 w-4" />} color="cyan" title={dict.home.capabilities.authority.features.brandSuitability.title} items={dict.home.capabilities.authority.features.brandSuitability.items} />
-              <CapFeature icon={<Activity className="h-4 w-4" />} color="cyan" title={dict.home.capabilities.authority.features.accountHealth.title} items={dict.home.capabilities.authority.features.accountHealth.items} />
-            </div>
-          </div>
-        </div>
-
-        {/* 3. GROWTH & MONETIZATION */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] via-[#0f0f0f] to-[#FF0050]/[0.04] p-6 sm:p-8 mb-5 hover:border-[#00F2EA]/20 transition-all group">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-10">
-            <div className="lg:w-[340px] shrink-0">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF0050]/10 border border-[#FF0050]/20 px-3 py-1 text-[10px] font-semibold text-[#FF0050] uppercase tracking-wider mb-4">
-                <Rocket className="h-3 w-3" /> {dict.home.capabilities.growth.badge}
-              </span>
-              <h3 className="text-xl font-bold mb-2">{dict.home.capabilities.growth.title}</h3>
-              <p className="text-sm text-neutral-400 leading-relaxed mb-5">
-                {dict.home.capabilities.growth.desc}
-              </p>
-              <div className="space-y-2 text-xs">
-                {dict.home.capabilities.growth.guarantees.map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 text-neutral-400">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[#00F2EA] shrink-0" />
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1 grid gap-3 sm:grid-cols-2">
-              <CapFeature icon={<Lightbulb className="h-4 w-4" />} color="pink" title={dict.home.capabilities.growth.features.contentStrategy.title} items={dict.home.capabilities.growth.features.contentStrategy.items} />
-              <CapFeature icon={<Rocket className="h-4 w-4" />} color="pink" title={dict.home.capabilities.growth.features.monetizationBlueprint.title} items={dict.home.capabilities.growth.features.monetizationBlueprint.items} />
-              <CapFeature icon={<Flame className="h-4 w-4" />} color="pink" title={dict.home.capabilities.growth.features.trendForecasting.title} items={dict.home.capabilities.growth.features.trendForecasting.items} />
-              <CapFeature icon={<MessageCircle className="h-4 w-4" />} color="pink" title={dict.home.capabilities.growth.features.engagementDeepDive.title} items={dict.home.capabilities.growth.features.engagementDeepDive.items} />
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Capabilities Summary */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 mb-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Radio className="h-4 w-4 text-[#FF0050]" />
-            <h4 className="text-sm font-semibold text-neutral-300">{dict.home.capabilities.alsoIncluded.title}</h4>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {dict.home.capabilities.alsoIncluded.items.map((item, i) => {
-              const icons = [FileDown, RefreshCw, Globe, BarChart3, LineChart, Wallet]
-              const Icon = icons[i] || Radio
-              return (
-                <div key={i} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-neutral-900/50 border border-neutral-800 hover:border-[#00F2EA]/20 transition-colors text-center">
-                  <Icon className="h-4 w-4 text-[#00F2EA]" />
-                  <span className="text-[11px] font-medium text-neutral-300">{item.label}</span>
-                  <span className="text-[10px] text-neutral-500">{item.desc}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* CTA Banner */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-12">
           <p className="text-sm text-neutral-500 mb-4">{dict.home.capabilities.ctaHint}</p>
           {interactive ? (
             <CtaButton
@@ -396,8 +260,6 @@ export function CoreCapabilitiesSection({ dict, interactive = true, onFocusInput
     </section>
   )
 }
-
-// ── FAQ ──
 
 export function FAQSection({ dict, interactive = true }: FAQSectionProps) {
   // Get questions array from dict

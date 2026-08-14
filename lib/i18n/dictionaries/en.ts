@@ -129,210 +129,29 @@ const en = {
       ],
       cta: 'Get your tier rating, value range, and risk summary — no credit card required.',
     },
-    freeVsPro: {
-      badge: 'Free vs Pro',
-      title: 'Free report, or go deeper',
-      free: {
-        label: 'Free',
-        desc: 'Instant overview. No sign-up.',
-        features: [
-          'Tier rating & score',
-          'Account value range',
-          'Risk & authenticity scan',
-          'Peer percentile ranking',
-        ],
-        cta: 'Try Free',
-      },
-      pro: {
-        label: 'Pro',
-        desc: 'One-time $9. Full analysis.',
-        price: '$9',
-        priceLabel: 'one-time',
-        features: [
-          'Everything in Free',
-          '5-Channel revenue breakdown',
-          'Brand deal pricing engine',
-          '12-Month growth forecast',
-          'AI content strategy',
-          'Brand matching & commercialization',
-          'PDF & PNG export',
-        ],
-        cta: 'See Pricing ↓',
-      },
-      footer: 'One-time payment. No subscription. No auto-renewal.',
-    },
     capabilities: {
-      badge: 'What You Get',
-      title: 'Everything You Need to Value a TikTok Account',
-      description: 'We analyze 10 dimensions across 50+ countries using real-time TikTok data, calibrated CPM benchmarks, and region-specific market multipliers — so you get a professional valuation report trusted by brands, agencies, and investors.',
+      badge: 'Why TokValue',
+      title: 'The number that ends the guessing',
+      subtitle: 'Free tools show you follower counts. TokValue shows you what the account can actually earn, and whether its audience is real.',
       cta: 'Evaluate Your Account — Free',
-      ctaHint: 'Ready to see what your account is worth?',
-      // ── Capability Cards ──
-      valuation: {
-        badge: 'TikTok Account Value',
-        title: 'Business Valuation Report',
-        desc: 'A dollar-value estimate of your TikTok account backed by real CPM benchmarks from Influencer Marketing Hub. We factor in region-specific market multipliers, engagement quality, and content maturity — so you walk into brand negotiations with a number that holds weight.',
-        rangeLabel: 'Typical Valuation Range',
-        rangeValue: '$2,500 — $45,000 /mo',
-        coverageLabel: 'Coverage',
-        coverageValue: '50+ Countries · 15 Languages',
-        features: {
-          incomeBreakdown: {
-            title: '5-Channel Income Breakdown',
-            items: [
-              'Brand sponsorship deals with estimated deal value ranges',
-              'TikTok Creator Rewards program earnings',
-              'LIVE stream gift revenue estimates',
-              'Affiliate commission projections',
-              'Merchandise & direct-to-consumer revenue',
-            ],
-          },
-          revenueRoadmap: {
-            title: '12-Month Revenue Roadmap',
-            items: [
-              'Quarterly revenue projections & growth curves',
-              'Follower trajectory modeling by region',
-              'View velocity & engagement trend analysis',
-              'Monetization milestone timeline',
-            ],
-          },
-          valueBreakdown: {
-            title: '5-Component Value Breakdown',
-            items: [
-              'Brand collaboration value (rated per deal)',
-              'Content asset library valuation',
-              'Fan audience asset valuation',
-              'Monetization capability scoring',
-              'IP / personal brand premium assessment',
-            ],
-          },
-          peerBenchmarking: {
-            title: 'Peer Percentile Benchmarking',
-            items: [
-              'Industry-standard percentile ranking',
-              'Peer group comparison (same tier)',
-              'Key metric gap analysis vs. top 10%',
-              'Category-specific performance benchmarks',
-            ],
-          },
+      ctaHint: 'See your value, rate, and risk — free, in 10 seconds.',
+      story: [
+        {
+          title: 'Know what to charge',
+          desc: 'Your exact per-video brand deal rate, calculated from real engagement benchmarks and audience quality — not a wild guess.',
+          tags: ['Per-video brand rate', 'Annual revenue estimate', 'Negotiation range'],
         },
-      },
-      authority: {
-        badge: 'Account Value Assessment',
-        title: 'Comprehensive Value Assessment',
-        desc: 'Our proprietary multi-dimensional assessment framework evaluates your TikTok account across 10 weighted dimensions — follower authenticity, engagement quality, content consistency, influence reach, and brand safety. Every account receives a value rating calibrated against global market benchmarks, so you know exactly where you stand before entering any brand negotiation.',
-        valueLevels: {
-          title: 'Value Assessment Levels',
-          premium: { label: 'Premium Value', desc: 'Exceptional commercial potential — top-tier brand partnership ready' },
-          growth: { label: 'Growth Value', desc: 'Strong monetization trajectory — competitive market position' },
-          developing: { label: 'Developing Value', desc: 'Solid foundation with upside — growth opportunity ahead' },
+        {
+          title: 'Don\'t pay for a bought audience',
+          desc: 'We flag fake followers and abnormal engagement before you hire, partner, or buy — so you never overpay for a hollow following.',
+          tags: ['Fake follower %', 'Engagement quality', 'Risk flags'],
         },
-        brandCheck: '{pct}% of brands check account quality before partnership',
-        features: {
-          radarScoring: {
-            title: '10-Dimension Radar Scoring [Free]',
-            items: [
-              'Follower authenticity & bot detection',
-              'Engagement rate quality analysis',
-              'Content consistency & vertical scoring',
-              'Influence & global reach assessment',
-              'Brand safety & content risk evaluation',
-            ],
-          },
-          riskIntelligence: {
-            title: 'Risk Signal Intelligence [Free]',
-            items: [
-              'Abnormal like/follower ratio detection',
-              'Suspicious comment pattern analysis',
-              'Sudden engagement drop / reach suppression alerts',
-              'Fake follower percentage estimation',
-              'Historical account behavior anomalies',
-            ],
-          },
-          brandSuitability: {
-            title: 'Brand Suitability Matching [Pro]',
-            items: [
-              'Category-specific brand fit scoring',
-              'Estimated deal range per collaboration',
-              'Example brands matched to your audience',
-              'Audience demographic alignment report',
-            ],
-          },
-          accountHealth: {
-            title: 'Account Health Diagnostics [Pro]',
-            items: [
-              '0-100 composite health index',
-              'Posting consistency monitoring',
-              'Engagement authenticity scoring',
-              'Content maturity & freshness analysis',
-            ],
-          },
+        {
+          title: 'Check any account, in seconds',
+          desc: 'Your own, a competitor\'s, or an influencer you\'re about to hire. One username, a full verdict — no login, no password.',
+          tags: ['Any public account', '10-dimension AI score', 'Peer ranking'],
         },
-      },
-      growth: {
-        badge: 'TikTok Growth Strategy',
-        title: 'Growth Strategy & Monetization Engine',
-        desc: 'We don\'t just analyze — every report includes a prioritized action plan to increase your TikTok account\'s commercial value. From content optimization to revenue diversification, each recommendation is tailored to your category, region, and current performance tier.',
-        guarantees: [
-          'Tailored to your content category & region',
-          'Prioritized by revenue impact vs. implementation effort',
-          'Benchmarks updated quarterly against market data',
-          'Actionable steps with expected outcome ranges',
-        ],
-        features: {
-          contentStrategy: {
-            title: 'Content Strategy Engine [Pro]',
-            items: [
-              'Pillar-based content framework design',
-              'Trending hashtag & sound recommendations',
-              'Optimal posting schedule by day & hour',
-              'Cross-content format strategy (short/long/LIVE)',
-              'Viral content pattern analysis',
-            ],
-          },
-          monetizationBlueprint: {
-            title: '3-Route Monetization Blueprint [Pro]',
-            items: [
-              'Ranked monetization paths with difficulty ratings',
-              'Prerequisites & eligibility checklist per route',
-              'Step-by-step action plan for each path',
-              'Estimated monthly revenue range per route',
-              'Combined multi-route revenue projection',
-            ],
-          },
-          trendForecasting: {
-            title: 'Trend Forecasting & Timing [Pro]',
-            items: [
-              'Trending topics matched to your niche',
-              'Viral sound recommendations with usage stats',
-              'Content trend predictions with confidence scores',
-              'Seasonal content calendar optimization',
-              'Competitor trend analysis & gap detection',
-            ],
-          },
-          engagementDeepDive: {
-            title: 'Engagement Quality Deep-Dive [Pro]',
-            items: [
-              'Comment sentiment & depth analysis',
-              'Share rate & viral coefficient calculation',
-              'Top engager identification & profiling',
-              'Audience retention & completion rate trends',
-              'Cross-platform engagement benchmark comparison',
-            ],
-          },
-        },
-      },
-      alsoIncluded: {
-        title: 'Included in Every TikTok Account Report',
-        items: [
-          { label: 'HD PDF Export', desc: 'Brand-ready report' },
-          { label: 'Real-Time Data', desc: 'Live TikTok API fetch' },
-          { label: '50+ Countries', desc: 'Region-specific CPM' },
-          { label: 'Peer Ranking', desc: 'Percentile benchmarks' },
-          { label: 'Trend Analysis', desc: 'Niche & sound matching' },
-          { label: 'Monetization Check', desc: 'Eligibility verification' },
-        ],
-      },
+      ],
     },
     pricing: {
       title: 'Start free. Upgrade when you need more.',

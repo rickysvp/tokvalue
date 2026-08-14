@@ -39,6 +39,7 @@ import { useI18n, t } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, claimCreditsApi, setSessionToken, promotePendingToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { ShareModal } from '@/components/ShareModal'
+import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
 import type { TabId } from '@/components/HomePageClient'
 
@@ -968,6 +969,10 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             <UnlockFooter onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
           )}
         </section>
+      )}
+
+      {result && (
+        <RatingPrompt username={result.username} />
       )}
 
       <SiteFooter />
