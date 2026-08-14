@@ -9,8 +9,13 @@ export async function GET() {
     // 评估统计走 lib/db 统一管道（确保 evaluations 表已初始化）
     const { count: accountsEvaluated, totalValueAssessed } = await getEvaluationStats()
 
-    // 覆盖维度（粉丝数 + 国家数）
-    const reach = await getAudienceReach()
+    // 覆盖维度（粉丝数 + 国家数）——失败时部分降级，不影响已取得的评估统计
+    let reach: { totalFollowers: number; countriesReached: number } = { totalFollowers: 0, countriesReached: 0 }
+    try {
+      reach = await getAudienceReach()
+    } catch (e) {
+      console.error('[stats] audience reach query failed:', e instanceof Error ? e.message : String(e))
+    }
 
     // 独立访客数走 lib/analytics 统一管道（确保 analytics_events 表已初始化）
     let uniqueVisitors = 0

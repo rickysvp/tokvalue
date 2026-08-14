@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Star } from 'lucide-react'
 
 interface RatingPromptProps {
@@ -16,14 +16,18 @@ export function RatingPrompt({ username }: RatingPromptProps) {
   const [submitted, setSubmitted] = useState(false)
   const [hovered, setHovered] = useState(0)
   const [error, setError] = useState(false)
+  const pending = useRef(false)
 
   const submit = async (rating: number) => {
-    if (submitted) return
+    if (submitted || pending.current) return
+    const name = username.trim()
+    if (!name || name.length > 50) return
+    pending.current = true
     try {
       const res = await fetch('/api/rating', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, rating }),
+        body: JSON.stringify({ username: name, rating }),
       })
       if (res.ok) {
         setSubmitted(true)
@@ -32,6 +36,8 @@ export function RatingPrompt({ username }: RatingPromptProps) {
       }
     } catch {
       setError(true)
+    } finally {
+      pending.current = false
     }
   }
 

@@ -35,9 +35,10 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
   const formatCurrency = (n: number): string => {
     if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B+`
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M+`
-    return `$${n.toLocaleString()}+`
+    return `$${n.toLocaleString('en-US')}+`
   }
 
+  const countries = stats.countriesReached ?? 0
   const items = [
     {
       icon: DollarSign,
@@ -49,11 +50,13 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
       value: formatValue(stats.totalFollowers ?? 0),
       label: 'Audience Reach',
     },
-    {
-      icon: Globe,
-      value: String(stats.countriesReached ?? 0),
-      label: 'Countries Covered',
-    },
+    ...(countries > 0
+      ? [{
+          icon: Globe,
+          value: String(countries),
+          label: 'Countries Covered',
+        }]
+      : []),
     {
       icon: BarChart3,
       value: formatValue(stats.accountsEvaluated),
@@ -72,7 +75,7 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
         <p className="text-center text-sm text-neutral-500 mb-8">
           Trusted by creators, brands &amp; agencies worldwide
         </p>
-        <div className="grid grid-cols-2 gap-8 text-center sm:grid-cols-5 max-w-4xl mx-auto">
+        <div className={`grid grid-cols-2 gap-8 text-center max-w-4xl mx-auto ${items.length >= 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
           {items.map((item, i) => {
             const Icon = item.icon
             return (

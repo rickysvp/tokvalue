@@ -26,11 +26,11 @@ export function HowItWorks({ dict }: HowItWorksProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {dict.steps.map((step, i) => {
-            const Icon = icons[i]
+            const Icon = icons[i] || Search
             return (
               <div key={i} className="relative text-center">
                 {/* Arrow connector (desktop only) */}
-                {i < 2 && (
+                {i < dict.steps.length - 1 && (
                   <div className="hidden md:block absolute top-8 left-[calc(50%+3rem)] w-[calc(100%-6rem)] h-px bg-gradient-to-r from-[#00F2EA]/30 to-transparent" />
                 )}
                 

@@ -8,7 +8,7 @@ export const revalidate = 60
 /**
  * GET /api/recent-evaluations
  *
- * 公开端点：着陆页社会证明卡片。仅返回最近 12 条评估的脱敏摘要数据。
+ * 公开端点：着陆页社会证明卡片。仅返回最近 24 条评估的脱敏摘要数据（AvatarWall 两行 × 12 个头像）。
  * 不包含用户身份信息，只展示公开的 TikTok 账号数据。
  */
 export async function GET() {
@@ -40,7 +40,7 @@ export async function GET() {
       WHERE username IS NOT NULL
         AND follower_count > 1000
       ORDER BY created_at DESC
-      LIMIT 100
+      LIMIT 24
     `
 
     const evaluations: RecentEvaluation[] = rows.map((r: Record<string, unknown>) => {

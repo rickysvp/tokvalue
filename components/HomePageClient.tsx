@@ -34,7 +34,7 @@ export default function HomePage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [verifyModalMode, setVerifyModalMode] = useState<'evaluate' | 'unlock'>('evaluate')
-  const [stats, setStats] = useState({ accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0 })
+  const [stats, setStats] = useState({ accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0, totalFollowers: 0, countriesReached: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
@@ -231,7 +231,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero — simplified */}
-      <section className="relative overflow-hidden">
+      <section id="hero" className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#FF0050]/10 via-transparent to-transparent" />
         <div className="mx-auto max-w-3xl px-4 py-20 sm:py-24 relative">
           <div className="text-center mb-8">

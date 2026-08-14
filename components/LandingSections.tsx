@@ -75,6 +75,10 @@ function ClientFaqItem({ question, answer, defaultOpen = false }: {
 export function PricingSection({ dict, interactive = true, checkoutLoading, onCheckout }: PricingSectionProps) {
   const free = dict.home.pricing.freePlan as { name: string; desc: string; cta: string }
   const paidPkgs = CREDIT_PACKAGES.filter(p => p.id !== 'pack30')
+  const plansById = new Map(
+    (dict.home.pricing.plans as ReadonlyArray<{ id: string; name: string; desc: string; badge?: string; highlight?: boolean }>)
+      .map(p => [p.id, p] as const)
+  )
 
   return (
     <section id="pricing" className="py-20">
@@ -108,18 +112,18 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           </div>
 
           {/* Paid plans */}
-          {paidPkgs.map((pkg, i) => {
-            const plan = dict.home.pricing.plans[i] as { name: string; desc: string; badge?: string; highlight: boolean }
+          {paidPkgs.map((pkg) => {
+            const plan = plansById.get(pkg.id)
             return (
               <div
                 key={pkg.id}
                 className={`relative rounded-2xl border-2 p-6 transition-all flex flex-col ${
-                  plan.highlight
+                  plan?.highlight
                     ? 'border-[#FF0050]/30 bg-gradient-to-b from-[#FF0050]/[0.06] to-[#0E0E14] shadow-lg shadow-[#FF0050]/5'
                     : 'border-[#1F1D26] bg-[#0E0E14] hover:border-neutral-600'
                 }`}
               >
-                {plan.badge && (
+                {plan?.badge && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-[#FF0050]/25">
                       <Star className="h-3 w-3" fill="currentColor" />
@@ -127,8 +131,8 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                     </span>
                   </div>
                 )}
-                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">{plan.name}</p>
-                <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan.desc}</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">{plan?.name ?? pkg.label}</p>
+                <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan?.desc ?? ''}</p>
                 <div className="flex items-baseline gap-0.5 mb-1">
                   <span className="text-neutral-500 text-lg">$</span>
                   <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
@@ -140,7 +144,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                 </p>
                 {interactive ? (
                   <CtaButton
-                    variant={plan.highlight ? 'primary' : 'outline'}
+                    variant={plan?.highlight ? 'primary' : 'outline'}
                     className="mt-auto w-full"
                     disabled={checkoutLoading}
                     onClick={() => onCheckout(pkg.id)}
@@ -155,7 +159,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                   <Link
                     href="/"
                     className={`mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                      plan.highlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
+                      plan?.highlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
                   >
                     Get ${pkg.price}

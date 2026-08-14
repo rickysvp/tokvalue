@@ -73,11 +73,22 @@ export function AvatarWall() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [hovered, setHovered] = useState<RecentEvaluation | null>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 指针坐标走 ref + 直写 hover card 的 style，避免每次 mousemove 触发整棵头像墙重渲染
+  const hoverPos = useRef({ x: 0, y: 0 })
+  const hoverCardRef = useRef<HTMLDivElement | null>(null)
+  // 重试定时器统一登记，unmount 时清理，避免卸载后仍触发
+  const retryTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
 
   useEffect(() => {
     let cancelled = false
+    const scheduleRetry = (fn: () => void, delay: number) => {
+      const id = setTimeout(() => {
+        retryTimers.current.delete(id)
+        fn()
+      }, delay)
+      retryTimers.current.add(id)
+    }
     const load = (attempt: number) => {
       fetch('/api/recent-evaluations', { cache: 'no-store' })
         .then(r => r.json())
@@ -89,7 +100,7 @@ export function AvatarWall() {
             setLoading(false)
           } else if (attempt < 2) {
             // 空数据可能是瞬时抖动，退避重试
-            setTimeout(() => load(attempt + 1), 800 * (attempt + 1))
+            scheduleRetry(() => load(attempt + 1), 800 * (attempt + 1))
           } else {
             setFailed(true)
             setLoading(false)
@@ -98,7 +109,7 @@ export function AvatarWall() {
         .catch(() => {
           if (cancelled) return
           if (attempt < 2) {
-            setTimeout(() => load(attempt + 1), 800 * (attempt + 1))
+            scheduleRetry(() => load(attempt + 1), 800 * (attempt + 1))
           } else {
             setFailed(true)
             setLoading(false)
@@ -106,11 +117,17 @@ export function AvatarWall() {
         })
     }
     load(0)
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      retryTimers.current.forEach(clearTimeout)
+      retryTimers.current.clear()
+      if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    }
   }, [])
 
   const useFallback = !loading && items.length === 0
-  const source = useFallback || failed ? FALLBACK_ITEMS : items
+  const isDemo = useFallback || failed
+  const source = isDemo ? FALLBACK_ITEMS : items
 
   const mid = Math.ceil((loading ? 14 : source.length) / 2)
   const all = loading
@@ -124,12 +141,24 @@ export function AvatarWall() {
 
   const paused = hovered !== null
 
+  // 直接把最新坐标写入 hover card 元素样式，绕过 React state（mousemove 高频路径不触发重渲染）
+  const applyHoverPos = () => {
+    const el = hoverCardRef.current
+    if (!el) return
+    const cardLeft = Math.max(140, Math.min(hoverPos.current.x, window.innerWidth - 140))
+    el.style.left = `${cardLeft}px`
+    el.style.top = `${hoverPos.current.y}px`
+  }
+
   const handleEnter = (acc: RecentEvaluation, x: number, y: number) => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    hoverPos.current = { x, y }
     setHovered(acc)
-    setPos({ x, y })
   }
-  const handleMove = (x: number, y: number) => setPos({ x, y })
+  const handleMove = (x: number, y: number) => {
+    hoverPos.current = { x, y }
+    applyHoverPos()
+  }
   const handleLeave = () => {
     leaveTimer.current = setTimeout(() => setHovered(null), 140)
   }
@@ -137,7 +166,8 @@ export function AvatarWall() {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
   }
 
-  const cardLeft = Math.max(140, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 140))
+  // 挂载时的初始位置（后续移动由 applyHoverPos 直写 DOM）
+  const cardLeft = Math.max(140, Math.min(hoverPos.current.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 140))
 
   return (
     <div className="mt-0 max-w-[100vw]">
@@ -151,6 +181,7 @@ export function AvatarWall() {
               <AvatarCircle
                 key={`${acc.username}-${i}`}
                 acc={acc}
+                demo={isDemo}
                 onEnter={handleEnter}
                 onMove={handleMove}
                 onLeave={handleLeave}
@@ -169,6 +200,7 @@ export function AvatarWall() {
               <AvatarCircle
                 key={`${acc.username}-${i}`}
                 acc={acc}
+                demo={isDemo}
                 onEnter={handleEnter}
                 onMove={handleMove}
                 onLeave={handleLeave}
@@ -181,10 +213,11 @@ export function AvatarWall() {
       {/* Hover card — follows cursor, anchored above avatar */}
       {hovered && (
         <div
+          ref={hoverCardRef}
           className="fixed z-50"
           style={{
             left: cardLeft,
-            top: pos.y,
+            top: hoverPos.current.y,
             transform: 'translate(-50%, calc(-100% - 14px))',
           }}
           onMouseEnter={handleCardEnter}
@@ -287,11 +320,14 @@ function HoverCard({ acc }: { acc: RecentEvaluation }) {
 
 function AvatarCircle({
   acc,
+  demo,
   onEnter,
   onMove,
   onLeave,
 }: {
   acc: RecentEvaluation
+  /** 兜底示例数据：降透明度 + title 注明，与真实评估区分 */
+  demo?: boolean
   onEnter: (acc: RecentEvaluation, x: number, y: number) => void
   onMove: (x: number, y: number) => void
   onLeave: () => void
@@ -299,7 +335,8 @@ function AvatarCircle({
   const color = TIER_COLORS[acc.tier] || '#E8A840'
   return (
     <div
-      className="relative shrink-0"
+      className={`relative shrink-0${demo ? ' opacity-80' : ''}`}
+      title={demo ? '示例数据（Demo）— 等待真实评估数据' : undefined}
       onMouseEnter={(e) => onEnter(acc, e.clientX, e.clientY)}
       onMouseMove={(e) => onMove(e.clientX, e.clientY)}
       onMouseLeave={onLeave}
