@@ -150,7 +150,7 @@ export async function storeCode(
         created_at = EXCLUDED.created_at,
         send_count_24h = EXCLUDED.send_count_24h
     `
-    console.log('[auth] storeCode: stored code for', key, 'code:', finalCode, 'reused:', reuseExisting, 'packageId:', packageId, 'credits:', credits)
+    console.log('[auth] storeCode: stored code for', key, 'reused:', reuseExisting, 'packageId:', packageId, 'credits:', credits)
     return { code: finalCode, sendCount24h: previousSends + 1, rateLimited: false }
   }
 
@@ -240,7 +240,8 @@ export async function verifyCode(
       sendCount24h: Number(row.send_count_24h),
     }
 
-    console.log('[auth] verifyCode: found entry for', key, 'stored code:', entry.code, 'input code:', trimmedCode, 'match:', entry.code === trimmedCode)
+    // 不打印验证码明文（stored/input 均不落日志），仅保留 email 与匹配结果
+    console.log('[auth] verifyCode: found entry for', key, 'code: ******', 'match:', entry.code === trimmedCode)
 
     if (now > entry.expiresAt) {
       await pg`DELETE FROM verification_codes WHERE email = ${key}`

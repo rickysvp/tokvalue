@@ -105,6 +105,17 @@ async function initStore(): Promise<Store> {
           PRIMARY KEY (ip_hash, date_key)
         )
       `
+      // 积分发放幂等表：以 payment_id 主键原子抢锁，
+      // 修复 grantCredits"先 SELECT 再 UPDATE"的 TOCTOU 并发重复发放问题
+      // （credits-server.ts 的 initTable 也会幂等建此表，保证 webhook 路径不依赖本文件初始化）
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS credit_grants (
+          payment_id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          credits INTEGER NOT NULL,
+          created_at BIGINT NOT NULL
+        )
+      `
       storeType = 'postgres'
       return storeType
       } catch (err) {
@@ -707,11 +718,13 @@ export async function upgradeEvaluation(username: string, evaluatedBy: string): 
   const normalized = username.trim().replace(/^@/, '').toLowerCase()
   const type = await initStore()
   if (type === 'postgres') {
+    // RETURNING 直接返回受影响行：非空 = 升级成功，空 = 无匹配的免费记录，
+    // 无需依赖 Neon 对无 RETURNING UPDATE 的返回行为，也省去一次 SELECT 读回
     const result = await getSql()`
       UPDATE evaluations
       SET is_free = false, upgraded_at = NOW(), evaluated_by = ${evaluatedBy}
-      WHERE username = ${normalized} AND is_free = true`
-    // Neon serverless driver returns rows array for all statements
+      WHERE username = ${normalized} AND is_free = true
+      RETURNING username`
     const rows = result as unknown as Array<Record<string, unknown>>
     return rows.length > 0
   }

@@ -3,8 +3,9 @@
  * Only import this from API routes / server components (never from client components).
  *
  * NOTE: Neon Serverless uses HTTP fetch, each SQL call is a separate request.
- * Do NOT use SELECT ... FOR UPDATE or RETURNING — they require transaction context.
- * Use atomic INSERT ON CONFLICT / UPDATE WHERE, then SELECT separately.
+ * 没有多语句事务 — 依赖单条语句的原子性保证正确性：
+ * INSERT ... ON CONFLICT 做幂等抢锁，UPDATE ... WHERE 做条件写，
+ * RETURNING 原子读回受影响行（扣减后余额 / 抢锁结果），避免"写后再 SELECT"的读回竞态。
  */
 
 import type { CreditBalance } from './credits'
@@ -38,6 +39,16 @@ async function initTable(): Promise<void> {
         )
       `
       await s`ALTER TABLE credit_balances ADD COLUMN IF NOT EXISTS disabled BOOLEAN NOT NULL DEFAULT false`
+      // 积分发放幂等表：payment_id 主键原子抢锁，防止并发重复发放
+      // （db.ts 的 initStore 也会幂等建此表；此处再建一次，保证 webhook 路径不依赖 db.ts 初始化）
+      await s`
+        CREATE TABLE IF NOT EXISTS credit_grants (
+          payment_id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          credits INTEGER NOT NULL,
+          created_at BIGINT NOT NULL
+        )
+      `
     })()
   }
   return initPromise
@@ -101,16 +112,22 @@ export async function grantCredits(
   await initTable()
   const s = await getSql()
 
-  // 幂等检查：同一 paymentId 不重复发放
+  // 幂等抢锁：INSERT ... ON CONFLICT DO NOTHING 以 payment_id 主键原子判定是否已发放。
+  // 旧实现"先 SELECT purchases JSONB 再 UPDATE"是两条独立请求，存在 TOCTOU：
+  // 并发重放 webhook / webhook 与 claim 并发 / 两个并发 claim 均可双倍发放。
+  // Neon 对 INSERT ... RETURNING 返回行数组：
+  //   空数组   = 该 paymentId 已发放过（冲突未插入）→ 幂等成功，直接查余额返回，不重复加积分；
+  //   非空数组 = 本请求抢锁成功，独占发放权，继续执行下方加积分 upsert。
+  // 无 paymentId 的调用方（DEV 模式直接发放）不走此表，保持原逻辑。
   if (paymentId) {
-    const existing = await s`SELECT purchases FROM credit_balances WHERE email = ${key}`
-    if (existing[0]) {
-      const purchases = Array.isArray(existing[0].purchases)
-        ? existing[0].purchases as Array<{ paymentId?: string }>
-        : []
-      if (purchases.some(p => p.paymentId === paymentId)) {
-        return getBalance(key) as Promise<CreditBalance>
-      }
+    const locked = await s`
+      INSERT INTO credit_grants (payment_id, email, credits, created_at)
+      VALUES (${paymentId}, ${key}, ${credits}, ${Date.now()})
+      ON CONFLICT (payment_id) DO NOTHING
+      RETURNING payment_id
+    `
+    if (!locked || locked.length === 0) {
+      return getBalance(key) as Promise<CreditBalance>
     }
   }
 
@@ -241,15 +258,16 @@ export async function consumeCredit(email: string, username?: string): Promise<{
   await initUsageLogTable()
   const s = await getSql()
 
-  // Atomic: decrement only if credits > 0 AND not disabled.
-  // Neon serverless driver returns affected rows array for UPDATE
-  // (empty array = no row matched, i.e. not found / disabled / no credits).
-  // This single statement closes the TOCTOU race: concurrent requests cannot
-  // both pass a pre-check SELECT and both succeed.
+  // 原子扣减：仅当 credits > 0 且未禁用时 -1。
+  // RETURNING 直接返回扣减后的行：非空数组 = 扣减成功（行内 credits 即 balance_after），
+  // 空数组 = WHERE 未命中（不存在 / 被禁用 / 无余额），走下方原因区分。
+  // 单条语句既关闭 TOCTOU 竞态（并发请求不可能同时通过预检再同时成功），
+  // 又省去一次 SELECT 读回的 RTT 与"写后读"的二次竞态。
   const updateResult = await s`
     UPDATE credit_balances
     SET credits = credits - 1
     WHERE email = ${key} AND credits > 0 AND disabled = false
+    RETURNING credits
   `
 
   if (!updateResult || updateResult.length === 0) {
@@ -260,9 +278,8 @@ export async function consumeCredit(email: string, username?: string): Promise<{
     return { ok: false, reason: 'NO_CREDITS' }
   }
 
-  // Read back the actual balance after UPDATE (avoids race condition on balance_after)
-  const updated = await s`SELECT credits FROM credit_balances WHERE email = ${key}`
-  const balanceAfter = Number(updated[0]?.credits || 0)
+  // balance_after 直接取自 RETURNING 行，与扣减同一原子快照，无读回竞态
+  const balanceAfter = Number(updateResult[0].credits)
 
   // Write usage log for audit trail
   await s`

@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         email,
         credits: 0,
         totalPurchased: 0,
-        reason: 'PAYMENT_NOT_VERIFIED',
+        reason: 'PAYMENT_NOT_COMPLETED',
       })
     }
 
