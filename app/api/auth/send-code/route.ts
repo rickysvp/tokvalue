@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { CREDIT_PACKAGES, findPackage } from '@/lib/credits'
 import { storeCode, cleanupExpiredCodes } from '@/lib/auth'
 import { getServerDict } from '@/lib/i18n/server'
+import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -201,6 +202,12 @@ export async function POST(req: NextRequest) {
         { error: getServerDict().api.auth.INVALID_PACKAGE, code: 'INVALID_PACKAGE', validPackages: CREDIT_PACKAGES.map(p => p.id) },
         { status: 400 }
       )
+    }
+
+    // IP 限流：防邮件轰炸（10 次/小时；限流服务异常时 fail-open 放行，不阻断正常业务）
+    const ipAllowed = await checkIpRateLimit(ipBucketKey('send-code', req), { limit: 10, windowHours: 1 })
+    if (!ipAllowed) {
+      return rateLimitResponse(getServerDict().api.auth.RATE_LIMIT)
     }
 
     // Generate and store 6-digit code (10 min TTL), with per-email rate limiting

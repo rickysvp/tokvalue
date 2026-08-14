@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveReportRating, getReportRatingStats } from '@/lib/db'
 import { hashIp } from '@/lib/analytics'
+import { getClientIp } from '@/lib/ip'
+import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
+
+// TikTok username 格式：1-24 位小写字母/数字/点/下划线（校验前先规范化：trim + 去 @ + 小写）
+const USERNAME_RE = /^[a-z0-9._]{1,24}$/
 
 /**
  * 报告满意度评分端点。
@@ -12,17 +17,22 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const username = String(body.username || '').trim()
+    // username 规范化 + 校验：trim、去 @ 前缀、转小写，仅允许 TikTok 合法字符（限长 24）
+    const username = String(body.username || '').trim().replace(/^@/, '').toLowerCase()
     const rating = Number(body.rating)
-    if (!username || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    if (!USERNAME_RE.test(username) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
       return NextResponse.json({ ok: false, error: 'Invalid rating' }, { status: 400 })
     }
 
-    // 同一 IP 对同一账号去重（防止刷分）
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || req.headers.get('x-real-ip')
-      || 'local'
-    const ipHash = hashIp(ip)
+    // IP 限流：防刷分（30 次/小时；限流服务异常时 fail-open 放行）
+    const ipAllowed = await checkIpRateLimit(ipBucketKey('rating', req), { limit: 30, windowHours: 1 })
+    if (!ipAllowed) {
+      return rateLimitResponse('Too many rating requests')
+    }
+
+    // 同一 IP 对同一账号去重（防止刷分）。
+    // getClientIp 取 x-forwarded-for 末段 / Vercel 专有头，防首段伪造（替代手动解析）
+    const ipHash = hashIp(getClientIp(req))
 
     await saveReportRating(username, rating, ipHash)
     return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })

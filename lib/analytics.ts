@@ -895,6 +895,8 @@ export async function getUsersList(): Promise<UserListItem[]> {
 // ── Hash IP (HMAC-SHA256 防彩虹表反查) ──
 
 export function hashIp(ip: string): string {
+  // 空 key 的 HMAC 可被离线复现（伪安全）：显式返回空串，调用方据此跳过 ip_hash 入库
+  if (!IP_HMAC_KEY) return ''
   return crypto.createHmac('sha256', IP_HMAC_KEY).update(ip).digest('hex').slice(0, 32)
 }
 

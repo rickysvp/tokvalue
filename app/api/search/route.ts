@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { searchUsers } from '@/lib/tiktok'
 import { getServerDict } from '@/lib/i18n/server'
 import { recordEventFromRequest } from '@/lib/analytics'
+import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 import { ApiErrorResponse } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +35,23 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const results = await searchUsers(keywords, count)
+    // username 格式校验：去掉 @ 前缀后仅允许 TikTok 合法字符（1-24 位字母/数字/点/下划线），
+    // 拦截垃圾查询，避免无意义的 RapidAPI 配额消耗
+    const normalizedKeywords = keywords.trim().replace(/^@/, '')
+    if (!/^[a-z0-9._]{1,24}$/i.test(normalizedKeywords)) {
+      return NextResponse.json<ApiErrorResponse>(
+        { error: getServerDict().api.search.INVALID_USERNAME, code: 'INVALID_USERNAME' },
+        { status: 400 }
+      )
+    }
+
+    // IP 限流：保护 RapidAPI 搜索配额（20 次/小时；限流服务异常时 fail-open 放行）
+    const ipAllowed = await checkIpRateLimit(ipBucketKey('search', req), { limit: 20, windowHours: 1 })
+    if (!ipAllowed) {
+      return rateLimitResponse(getServerDict().api.search.RATE_LIMIT)
+    }
+
+    const results = await searchUsers(normalizedKeywords, count)
     return NextResponse.json({ results })
   } catch (err) {
     const code: ApiCode = (err && typeof err === 'object' && 'code' in err)

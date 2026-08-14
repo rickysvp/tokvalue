@@ -1,9 +1,9 @@
 import type { Evaluation } from '@/types'
 import type { NeonQueryFunction } from '@neondatabase/serverless'
-import crypto from 'crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { withFileLock } from '@/lib/file-lock'
+import { hashIp } from '@/lib/analytics'
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : join(process.cwd(), 'data'))
 const DATA_PATH = join(DATA_DIR, 'evaluations.json')
@@ -85,6 +85,8 @@ async function initStore(): Promise<Store> {
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS upgraded_at TIMESTAMPTZ`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS evaluated_by_ip TEXT`
       await getSql()`CREATE INDEX IF NOT EXISTS idx_evaluations_is_free ON evaluations(is_free)`
+      // Migration: source posts data quality ('full' | 'partial') — paid cache must reject partial data
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS data_quality TEXT`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS avatar_data TEXT`
       // 报告满意度评分表（用于首页社会证明的真实数据源）
       await getSql()`
@@ -97,6 +99,15 @@ async function initStore(): Promise<Store> {
         )
       `
       await getSql()`CREATE INDEX IF NOT EXISTS idx_report_ratings_created ON report_ratings(created_at)`
+      // 同一 (username, ip_hash) 仅允许一条评分（防刷分）：先幂等清理历史重复行（保留每组最新一条），
+      // 再建唯一索引——若存在重复行 CREATE UNIQUE INDEX 会失败，故 DELETE 必须在前；索引已存在时 DELETE 无害
+      await getSql()`
+        DELETE FROM report_ratings a
+        USING report_ratings b
+        WHERE a.username IS NOT DISTINCT FROM b.username
+          AND a.ip_hash IS NOT DISTINCT FROM b.ip_hash
+          AND a.id < b.id`
+      await getSql()`CREATE UNIQUE INDEX IF NOT EXISTS idx_report_ratings_unique ON report_ratings(username, ip_hash)`
       await getSql()`
         CREATE TABLE IF NOT EXISTS free_rate_limits (
           ip_hash TEXT NOT NULL,
@@ -213,7 +224,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
         (username, nickname, score, tier, dimensions, summary, metrics, risk_flags, verdict, advice, price_advice,
          account_health, content_cadence, engagement_quality, peer_benchmark, brand_potential, monetization_path, growth_plan,
          income_estimate, business_value, revenue_roadmap, content_strategy, peer_ranking, brand_matching,
-         trend_analysis, commercialization_advice, commerce_readiness, formula_version, calculation_metadata,
+         trend_analysis, commercialization_advice, commerce_readiness, formula_version, calculation_metadata, data_quality,
          computed_at, avatar, avatar_data, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip)
       VALUES
         (${evaluation.username}, ${evaluation.nickname}, ${evaluation.score}, ${evaluation.tier},
@@ -236,6 +247,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
          ${JSON.stringify(evaluation.commerceReadiness)}::jsonb,
          ${evaluation.formulaVersion || null},
          ${JSON.stringify(evaluation.calculationMetadata || null)}::jsonb,
+         ${evaluation.dataQuality || null},
          ${evaluation.computedAt}, ${evaluation.avatar || null}, ${evaluation.avatarData || null}, ${evaluation.bio || null},
          ${evaluation.followerCount}, ${evaluation.followingCount}, ${evaluation.totalLikes}, ${evaluation.videoCount},
          ${evaluation.verified ?? null}, ${evaluation.region || null}, ${JSON.stringify(evaluation.posts || [])}::jsonb,
@@ -270,6 +282,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
         commerce_readiness = EXCLUDED.commerce_readiness,
         formula_version = EXCLUDED.formula_version,
         calculation_metadata = EXCLUDED.calculation_metadata,
+        data_quality = EXCLUDED.data_quality,
         computed_at = EXCLUDED.computed_at,
         avatar = EXCLUDED.avatar,
         avatar_data = EXCLUDED.avatar_data,
@@ -294,33 +307,74 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
   if (type === 'file') {
     return withFileLock(DATA_PATH, async () => {
       const store = readFileStore()
+      // 保留 isFree 标记：isCacheValid / findFreeEvaluation 的 file 模式判断依赖此字段
+      const record: Evaluation & { isFree?: boolean } = { ...evaluation, isFree }
       const idx = store.findIndex(e => e.username === evaluation.username)
-      if (idx >= 0) store[idx] = evaluation
-      else store.push(evaluation)
+      if (idx >= 0) store[idx] = record
+      else store.push(record)
       writeFileStore(store)
       return evaluation
     })
   }
 
   // Memory mode
+  const record: Evaluation & { isFree?: boolean } = { ...evaluation, isFree }
   const idx = memoryFallback.findIndex(e => e.username === evaluation.username)
-  if (idx >= 0) memoryFallback[idx] = evaluation
-  else memoryFallback.push(evaluation)
+  if (idx >= 0) memoryFallback[idx] = record
+  else memoryFallback.push(record)
   return evaluation
 }
 
 export async function isCacheValid(username: string, ttlHours = 720): Promise<boolean> {
-  const found = await findEvaluation(username)
-  if (!found) return false
+  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+  const type = await initStore()
 
-  if (found.formulaVersion !== 'v2') return false
+  let computedAt = ''
+  let formulaVersion: string | undefined
+  let categories: string[] | undefined
+  let isFree: boolean | undefined
+  let dataQuality: string | undefined
 
-  const categories = found.accountProfile?.categories
+  if (type === 'postgres') {
+    // 直接取行判断 is_free/data_quality（findEvaluation 的 Evaluation 重建会丢弃这两个行级字段）
+    const rows = await getSql()`
+      SELECT computed_at, formula_version, account_profile, is_free, data_quality
+      FROM evaluations
+      WHERE username = ${normalized}`
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return false
+    computedAt = String(row.computed_at ?? '')
+    formulaVersion = row.formula_version ? String(row.formula_version) : undefined
+    categories = parseJson<Evaluation['accountProfile']>(row.account_profile)?.categories
+    isFree = row.is_free == null ? undefined : Boolean(row.is_free)
+    dataQuality = row.data_quality ? String(row.data_quality) : undefined
+  } else {
+    const store = type === 'file' ? readFileStore() : memoryFallback
+    const found = store.find(e => e.username === normalized)
+    if (!found) return false
+    computedAt = String(found.computedAt ?? '')
+    formulaVersion = found.formulaVersion
+    categories = found.accountProfile?.categories
+    isFree = (found as { isFree?: boolean }).isFree
+    dataQuality = found.dataQuality
+  }
+
+  if (formulaVersion !== 'v2') return false
+
   if (!categories || !Array.isArray(categories) || categories.length === 0) {
     return false
   }
 
-  const hours = (Date.now() - new Date(found.computedAt).getTime()) / 36e5
+  // 缓存污染防护（postgres）：付费 30 天缓存只允许命中付费评估（is_free=false），
+  // 免费评估可能基于估算播放（dataQuality='partial'），不得透给付费用户
+  if (type === 'postgres' && isFree !== false) return false
+  // file/memory 模式：仅拒绝明确标记为免费的记录（历史数据无 isFree 标记时从宽，保持本地开发可用）
+  if (isFree === true) return false
+
+  // dataQuality='partial'（播放量估算）不进付费缓存；存量行为空/undefined 时视为 full（兼容历史）
+  if (dataQuality && dataQuality !== 'full') return false
+
+  const hours = (Date.now() - new Date(computedAt).getTime()) / 36e5
   return hours < ttlHours
 }
 
@@ -600,6 +654,7 @@ function normalizeEvaluation(evaluation: Partial<Evaluation>): Evaluation {
     cached: evaluation.cached,
     formulaVersion: (evaluation.formulaVersion as 'v2' | undefined) || undefined,
     calculationMetadata: evaluation.calculationMetadata,
+    dataQuality: evaluation.dataQuality,
   }
 }
 
@@ -689,6 +744,7 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
     posts: Array.isArray(parseJson<Evaluation['posts']>(row.posts)) ? parseJson<Evaluation['posts']>(row.posts) : [],
     formulaVersion: row.formula_version ? String(row.formula_version) as 'v2' : undefined,
     calculationMetadata: parseJson<Evaluation['calculationMetadata']>(row.calculation_metadata),
+    dataQuality: row.data_quality ? String(row.data_quality) as Evaluation['dataQuality'] : undefined,
   })
 }
 
@@ -748,7 +804,12 @@ export async function checkFreeRateLimit(ip: string): Promise<{ allowed: boolean
   const type = await initStore()
   if (type === 'postgres') {
     try {
-      const ipHash = crypto.createHmac('sha256', process.env.IP_HASH_SECRET || '').update(ip).digest('hex').slice(0, 32)
+      const ipHash = hashIp(ip)
+      // IP_HASH_SECRET 未配置时 hashIp 返回空串：空串入限流表等于放行所有人，跳过入库直接放行
+      if (!ipHash) {
+        console.warn('[db] IP hash unavailable (IP_HASH_SECRET not set), skipping free rate limit')
+        return { allowed: true, remaining: FREE_DAILY_LIMIT - 1, resetMs: windowMs }
+      }
       const dateKey = new Date().toISOString().slice(0, 10)
       const rows = await getSql()`
         INSERT INTO free_rate_limits (ip_hash, date_key, count)
@@ -786,7 +847,14 @@ export async function saveReportRating(username: string, rating: number, ipHash:
     // file/memory 模式：无真实持久化，静默返回 ok（不影响本地开发体验）
     return { ok: true }
   }
-  await getSql()`INSERT INTO report_ratings (username, rating, ip_hash) VALUES (${username}, ${rating}, ${ipHash || null})`
+  const now = new Date()
+  // upsert（唯一索引 idx_report_ratings_unique 见 initStore）：同一 IP 对同一报告重复投票
+  // 改为更新评分而非新增行，防止无限刷分
+  await getSql()`
+    INSERT INTO report_ratings (username, rating, ip_hash, created_at)
+    VALUES (${username}, ${rating}, ${ipHash || null}, ${now})
+    ON CONFLICT (username, ip_hash) DO UPDATE SET rating = ${rating}, created_at = ${now}
+    RETURNING rating`
   return { ok: true }
 }
 
