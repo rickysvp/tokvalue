@@ -113,7 +113,7 @@ And yes, it's actually free. No credit card, no demo call, no "unlock the real n
 
 <details>
   <summary>What does the free TokValue valuation include?</summary>
-  Your overall account assessment, a dollar value range, and a risk scan — all free, in about 10 seconds. The paid tier adds a 12-month revenue projection, brand matching, growth plan, and PDF/PNG export.
+  Your overall account assessment, a dollar value range, and a risk scan — all free, in about a minute. The paid tier adds a 12-month revenue projection, brand matching, growth plan, and PDF/PNG export.
 </details>
 
 <details>
@@ -155,7 +155,7 @@ export const post31: BlogPost = {
   ],
   content: `# Is TokValue Free? A Complete Guide to Free vs Paid TikTok Account Valuation
 
-Yes — TokValue's core TikTok account valuation is free. You can enter any public TikTok handle and get an overall assessment, a dollar value range, and a risk scan in about 10 seconds, with no credit card and no signup wall.
+Yes — TokValue's core TikTok account valuation is free. You can enter any public TikTok handle and get an overall assessment, a dollar value range, and a risk scan in about a minute, with no credit card and no signup wall.
 
 But "free" means different things to different tools, so let me break down exactly what you get without paying, what the paid tier adds, and whether it's actually worth the money. I write this as someone on the team, but I'll be straight about where the free tier stops and the paid tier starts.
 
@@ -242,7 +242,7 @@ We wrote a separate guide on [how much a TikTok account is actually worth](/blog
 
 <details>
   <summary>How much is my TikTok account worth?</summary>
-  That's the whole point — you can find out free in about 10 seconds. Enter your handle and get a niche-aware dollar range based on real market data. [Get your free valuation →](/ )
+  That's the whole point — you can find out free in about a minute. Enter your handle and get a niche-aware dollar range based on real market data. [Get your free valuation →](/ )
 </details>
 
 ## The Bottom Line

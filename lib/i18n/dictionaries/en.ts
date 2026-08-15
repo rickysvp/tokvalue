@@ -6,8 +6,8 @@ const en = {
   // ── SEO / Metadata ──
   seo: {
     title: 'Free TikTok Account Value Calculator — TokValue',
-    description: 'Check any TikTok account\'s worth, brand deal rates & earnings in 10 seconds. Free, no sign-up, no credit card. Multi-dimensional scoring across 10 dimensions.',
-    shortDescription: 'Free TikTok account value calculator. Check any account\'s worth in 10 seconds — no sign-up, no credit card.',
+    description: 'Get a data-driven estimate of any TikTok account\'s worth — real brand deal rates, revenue potential, and audience quality. Free, no sign-up, no credit card.',
+    shortDescription: 'Free TikTok account value calculator. Data-driven estimate of any account\'s worth — no sign-up, no credit card.',
   },
 
   // ── Common / Shared ──
@@ -99,7 +99,7 @@ const en = {
   home: {
     hero: {
       title: "What's your TikTok account really worth?",
-      subtitle: 'Free 10-second valuation. Overall assessment, revenue estimate, and brand deal price. No sign-up. No credit card.',
+      subtitle: 'A data-driven estimate of your TikTok account\'s market value — real brand deal rates, revenue potential, and audience quality across 10 dimensions.',
       forWhom: 'For TikTok creators, brand marketers & influencer agencies',
       placeholder: '@tiktok username',
       ariaLabel: 'TikTok username',
@@ -109,7 +109,7 @@ const en = {
 
     howItWorks: {
       badge: 'How It Works',
-      title: 'From username to valuation in 10 seconds',
+      title: 'From username to a data-backed valuation',
       steps: [
         {
           number: '1',
@@ -134,7 +134,7 @@ const en = {
       title: 'Know what any account is really worth',
       subtitle: 'Free tools show you follower counts. TokValue shows you what the account can actually earn, and whether its audience is real.',
       cta: 'Evaluate Your Account for Free',
-      ctaHint: 'See your value, rate, and risk. Free, in 10 seconds.',
+      ctaHint: 'See your value, rate, and risk — data-backed, free.',
       story: [
         {
           title: 'Know what to charge',
