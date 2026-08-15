@@ -5,7 +5,7 @@ import { scoreProfile } from '@/lib/scoring'
 import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit } from '@/lib/db'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
-import { consumeCredit, refundCredit } from '@/lib/credits-server'
+import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
 import { recordEventFromRequest } from '@/lib/analytics'
 import { getClientIp } from '@/lib/ip'
@@ -143,6 +143,8 @@ export async function POST(req: NextRequest) {
   let userEmail = ''
   let normalized = ''
   let isFreeMode = false
+  // 免费额度扣减结果（用于埋点；null = 未经过额度扣减，如 dev 无 token）
+  let freeAllowance: { used: number; limit: number } | null = null
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -155,16 +157,22 @@ export async function POST(req: NextRequest) {
     normalized = username.replace(/^@/, '').toLowerCase()
     const lang = 'en' // Fixed to English until multi-language dictionaries are ready
 
-    // ── Mode detection: token present & valid → paid, else → free ──
+    // ── Mode detection: token present & valid → paid, no token → free ──
     const token = getBearerToken(req)
     let isPaidMode = false
 
     if (token) {
       const payload = await verifySessionToken(token)
-      if (payload) {
-        userEmail = payload.email
-        isPaidMode = true
+      if (!payload) {
+        // token 存在但无效（过期/伪造）→ 401，不再静默降级到免费模式
+        //（静默降级等于给"无效 token"留了一条绕过邮箱验证的白嫖通道）
+        return NextResponse.json(
+          { error: 'Session expired. Please verify your email again.', code: 'NEED_VERIFY' },
+          { status: 401 }
+        )
       }
+      userEmail = payload.email
+      isPaidMode = true
     }
 
     // ═══════════════════════════════════════════
@@ -187,42 +195,60 @@ export async function POST(req: NextRequest) {
 
       const consumeResult = await consumeCredit(userEmail, normalized)
       if (!consumeResult.ok) {
-        const msgs: Record<string, { msg: string; status: number }> = {
-          NOT_FOUND:  { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
-          NO_CREDITS: { msg: getServerDict().api.errors.NO_CREDITS, status: 402 },
+        if (consumeResult.reason !== 'NO_CREDITS' && consumeResult.reason !== 'NOT_FOUND') {
+          // 非"无余额"类失败（DISABLED 等）仍直接报错返回
+          return NextResponse.json(
+            { error: getServerDict().api.errors.CONSUME_ERROR, code: consumeResult.reason || 'CONSUME_ERROR' },
+            { status: 400 }
+          )
         }
-        const err = msgs[consumeResult.reason || ''] || { msg: getServerDict().api.errors.CONSUME_ERROR, status: 400 }
-        return NextResponse.json({ error: err.msg, code: consumeResult.reason }, { status: err.status })
+        // credits=0 的已验证用户：不再直接 402，跳出付费分支落入免费额度流程
+        //（保留 userEmail，免费 24h 缓存检查 / 邮箱终身额度判定照走）
+        isPaidMode = false
       }
 
-      const profile = await fetchProfile(normalized)
+      if (isPaidMode) {
+        const profile = await fetchProfile(normalized)
 
-      recordEventFromRequest(req, {
-        event_type: 'evaluate_start',
-        username: normalized,
-        path: '/api/evaluate',
-      }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
+        recordEventFromRequest(req, {
+          event_type: 'evaluate_start',
+          username: normalized,
+          path: '/api/evaluate',
+        }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
 
-      let evaluation = scoreProfile(profile)
-      evaluation = await enrichWithAI(evaluation, lang)
-      // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
-      evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
+        let evaluation = scoreProfile(profile)
+        evaluation = await enrichWithAI(evaluation, lang)
+        // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
+        evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
 
-      await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
+        await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
 
-      recordEventFromRequest(req, {
-        event_type: 'evaluate_done',
-        username: normalized,
-        metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
-      }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
+        recordEventFromRequest(req, {
+          event_type: 'evaluate_done',
+          username: normalized,
+          metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
+        }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
 
-      return NextResponse.json({ ...evaluation, isFree: false })
+        return NextResponse.json({ ...evaluation, isFree: false })
+      }
     }
 
     // ═══════════════════════════════════════════
     // FREE MODE — new freemium flow
     // ═══════════════════════════════════════════
     isFreeMode = true
+    // 本地开发保留无 token 免费通道（开发便利）
+    const IS_DEV = process.env.NODE_ENV === 'development'
+
+    // 免费评估需要已验证邮箱的 session（消灭纯游客白嫖；
+    // 到达此处的无 token 请求只可能是 dev 环境，或上方付费降级的已验证用户）
+    if (!token && !IS_DEV) {
+      return NextResponse.json(
+        { error: 'Email verification required for free evaluations.', code: 'NEED_VERIFY' },
+        { status: 401 }
+      )
+    }
+
     const clientIp = getClientIp(req)
 
     // Check free 24h cache (same username was evaluated recently for free)
@@ -256,6 +282,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // 邮箱免费额度判定（IP 限流之后、fetchProfile 之前；24h 缓存命中已在更早处 return，不耗额度）
+    // prod 下走到这里必有 userEmail（无 token 已被上方 NEED_VERIFY 挡掉，付费降级保留 userEmail）；
+    // dev + 无 token 时跳过额度检查
+    if (!IS_DEV) {
+      const allowance = await consumeFreeAllowance(userEmail)
+      if (!allowance.ok) {
+        return NextResponse.json(
+          {
+            error: `You've used all ${allowance.limit} free evaluations. Upgrade to unlock more.`,
+            code: 'FREE_LIMIT_EXHAUSTED',
+          },
+          { status: 402 }
+        )
+      }
+      freeAllowance = allowance
+    }
+
     const profile = await fetchProfile(normalized)
 
     recordEventFromRequest(req, {
@@ -282,7 +325,14 @@ export async function POST(req: NextRequest) {
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',
       username: normalized,
-      metadata: { score: evaluation.score, tier: evaluation.tier, cached: false, free: true },
+      metadata: {
+        score: evaluation.score,
+        tier: evaluation.tier,
+        cached: false,
+        free: true,
+        // 免费额度使用进度（"used/limit"，如 "1/2"）；dev 无 token 跳过额度检查时无此字段
+        freeUsed: freeAllowance ? `${freeAllowance.used}/${freeAllowance.limit}` : undefined,
+      },
     }).catch(err => console.warn('[evaluate] recordEvent(free-done) failed:', err))
 
     console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)

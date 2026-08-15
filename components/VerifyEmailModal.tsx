@@ -14,15 +14,15 @@ import {
   fetchBalance, setSessionToken, getSessionToken,
 } from '@/lib/credits-client'
 
-type Step = 'choose' | 'email' | 'code' | 'success'
+type Step = 'choose' | 'email' | 'returning-choice' | 'code' | 'success'
 
 interface VerifyEmailModalProps {
   isOpen: boolean
   onClose: () => void
   onUnlock: () => void
   existingBalance?: CreditBalance | null
-  /** 'evaluate' = new account evaluation, 'unlock' = unlock previously saved evaluation */
-  mode?: 'evaluate' | 'unlock'
+  /** 'evaluate' = new account evaluation, 'unlock' = unlock previously saved evaluation, 'free' = 免费评估邮箱验证（跳过套餐选择） */
+  mode?: 'evaluate' | 'unlock' | 'free'
 }
 
 const VALUE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -32,6 +32,7 @@ const VALUE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>
 export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, mode = 'evaluate' }: VerifyEmailModalProps) {
   const { dict } = useI18n()
   const isUnlockMode = mode === 'unlock'
+  const isFreeMode = mode === 'free'
   const [step, setStep] = useState<Step>('choose')
   const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[1])
   const [email, setEmail] = useState('')
@@ -53,17 +54,20 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
   // Reset on open
   useEffect(() => {
     if (isOpen) {
-      setStep('choose')
+      // free 模式跳过套餐选择，直接进入邮箱验证步骤
+      setStep(isFreeMode ? 'email' : 'choose')
       setError('')
       setCode(['', '', '', '', '', ''])
       setShowReturning(false)
       setBalance(existingBalance || null)
-      const activeEmail = getActiveEmail()
-      if (activeEmail && !existingBalance) {
-        fetchBalance(activeEmail).then(b => { if (b) setBalance(b) })
+      if (!isFreeMode) {
+        const activeEmail = getActiveEmail()
+        if (activeEmail && !existingBalance) {
+          fetchBalance(activeEmail).then(b => { if (b) setBalance(b) })
+        }
       }
     }
-  }, [isOpen, existingBalance])
+  }, [isOpen, existingBalance, isFreeMode])
 
   // Close on Escape
   useEffect(() => {
@@ -113,7 +117,8 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
       const res = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), packageId: showReturning ? '_returning' : selectedPkg.id }),
+        // returning 恢复 / free 免费验证走 '_returning' 通道（不产生购买记录）
+        body: JSON.stringify({ email: email.trim(), packageId: showReturning || isFreeMode ? '_returning' : selectedPkg.id }),
       })
       const data = await res.json().catch(() => ({ error: dict.verifyEmail.sendFailed }))
       if (!res.ok) throw new Error(data.error || dict.verifyEmail.sendFailed)
@@ -137,8 +142,40 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
     await handleSendCode()
   }
 
+  // ── 新用户直付：创建 Creem 支付会话并跳转（新邮箱 / 老用户复购共用）──
+  // 支付即凭证，无需验证邮箱；支付成功回跳后由 guest claim 自动认领。
+  async function startGuestCheckout(trimmed: string) {
+    const token = getSessionToken()
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.ok) throw new Error(data.error || dict.verifyEmail.paymentStartFailed)
+
+    // DEV_SKIP_PAYMENT：本地开发跳过支付直接解锁
+    if (data.devMode) {
+      setStep('success')
+      setTimeout(() => { onClose(); onUnlock() }, 800)
+      return
+    }
+
+    if (data.checkoutUrl) {
+      // 记住邮箱：支付回跳后 guest claim 自动认领
+      setActiveEmail(trimmed)
+      window.location.href = data.checkoutUrl
+      return
+    }
+    throw new Error(dict.verifyEmail.paymentStartFailed)
+  }
+
   // ── 新用户主路径：输邮箱后先查状态再分流（无验证码直付）──
-  // - 已有额度的邮箱（老用户）→ 自动发验证码验证所有权（防重复付费 + 恢复登录）
+  // - free 模式：目的是验证邮箱所有权（免费额度），直接发码，不查余额、不发起购买
+  // - 已有额度的邮箱（老用户）→ 转复购选择页：验证恢复 or 直接再买（购买与恢复是独立入口）
   // - 新邮箱 → 直接创建 Creem 支付会话并跳转，全程无验证码
   async function handleEmailSubmit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -148,6 +185,13 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
       setError(dict.verifyEmail.invalidEmail)
       return
     }
+
+    // free 模式：跳过 lookup 分流与购买，直接发验证码（handleSendCode 内部管理 loading）
+    if (isFreeMode) {
+      await handleSendCode()
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
@@ -160,39 +204,34 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
       const lookup = await lookupRes.json().catch(() => ({ hasCredits: false }))
 
       if (lookup.hasCredits) {
-        // 老用户：转验证码验证所有权，无需重复购买
-        setShowReturning(true)
-        await handleSendCode()
+        // 老用户：给选择而非强制验证码——验证恢复用余额，或直接再买（囤货）
+        setStep('returning-choice')
         return
       }
 
       // Step 2: 新用户 → Guest Checkout 直达支付
-      const token = getSessionToken()
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data.ok) throw new Error(data.error || dict.verifyEmail.paymentStartFailed)
+      await startGuestCheckout(trimmed)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : dict.verifyEmail.paymentStartFailed)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      // DEV_SKIP_PAYMENT：本地开发跳过支付直接解锁
-      if (data.devMode) {
-        setStep('success')
-        setTimeout(() => { onClose(); onUnlock() }, 800)
-        return
-      }
+  // ── returning-choice：验证所有权恢复使用已有额度（青色通道，'_returning' 不产生购买记录）──
+  async function handleReturningVerifyUse() {
+    if (loading) return
+    setShowReturning(true)
+    await handleSendCode()
+  }
 
-      if (data.checkoutUrl) {
-        // 记住邮箱：支付回跳后 guest claim 自动认领
-        setActiveEmail(trimmed)
-        window.location.href = data.checkoutUrl
-        return
-      }
-      throw new Error(dict.verifyEmail.paymentStartFailed)
+  // ── returning-choice：直接复购（粉色通道，支付即凭证无需验证邮箱）──
+  async function handleReturningBuyMore() {
+    if (loading) return
+    setLoading(true)
+    setError('')
+    try {
+      await startGuestCheckout(email.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : dict.verifyEmail.paymentStartFailed)
     } finally {
@@ -514,15 +553,19 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
             </>
           )}
 
-          {/* Step 2: Email（新用户 → 直付；老用户 → 自动转验证码） */}
+          {/* Step 2: Email（新用户 → 直付；老用户 → 复购选择；free 模式 → 直接发码验证） */}
           {step === 'email' && (
             <form onSubmit={handleEmailSubmit}>
               <div className="text-center mb-5">
-                <div className="mx-auto w-12 h-12 rounded-full bg-[#FF0050]/10 flex items-center justify-center mb-3">
-                  <Mail className="h-6 w-6 text-[#FF0050]" />
+                <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-3 ${isFreeMode ? 'bg-[#00F2EA]/10' : 'bg-[#FF0050]/10'}`}>
+                  <Mail className={`h-6 w-6 ${isFreeMode ? 'text-[#00F2EA]' : 'text-[#FF0050]'}`} />
                 </div>
-                <h2 className="text-xl font-bold text-white">{dict.verifyEmail.emailTitle}</h2>
-                <p className="mt-1 text-sm text-neutral-400">{dict.verifyEmail.emailSubtitle}</p>
+                <h2 className="text-xl font-bold text-white">
+                  {isFreeMode ? dict.verifyEmail.freeVerifyTitle : dict.verifyEmail.emailTitle}
+                </h2>
+                <p className="mt-1 text-sm text-neutral-400">
+                  {isFreeMode ? dict.verifyEmail.freeVerifySubtitle : dict.verifyEmail.emailSubtitle}
+                </p>
               </div>
               <div className="relative">
                 <input
@@ -530,7 +573,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
                   value={email}
                   onChange={e => { setEmail(e.target.value); setError('') }}
                   placeholder={dict.verifyEmail.emailPlaceholder}
-                  className="w-full rounded-xl border border-neutral-700 bg-[#111] px-4 py-3 pr-12 text-sm text-white placeholder-neutral-600 outline-none focus:border-[#FF0050] focus:ring-2 focus:ring-[#FF0050]/20 transition-colors"
+                  className={`w-full rounded-xl border border-neutral-700 bg-[#111] px-4 py-3 pr-12 text-sm text-white placeholder-neutral-600 outline-none transition-colors ${isFreeMode ? 'focus:border-[#00F2EA] focus:ring-2 focus:ring-[#00F2EA]/20' : 'focus:border-[#FF0050] focus:ring-2 focus:ring-[#FF0050]/20'}`}
                   autoFocus
                 />
                 {email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
@@ -541,19 +584,61 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className={`mt-4 w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${isFreeMode ? 'bg-[#00F2EA] text-black hover:bg-[#00dccb]' : 'bg-[#FF0050] text-white hover:bg-[#e60049]'}`}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CreditCard className="h-4 w-4" />{dict.verifyEmail.continueToPayment}</>}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : isFreeMode
+                  ? <><KeyRound className="h-4 w-4" />{dict.verifyEmail.sendCode}</>
+                  : <><CreditCard className="h-4 w-4" />{dict.verifyEmail.continueToPayment}</>}
               </button>
-              <p className="mt-3 text-center text-xs text-neutral-500">{dict.verifyEmail.noRegistration}</p>
+              {!isFreeMode && (
+                <p className="mt-3 text-center text-xs text-neutral-500">{dict.verifyEmail.noRegistration}</p>
+              )}
+              {!isFreeMode && (
+                <button
+                  type="button"
+                  onClick={() => { setStep('choose'); setError('') }}
+                  className="mt-2 w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  {dict.verifyEmail.backToPackages}
+                </button>
+              )}
+            </form>
+          )}
+
+          {/* Step 2.5: returning-choice（老用户复购选择：验证恢复 = 青；直接再买 = 粉） */}
+          {step === 'returning-choice' && (
+            <div>
+              <div className="text-center mb-5">
+                <div className="mx-auto w-12 h-12 rounded-full bg-[#00F2EA]/10 flex items-center justify-center mb-3">
+                  <Sparkles className="h-6 w-6 text-[#00F2EA]" />
+                </div>
+                <h2 className="text-xl font-bold text-white">{dict.verifyEmail.returningChoiceTitle}</h2>
+                <p className="mt-1 text-sm text-neutral-400">{dict.verifyEmail.returningChoiceDesc}</p>
+              </div>
+              <div className="space-y-2.5">
+                <button
+                  onClick={handleReturningVerifyUse}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#00F2EA] py-3 text-sm font-bold text-black hover:bg-[#00dccb] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><KeyRound className="h-4 w-4" />{dict.verifyEmail.verifyToUseCredits}</>}
+                </button>
+                <button
+                  onClick={handleReturningBuyMore}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CreditCard className="h-4 w-4" />{dict.verifyEmail.buyMore}</>}
+                </button>
+              </div>
+              {error && <div className="mt-2 text-xs text-red-400 text-center">{error}</div>}
               <button
-                type="button"
-                onClick={() => { setStep('choose'); setError('') }}
+                onClick={() => { setStep('email'); setError('') }}
                 className="mt-2 w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
               >
-                {dict.verifyEmail.backToPackages}
+                {dict.verifyEmail.changeEmail}
               </button>
-            </form>
+            </div>
           )}
 
           {/* Step 3: Code */}
@@ -581,7 +666,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
                 </div>
               )}
 
-              {showReturning && (
+              {showReturning && !isFreeMode && (
                 <div className="mb-4 rounded-lg border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-3 py-2 text-[11px] text-[#00F2EA] text-center leading-relaxed">
                   {dict.verifyEmail.existingAccountHint}
                 </div>
@@ -630,7 +715,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
                 </button>
               </div>
 
-              {!showReturning && (
+              {!showReturning && !isFreeMode && (
                 <div className="mt-3 rounded-lg bg-neutral-900/50 px-3 py-2 text-center text-[11px] text-neutral-500">
                   {t(isUnlockMode ? dict.verifyEmail.unlockPackageSummary : dict.verifyEmail.packageSummary, { label: selectedPkg.label, price: selectedPkg.price, count: selectedPkg.credits })}
                 </div>
@@ -646,7 +731,9 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
               </div>
               <h2 className="text-xl font-bold text-white">{dict.verifyEmail.successTitle}</h2>
               <p className="mt-2 text-sm text-neutral-400">
-                {t(isUnlockMode ? dict.verifyEmail.unlockSuccessMessage : dict.verifyEmail.successMessage, { email, balance: successBalance ?? 0 })}
+                {isFreeMode
+                  ? dict.verifyEmail.freeVerifiedSuccess
+                  : t(isUnlockMode ? dict.verifyEmail.unlockSuccessMessage : dict.verifyEmail.successMessage, { email, balance: successBalance ?? 0 })}
               </p>
               <p className="mt-3 text-xs text-neutral-500">{dict.verifyEmail.successClosing}</p>
             </div>

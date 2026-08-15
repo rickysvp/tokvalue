@@ -5,7 +5,7 @@ import {
   Lock, DollarSign, TrendingUp, Target, Shield, BarChart3,
   Building2, Lightbulb, Flame, Rocket, FileDown, Check, Mail,
   ArrowRight, Loader2, Sparkles, Users, CheckCircle2,
-  Zap, Star, RefreshCw,
+  Zap, Star, RefreshCw, CreditCard, KeyRound,
 } from 'lucide-react'
 import type { Evaluation } from '@/types'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
@@ -30,8 +30,9 @@ interface PaidWallProps {
 
 // Guest Checkout 主流程：选套餐 → 输邮箱 →（新用户）直达 Creem 支付（无验证码往返），
 // 支付成功回跳后由回跳逻辑（claimCreditsApi）完成认领并换取会话 token。
-// 已有额度的老用户（换设备/清存储）→ 验证码验证邮箱所有权恢复使用，防止重复付费。
-type Step = 'choose' | 'email' | 'returning-code' | 'success'
+// 已有额度的老用户（换设备/清存储）→ 复购选择页：验证码验证所有权恢复使用（青），
+// 或直接再买（粉）——购买与恢复是独立入口，不强制验证码堵死复购。
+type Step = 'choose' | 'email' | 'returning-choice' | 'returning-code' | 'success'
 
 const UNLOCK_MODULES = [
   { icon: DollarSign,   color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
@@ -71,9 +72,41 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
     }
   }, [existingBalance])
 
-  // Guest Checkout 主路径：输入邮箱 → 直接创建 Creem 支付会话并跳转。
+  // 直达支付：创建 Creem 支付会话并跳转（新用户 / 老用户复购共用）。
   // 有本地 token 时带 Authorization 走 JWT 通道；否则 body 携带 email 走 guest 通道，
   // 邮箱同步传给 Creem（customer.email），支付页自动预填。
+  async function startGuestCheckout(trimmed: string) {
+    const token = getSessionToken()
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+    })
+    const data = await res.json().catch(() => ({ error: dict.paidWall.sendFailed }))
+    if (!res.ok) throw new Error(data.error || dict.paidWall.sendFailed)
+
+    // DEV_SKIP_PAYMENT：本地开发跳过 Creem，直接进入解锁态
+    if (data.devMode) {
+      setStep('success')
+      setTimeout(() => onUnlock(), 800)
+      return
+    }
+
+    if (data.checkoutUrl) {
+      // 跳转前记住邮箱：支付成功回跳（?paid=success&email=...）后，
+      // 回跳逻辑调 claimCreditsApi()（无 token 时自动带此邮箱走 guest 认领）
+      setActiveEmail(trimmed)
+      window.location.href = data.checkoutUrl
+      return
+    }
+
+    throw new Error(dict.paidWall.sendFailed)
+  }
+
+  // Guest Checkout 主路径：输入邮箱 → 查状态分流。
   async function handleCheckout(e?: React.FormEvent) {
     e?.preventDefault()
     if (loading) return
@@ -85,7 +118,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
     setLoading(true)
     setError('')
     try {
-      // 先查邮箱状态：已有额度的老用户 → 验证码验证所有权（防重复付费）
+      // 先查邮箱状态：已有额度的老用户 → 转复购选择（验证恢复 / 直接再买）
       const lookupRes = await fetch('/api/credits/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,49 +127,49 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
       const lookup = await lookupRes.json().catch(() => ({ hasCredits: false }))
 
       if (lookup.hasCredits) {
-        // 老用户：发验证码（_returning，不产生购买记录），转输码步骤恢复所有权
-        const sendRes = await fetch('/api/auth/send-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: trimmed, packageId: '_returning' }),
-        })
-        const sendData = await sendRes.json().catch(() => ({}))
-        if (!sendRes.ok) throw new Error(sendData.error || dict.paidWall.sendFailed)
-        setActiveEmail(trimmed)
-        setReturningCode('')
-        setStep('returning-code')
+        setStep('returning-choice')
         return
       }
 
       // 新用户：直达支付
-      const token = getSessionToken()
-      const res = await fetch('/api/checkout', {
+      await startGuestCheckout(trimmed)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // returning-choice：验证邮箱所有权恢复已有额度（青色通道，'_returning' 不产生购买记录）
+  async function handleReturningVerifyUse() {
+    if (loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const sendRes = await fetch('/api/auth/send-code', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), packageId: '_returning' }),
       })
-      const data = await res.json().catch(() => ({ error: dict.paidWall.sendFailed }))
-      if (!res.ok) throw new Error(data.error || dict.paidWall.sendFailed)
+      const sendData = await sendRes.json().catch(() => ({}))
+      if (!sendRes.ok) throw new Error(sendData.error || dict.paidWall.sendFailed)
+      setActiveEmail(email.trim())
+      setReturningCode('')
+      setStep('returning-code')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      // DEV_SKIP_PAYMENT：本地开发跳过 Creem，直接进入解锁态
-      if (data.devMode) {
-        setStep('success')
-        setTimeout(() => onUnlock(), 800)
-        return
-      }
-
-      if (data.checkoutUrl) {
-        // 跳转前记住邮箱：支付成功回跳（?paid=success&email=...）后，
-        // 回跳逻辑调 claimCreditsApi()（无 token 时自动带此邮箱走 guest 认领）
-        setActiveEmail(trimmed)
-        window.location.href = data.checkoutUrl
-        return
-      }
-
-      throw new Error(dict.paidWall.sendFailed)
+  // returning-choice：直接复购（粉色通道，支付即凭证无需验证邮箱）
+  async function handleReturningBuyMore() {
+    if (loading) return
+    setLoading(true)
+    setError('')
+    try {
+      await startGuestCheckout(email.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
     } finally {
@@ -427,7 +460,43 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
           </form>
         )}
 
-        {/* ── 老用户所有权验证（检测到已有额度，无需重复购买）── */}
+        {/* ── 老用户复购选择（检测到已有额度：验证恢复 = 青；直接再买 = 粉）── */}
+        {step === 'returning-choice' && (
+          <div className="mt-6 max-w-md mx-auto">
+            <div className="rounded-2xl border border-neutral-800 bg-[#111] p-5 text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-[#00F2EA]/10 flex items-center justify-center mb-3">
+                <Sparkles className="h-6 w-6 text-[#00F2EA]" />
+              </div>
+              <div className="text-base font-bold text-white">{dict.verifyEmail.returningChoiceTitle}</div>
+              <div className="mt-1 text-xs text-neutral-400">{dict.verifyEmail.returningChoiceDesc}</div>
+              <div className="mt-4 space-y-2.5">
+                <button
+                  onClick={handleReturningVerifyUse}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#00F2EA] py-3 text-sm font-bold text-black hover:bg-[#00dccb] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><KeyRound className="h-4 w-4" />{dict.verifyEmail.verifyToUseCredits}</>}
+                </button>
+                <button
+                  onClick={handleReturningBuyMore}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CreditCard className="h-4 w-4" />{dict.verifyEmail.buyMore}</>}
+                </button>
+              </div>
+              {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
+              <button
+                onClick={() => { setStep('email'); setError('') }}
+                className="mt-2 w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                {dict.verifyEmail.changeEmail}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 老用户所有权验证（选择"验证恢复"后输码，无需重复购买）── */}
         {step === 'returning-code' && (
           <form onSubmit={handleReturningVerify} className="mt-6 max-w-md mx-auto">
             <div className="rounded-2xl border border-[#00F2EA]/30 bg-[#00F2EA]/5 p-5">

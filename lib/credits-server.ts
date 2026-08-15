@@ -339,6 +339,69 @@ export async function getUsageCountByEmail(email: string): Promise<number> {
   return Number(rows[0]?.count || 0)
 }
 
+// ── Free evaluation allowance（免费评估额度：每邮箱终身 2 次）──
+
+// 免费评估额度：每邮箱终身 2 次
+export const FREE_ALLOWANCE_LIMIT = 2
+
+let freeAllowanceInitPromise: Promise<void> | null = null
+
+async function initFreeAllowanceTable(): Promise<void> {
+  if (!freeAllowanceInitPromise) {
+    freeAllowanceInitPromise = (async () => {
+      const s = await getSql()
+      await s`
+        CREATE TABLE IF NOT EXISTS free_evaluations (
+          email TEXT PRIMARY KEY,
+          used_count INTEGER NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ DEFAULT now()
+        )
+      `
+    })()
+  }
+  return freeAllowanceInitPromise
+}
+
+/**
+ * 原子扣减一次免费评估额度（email 已验证过的 session 才会调用）。
+ * 返回 ok=false 表示该邮箱终身免费额度已用完。
+ *
+ * 单条 upsert 原子完成"建行 + 条件自增 + 读回"（无多语句事务，依赖单语句原子性）：
+ * - RETURNING 非空 = 扣减成功，used_count 即本次扣减后的已用次数
+ * - RETURNING 空   = ON CONFLICT 的 WHERE 未命中（已用满终身额度），不扣减、不超记
+ *
+ * DB 异常时 fail-closed 返回 ok=false（与 rate-limit 的 fail-open 相反）：
+ * 免费额度是成本控制闸门，每次放行都实打实烧 TikTok API + DeepSeek 配额，
+ * 记账失败若放行等于退化回"无限免费"，宁严勿漏。
+ */
+export async function consumeFreeAllowance(email: string): Promise<{ ok: boolean; used: number; limit: number }> {
+  const key = email.toLowerCase().trim()
+  if (!key) return { ok: false, used: FREE_ALLOWANCE_LIMIT, limit: FREE_ALLOWANCE_LIMIT }
+
+  try {
+    await initFreeAllowanceTable()
+    const s = await getSql()
+    const rows = await s`
+      INSERT INTO free_evaluations (email, used_count)
+      VALUES (${key}, 1)
+      ON CONFLICT (email) DO UPDATE SET
+        used_count = free_evaluations.used_count + 1,
+        updated_at = now()
+      WHERE free_evaluations.used_count < ${FREE_ALLOWANCE_LIMIT}
+      RETURNING used_count
+    `
+    if (!rows || rows.length === 0) {
+      // WHERE 未命中：终身额度已用满（首次写入除外，首次必为 INSERT 路径成功）
+      return { ok: false, used: FREE_ALLOWANCE_LIMIT, limit: FREE_ALLOWANCE_LIMIT }
+    }
+    return { ok: true, used: Number(rows[0].used_count), limit: FREE_ALLOWANCE_LIMIT }
+  } catch (err) {
+    // fail-closed：额度记账失败不得变成无限免费（成本控制场景，宁严勿漏）
+    console.warn('[credits] consumeFreeAllowance failed, denying request (fail-closed):', err instanceof Error ? err.message : String(err))
+    return { ok: false, used: FREE_ALLOWANCE_LIMIT, limit: FREE_ALLOWANCE_LIMIT }
+  }
+}
+
 /**
  * 批量获取多个用户的积分使用次数
  */

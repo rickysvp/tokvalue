@@ -351,6 +351,15 @@ const en = {
     unlockUseCreditUnlock: 'Use 1 evaluation to view',
     unlockPackageSummary: 'Package: {label} · {price} USD · {count} evaluations',
     unlockSuccessMessage: '{email} has {balance} evaluations remaining',
+    // 老用户复购选择（有余额的邮箱提交后：验证恢复 or 直接再买，二选一）
+    returningChoiceTitle: 'This email already has evaluations',
+    returningChoiceDesc: 'Verify ownership to use your remaining credits — or buy more, your choice.',
+    verifyToUseCredits: 'Verify & Use My Credits',
+    buyMore: 'Buy More Evaluations',
+    // free 模式（免费评估邮箱验证：每邮箱 2 次终身免费额度）
+    freeVerifyTitle: 'Verify Your Email',
+    freeVerifySubtitle: 'Each email gets 2 free evaluations. No payment needed.',
+    freeVerifiedSuccess: 'Email verified! Starting your free evaluation...',
   },
 
   // ── Evaluation Report Sections ──

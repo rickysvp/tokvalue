@@ -110,6 +110,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const [, setIsUnlocking] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  // 免费评估邮箱验证弹窗（401 NEED_VERIFY 触发，独立实例避免与购买流程互相干扰）
+  const [freeVerifyOpen, setFreeVerifyOpen] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showPaidWallModal, setShowPaidWallModal] = useState(false)
   const [paidWallMode, setPaidWallMode] = useState<'evaluate' | 'unlock'>('evaluate')
@@ -301,8 +303,20 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
           const data = await res.json()
           if (!res.ok) {
-            setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
-            setError(data.error || dict.errors.evaluationFailed)
+            if (res.status === 401) {
+              // 后端要求邮箱验证（NEED_VERIFY）：关掉评估进度弹窗，转免费邮箱验证
+              setEvaluatingModal(prev => ({ ...prev, open: false }))
+              setFreeVerifyOpen(true)
+            } else if (res.status === 402) {
+              // 免费额度用完（FREE_LIMIT_EXHAUSTED）→ 与登录态 402 同待遇：转付费墙
+              setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
+              setPaidWallMode('evaluate')
+              setNeedPurchase(true)
+              setShowPaidWallModal(true)
+            } else {
+              setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
+              setError(data.error || dict.errors.evaluationFailed)
+            }
           } else {
             setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
             setResult(data)
@@ -346,7 +360,15 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
         const data = await res.json()
         if (!res.ok) {
-          if (res.status === 402) {
+          if (res.status === 401) {
+            // token 失效（NEED_VERIFY）：清理本地会话，转免费邮箱验证重新换取 token
+            setSessionToken(null)
+            setIsLoggedIn(false)
+            setCreditBalance(null)
+            setEvaluatingModal(prev => ({ ...prev, open: false }))
+            setFreeVerifyOpen(true)
+          } else if (res.status === 402) {
+            // 额度不足（NO_CREDITS / 免费额度用完 FREE_LIMIT_EXHAUSTED）→ 转付费墙
             setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
             setPaidWallMode('evaluate')
             setNeedPurchase(true)
@@ -381,6 +403,15 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       evaluatingRef.current = false
     }
   }, [username, dict.errors.networkError, dict.errors.requestTimeout, dict.errors.evaluationFailed])
+
+  // 免费评估邮箱验证成功（VerifyEmailModal mode='free' 的 onUnlock 回调）：
+  // 验证通过已换得会话 token，用 pendingUsername 自动重新触发评估（走正常带 token 流程）。
+  // 此前那次评估早已结束（防重入 guard 已复位），重评不会被 guard 挡住。
+  const handleFreeVerified = useCallback(() => {
+    setFreeVerifyOpen(false)
+    const target = pendingUsername.current
+    if (target) handleEvaluate(target)
+  }, [handleEvaluate])
 
   // Evaluating modal stage progression
   useEffect(() => {
@@ -1003,6 +1034,13 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         onUnlock={handleUnlock}
         existingBalance={creditBalance}
         mode="evaluate"
+      />
+      {/* 免费评估邮箱验证（401 NEED_VERIFY 触发）：验证成功后自动重评 */}
+      <VerifyEmailModal
+        isOpen={freeVerifyOpen}
+        onClose={() => setFreeVerifyOpen(false)}
+        onUnlock={handleFreeVerified}
+        mode="free"
       />
       {result && (
         <ShareModal
