@@ -28,7 +28,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${base}/authors/${a.slug}`,
     lastModified: '2026-08-04',
     changeFrequency: 'monthly',
-    priority: 0.4,
+    priority: 0.2,
   }))
 
   // 分类页

@@ -45,14 +45,15 @@ export function HomepageJsonLd() {
       },
       {
         '@type': 'WebApplication',
-        name: 'TokValue — TikTok Account Value Calculator',
+        name: 'TokValue — Free TikTok Account Value Calculator',
         url: 'https://tokvalue.com/',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Any',
         description: d.seo.shortDescription,
+        isAccessibleForFree: true,
         offers: {
           '@type': 'AggregateOffer',
-          lowPrice: '9',
+          lowPrice: '0',
           highPrice: '99',
           priceCurrency: 'USD',
         },

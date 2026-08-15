@@ -5,9 +5,9 @@ const en = {
 
   // ── SEO / Metadata ──
   seo: {
-    title: 'TokValue: TikTok Account Value Calculator — Check Your Worth',
-    description: 'TikTok account value calculator. Instantly check any account\'s worth, brand deal pricing, and revenue estimates. Multi-dimensional value scoring across 10 assessment dimensions.',
-    shortDescription: 'TikTok account value calculator. Instantly check any account\'s worth, brand deal pricing, and revenue estimates.',
+    title: 'Free TikTok Account Value Calculator — TokValue',
+    description: 'Check any TikTok account\'s worth, brand deal rates & earnings in 10 seconds. Free, no sign-up, no credit card. Multi-dimensional scoring across 10 dimensions.',
+    shortDescription: 'Free TikTok account value calculator. Check any account\'s worth in 10 seconds — no sign-up, no credit card.',
   },
 
   // ── Common / Shared ──
