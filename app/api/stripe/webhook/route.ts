@@ -3,7 +3,7 @@ import { grantCredits } from '@/lib/credits-server'
 import { adminDeductCredits } from '@/lib/admin-credits'
 import { findPackage, CREDIT_PACKAGES } from '@/lib/credits'
 import { getServerDict } from '@/lib/i18n/server'
-import { recordEvent, hashIp } from '@/lib/analytics'
+import { recordRefund } from '@/lib/analytics'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -166,14 +166,7 @@ export async function POST(req: NextRequest) {
         const paidAmountUsd = info.orderAmount / 100
         await grantCredits(email.toLowerCase(), packageId, pkg.credits, paidAmountUsd, checkoutId)
         console.log('[creem-webhook] credits granted for', email, 'checkout:', checkoutId)
-        // Record purchase analytics event
-        // webhook 无真实用户 IP/UA，用 Creem 来源标记
-        recordEvent({
-          event_type: 'purchase',
-          email: email.toLowerCase(),
-          metadata: { package_id: packageId, credits: pkg.credits, amount: paidAmountUsd, checkout_id: checkoutId, source: 'creem_webhook' },
-          ip_hash: hashIp('webhook'),
-        }).catch(err => console.warn('[creem-webhook] analytics record failed:', err))
+        // 收款事件已停写（收款统计整体下线，以 Creem 账单为准；此前的 purchase 事件已不再作为收入口径）
       } catch (err) {
         console.error('[creem-webhook] failed to grant credits:', err)
         return NextResponse.json({ error: getServerDict().api.creem.FAILED_GRANT }, { status: 500 })
@@ -211,6 +204,12 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        // 幂等：先写结构化退款事件（refund_id 唯一索引），首次才执行扣积分，防 webhook 重试重复扣
+        const isFirst = await recordRefund({ refundId, email, creditsDeducted: creditsToDeduct })
+        if (!isFirst) {
+          console.log('[creem-webhook] refund already recorded, skipping deduction. refund:', refundId)
+          return NextResponse.json({ received: true })
+        }
         await adminDeductCredits(email, creditsToDeduct, `system:refund refund:${refundId} amount:${refundAmount}`)
         console.log('[creem-webhook] refund processed, deducted', creditsToDeduct, 'credits from', email, 'refund:', refundId)
       } catch (err) {

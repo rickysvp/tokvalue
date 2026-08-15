@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getStatsOverview,
-  getRevenueByDay,
-  getRevenueByPackage,
   getPVUV,
   getUsersList,
   getTrafficSources,
-  getPayersByDay,
   getPvuvByDay,
+  getConversionByDay,
+  getRefundsByDay,
 } from '@/lib/analytics'
 import { getEvaluationsByDay } from '@/lib/db'
 import { requireAdminAuth } from '@/lib/admin-auth'
@@ -29,29 +28,28 @@ export async function GET(req: NextRequest) {
   const noStore = { 'Cache-Control': 'no-store, max-age=0' }
 
   try {
-    const [overview, byDay, byPackage, pvuv, users, sources, payersByDay, evaluationsByDay, pvuvByDay] = await Promise.all([
+    const [overview, pvuv, users, sources, evaluationsByDay, pvuvByDay, conversionByDay, refundsByDay] = await Promise.all([
       getStatsOverview(),
-      getRevenueByDay(days),
-      getRevenueByPackage(days),
       getPVUV(),
       getUsersList(),
       getTrafficSources(days),
-      getPayersByDay(days),
       getEvaluationsByDay(days),
       getPvuvByDay(days),
+      getConversionByDay(days),
+      getRefundsByDay(days),
     ])
 
     return NextResponse.json({
       overview,
-      revenue: { byDay, byPackage },
       pvuv,
       users,
       sources,
       // 趋势时序数据（按所选周期 days 填充连续日期）
       trends: {
-        payersByDay,
         evaluationsByDay,
         pvuvByDay,
+        conversionByDay,
+        refundsByDay,
       },
     }, { headers: noStore })
   } catch (err) {

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPendingPurchase, claimPendingPurchase } from '@/lib/credits-server'
 import { getBearerToken, verifySessionToken, createSessionToken } from '@/lib/auth'
 import { getServerDict } from '@/lib/i18n/server'
-import { recordEventFromRequest } from '@/lib/analytics'
 import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -136,12 +135,7 @@ export async function POST(req: NextRequest) {
     // Guest 通道：认领成功即签发会话 token，前端存储后转为登录态
     const sessionToken = isGuest ? await createSessionToken(email) : null
 
-    // Track purchase event (metadata.checkout_id 与 webhook 一致)
-    recordEventFromRequest(req, {
-      event_type: 'purchase',
-      email,
-      metadata: { package_id: pending.packageId, credits: pending.credits, amount: pending.amount, checkout_id: pending.checkoutId, claimed_via: isGuest ? 'guest_success_page' : 'success_page' },
-    }).catch(err => console.warn('[claim] analytics record failed:', err))
+    // 收款事件已停写（收款统计整体下线，以 Creem 账单为准）
 
     return NextResponse.json({
       claimed: true,

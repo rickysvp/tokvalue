@@ -4,30 +4,27 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import {
-  LogOut, TrendingUp, DollarSign, Users, Activity,
+  LogOut, TrendingUp, Users, Activity,
   Settings, Loader2, CheckCircle2, XCircle, Search, FileText,
   CreditCard, Zap, RefreshCw, Filter,
-  Clock, AlertCircle, AlertTriangle, Globe,
-  PieChart as PieIcon,
+  Clock, AlertCircle, AlertTriangle, Globe, RotateCcw,
 } from 'lucide-react'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   LineChart, Line, Legend,
 } from 'recharts'
-import type { PieLabelRenderProps } from 'recharts'
 
 // ── Types ──
 interface StatsData {
   overview: {
-    totalRevenue: number
-    revenueToday: number
-    revenueWeek: number
-    revenueMonth: number
-    totalPayers: number
-    payersToday: number
-    payersWeek: number
-    payersMonth: number
+    freeUsers: number
+    paidUsers: number
+    convertedUsers: number
+    conversionRate: number
+    refundCount: number
+    refundedCredits: number
+    refundRate: number
+    paidOrders: number
     evaluationsToday: number
     evaluationsWeek: number
     evaluationsMonth: number
@@ -38,10 +35,6 @@ interface StatsData {
       errorsTotal: number
       byCode: { code: string; count: number }[]
     }
-  }
-  revenue: {
-    byDay: { date: string; amount: number }[]
-    byPackage: { id: string; count: number; revenue: number }[]
   }
   pvuv: {
     totalPV: number
@@ -69,9 +62,10 @@ interface StatsData {
     pct: number
   }>
   trends?: {
-    payersByDay: Array<{ date: string; count: number }>
     evaluationsByDay: Array<{ date: string; count: number }>
     pvuvByDay: Array<{ date: string; pv: number; uv: number }>
+    conversionByDay: Array<{ date: string; freeEvaluations: number; newPaid: number }>
+    refundsByDay: Array<{ date: string; count: number; credits: number }>
   }
 }
 
@@ -96,7 +90,7 @@ interface LogItem {
   createdAt: string
 }
 
-type Tab = 'overview' | 'revenue' | 'users' | 'logs' | 'ops'
+type Tab = 'overview' | 'conversion' | 'refund' | 'users' | 'logs' | 'ops'
 
 // ── 赠送原因选项 ──
 const GRANT_REASONS = [
@@ -110,19 +104,14 @@ const GRANT_REASONS = [
 ]
 
 // ── Helpers ──
-function fmtUsd(n: number): string {
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`
-  return `$${n.toFixed(0)}`
-}
 function fmtNum(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
   return String(n)
 }
-function pct(a: number, b: number): string {
-  if (b === 0) return '0.0%'
-  return `${((a / b) * 100).toFixed(1)}%`
+function fmtRate(r: number): string {
+  if (!r || r <= 0) return '0.0%'
+  return `${(r * 100).toFixed(1)}%`
 }
 function fmtTime(s: string): string {
   const d = new Date(s)
@@ -166,18 +155,13 @@ const SOURCE_COLORS: Record<string, string> = {
   'Product Hunt': '#da552f',
 }
 
-const PACKAGE_LABELS: Record<string, string> = {
-  pack1: '单次评估',
-  pack6: '6次套餐',
-  pack30: '30次套餐',
-}
-
 const TAB_CONFIG: Record<Tab, { label: string; icon: React.ReactNode; activeColor: string }> = {
-  overview: { label: '数据总览', icon: <Activity className="h-4 w-4" />, activeColor: 'text-[#00F2EA] border-[#00F2EA]' },
-  revenue:  { label: '收入分析', icon: <DollarSign className="h-4 w-4" />, activeColor: 'text-green-400 border-green-400' },
-  users:    { label: '用户管理', icon: <Users className="h-4 w-4" />, activeColor: 'text-purple-400 border-purple-400' },
-  logs:     { label: '系统日志', icon: <FileText className="h-4 w-4" />, activeColor: 'text-amber-400 border-amber-400' },
-  ops:      { label: '运营操作', icon: <Settings className="h-4 w-4" />, activeColor: 'text-cyan-400 border-cyan-400' },
+  overview:   { label: '数据总览', icon: <Activity className="h-4 w-4" />, activeColor: 'text-[#00F2EA] border-[#00F2EA]' },
+  conversion: { label: '转化分析', icon: <TrendingUp className="h-4 w-4" />, activeColor: 'text-green-400 border-green-400' },
+  refund:     { label: '退款分析', icon: <RotateCcw className="h-4 w-4" />, activeColor: 'text-orange-400 border-orange-400' },
+  users:      { label: '用户管理', icon: <Users className="h-4 w-4" />, activeColor: 'text-purple-400 border-purple-400' },
+  logs:       { label: '系统日志', icon: <FileText className="h-4 w-4" />, activeColor: 'text-amber-400 border-amber-400' },
+  ops:        { label: '运营操作', icon: <Settings className="h-4 w-4" />, activeColor: 'text-cyan-400 border-cyan-400' },
 }
 
 export default function AdminDashboard() {
@@ -227,19 +211,19 @@ export default function AdminDashboard() {
         // 防御性兜底：确保所有字段存在，避免渲染崩溃
         setStats({
           overview: data.overview || {
-            totalRevenue: 0, revenueToday: 0, revenueWeek: 0, revenueMonth: 0,
-            totalPayers: 0, payersToday: 0, payersWeek: 0, payersMonth: 0,
+            freeUsers: 0, paidUsers: 0, convertedUsers: 0, conversionRate: 0,
+            refundCount: 0, refundedCredits: 0, refundRate: 0, paidOrders: 0,
             evaluationsToday: 0, evaluationsWeek: 0, evaluationsMonth: 0,
             remainingCredits: 0,
           },
-          revenue: data.revenue || { byDay: [], byPackage: [] },
           pvuv: data.pvuv || { totalPV: 0, totalUV: 0, pvToday: 0, uvToday: 0, pvWeek: 0, uvWeek: 0, pvMonth: 0, uvMonth: 0 },
           users: Array.isArray(data.users) ? data.users : [],
           sources: Array.isArray(data.sources) ? data.sources : [],
           trends: data.trends || {
-            payersByDay: [],
             evaluationsByDay: [],
             pvuvByDay: [],
+            conversionByDay: [],
+            refundsByDay: [],
           },
         })
         setLastRefresh(new Date())
@@ -380,7 +364,6 @@ export default function AdminDashboard() {
   }
 
   const o = stats!.overview
-  const r = stats!.revenue
   const src = stats!.sources || []
 
   const tabs = Object.entries(TAB_CONFIG).map(([key, cfg]) => ({ key: key as Tab, ...cfg }))
@@ -457,11 +440,11 @@ export default function AdminDashboard() {
           <div className="space-y-8">
             {/* 核心指标卡片 */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <StatCard label="总收入" value={fmtUsd(o.totalRevenue)} sub={`今日 ${fmtUsd(o.revenueToday)}`} icon={<DollarSign className="h-5 w-5" />} gradient="from-[#00F2EA]/20 to-transparent" accent="text-[#00F2EA]" border="border-[#00F2EA]/30" />
-              <StatCard label="付费用户" value={fmtNum(o.totalPayers)} sub={`今日新增 ${fmtNum(o.payersToday)}`} icon={<Users className="h-5 w-5" />} gradient="from-[#FF0050]/20 to-transparent" accent="text-[#FF0050]" border="border-[#FF0050]/30" />
-              <StatCard label="评估次数（本月）" value={fmtNum(o.evaluationsMonth)} sub={`今日 ${fmtNum(o.evaluationsToday)}`} icon={<Activity className="h-5 w-5" />} gradient="from-green-500/20 to-transparent" accent="text-green-400" border="border-green-500/30" />
-              <StatCard label="未使用评估数" value={fmtNum(o.remainingCredits)} sub="待消耗额度" icon={<TrendingUp className="h-5 w-5" />} gradient="from-amber-500/20 to-transparent" accent="text-amber-400" border="border-amber-500/30" />
-              <StatCard label="API 错误（本月）" value={fmtNum(o.apiErrors?.errorsMonth ?? 0)} sub={`今日 ${fmtNum(o.apiErrors?.errorsToday ?? 0)}`} icon={<AlertTriangle className="h-5 w-5" />} gradient="from-red-500/20 to-transparent" accent="text-red-400" border="border-red-500/30" />
+              <StatCard label="转化率" value={fmtRate(o.conversionRate)} sub={`转化 ${fmtNum(o.convertedUsers)} / 免费 ${fmtNum(o.freeUsers)}`} icon={<TrendingUp className="h-5 w-5" />} gradient="from-[#00F2EA]/20 to-transparent" accent="text-[#00F2EA]" border="border-[#00F2EA]/30" />
+              <StatCard label="免费用户" value={fmtNum(o.freeUsers)} sub={`付费用户 ${fmtNum(o.paidUsers)}`} icon={<Users className="h-5 w-5" />} gradient="from-[#FF0050]/20 to-transparent" accent="text-[#FF0050]" border="border-[#FF0050]/30" />
+              <StatCard label="付费订单" value={fmtNum(o.paidOrders)} sub={`退款 ${fmtNum(o.refundCount)} 笔`} icon={<CreditCard className="h-5 w-5" />} gradient="from-green-500/20 to-transparent" accent="text-green-400" border="border-green-500/30" />
+              <StatCard label="退款率" value={fmtRate(o.refundRate)} sub={`扣回 ${fmtNum(o.refundedCredits)} 积分`} icon={<RotateCcw className="h-5 w-5" />} gradient="from-orange-500/20 to-transparent" accent="text-orange-400" border="border-orange-500/30" />
+              <StatCard label="评估次数（本月）" value={fmtNum(o.evaluationsMonth)} sub={`今日 ${fmtNum(o.evaluationsToday)}`} icon={<Activity className="h-5 w-5" />} gradient="from-amber-500/20 to-transparent" accent="text-amber-400" border="border-amber-500/30" />
             </div>
 
             {/* 趋势周期切换器 */}
@@ -486,22 +469,18 @@ export default function AdminDashboard() {
 
             {/* 收入趋势 + 流量趋势（折线图） */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ChartCard title={`收入趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<DollarSign className="h-4 w-4" />}>
+              <ChartCard title={`转化趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<TrendingUp className="h-4 w-4" />}>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={r.byDay}>
-                      <defs>
-                        <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#00F2EA" stopOpacity={0.4} />
-                          <stop offset="100%" stopColor="#00F2EA" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
+                    <LineChart data={stats!.trends?.conversionByDay || []}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#525252' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#525252' }} allowDecimals={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#737373' }} />
-                      <Area type="monotone" dataKey="amount" stroke="#00F2EA" strokeWidth={2} fill="url(#revGradient)" name="收入" />
-                    </AreaChart>
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Line type="monotone" dataKey="freeEvaluations" stroke="#00F2EA" strokeWidth={2} dot={false} name="免费评估次数" />
+                      <Line type="monotone" dataKey="newPaid" stroke="#22c55e" strokeWidth={2} dot={false} name="新增付费" />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </ChartCard>
@@ -525,15 +504,17 @@ export default function AdminDashboard() {
 
             {/* 付费用户数 + 评估次数（折线图） */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ChartCard title={`付费用户数（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<Users className="h-4 w-4" />}>
+              <ChartCard title={`退款趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<RotateCcw className="h-4 w-4" />}>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={stats!.trends?.payersByDay || []}>
+                    <LineChart data={stats!.trends?.refundsByDay || []}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
                       <YAxis tick={{ fontSize: 10, fill: '#525252' }} allowDecimals={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#737373' }} />
-                      <Line type="monotone" dataKey="count" stroke="#FF0050" strokeWidth={2} dot={false} name="累计付费用户" />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Line type="monotone" dataKey="count" stroke="#f97316" strokeWidth={2} dot={false} name="退款笔数" />
+                      <Line type="monotone" dataKey="credits" stroke="#fbbf24" strokeWidth={2} dot={false} name="扣回积分" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -596,7 +577,7 @@ export default function AdminDashboard() {
               {/* PV/UV 汇总 */}
               <div className="rounded-2xl border border-neutral-800 bg-[#141414] p-6">
                 <h3 className="text-sm font-semibold text-neutral-300 mb-5 flex items-center gap-2">
-                  <BarChart className="h-4 w-4 text-purple-400" />
+                  <TrendingUp className="h-4 w-4 text-purple-400" />
                   PV / UV 汇总
                 </h3>
                 <div className="space-y-4">
@@ -624,73 +605,81 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ════════ Tab: 收入分析 ════════ */}
-        {tab === 'revenue' && (
+        {/* ════════ Tab: 转化分析 ════════ */}
+        {tab === 'conversion' && (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ChartCard title="套餐分布" icon={<PieIcon className="h-4 w-4" />}>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={r.byPackage.map(p => ({ ...p, name: PACKAGE_LABELS[p.id] || p.id }))} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: PieLabelRenderProps) => `${props.name}: ${props.value}次`}>
-                        {r.byPackage.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </ChartCard>
-
-              <ChartCard title="每日收入（近14天）" icon={<DollarSign className="h-4 w-4" />}>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={r.byDay.slice(-14)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#525252' }} />
-                      <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} />
-                      <Bar dataKey="amount" fill="#00F2EA" radius={[4, 4, 0, 0]} name="收入" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </ChartCard>
+            {/* 核心指标 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="免费用户" value={fmtNum(o.freeUsers)} sub="免费评估去重邮箱" icon={<Users className="h-5 w-5" />} gradient="from-[#00F2EA]/20 to-transparent" accent="text-[#00F2EA]" border="border-[#00F2EA]/30" />
+              <StatCard label="付费用户" value={fmtNum(o.paidUsers)} sub="有付费记录的邮箱" icon={<CreditCard className="h-5 w-5" />} gradient="from-green-500/20 to-transparent" accent="text-green-400" border="border-green-500/30" />
+              <StatCard label="转化用户" value={fmtNum(o.convertedUsers)} sub="免费后付费" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[#FF0050]/20 to-transparent" accent="text-[#FF0050]" border="border-[#FF0050]/30" />
+              <StatCard label="转化率" value={fmtRate(o.conversionRate)} sub={`${fmtNum(o.convertedUsers)} / ${fmtNum(o.freeUsers)}`} icon={<Activity className="h-5 w-5" />} gradient="from-amber-500/20 to-transparent" accent="text-amber-400" border="border-amber-500/30" />
             </div>
 
-            {/* 套餐销售明细 */}
-            <div className="rounded-2xl border border-neutral-800 bg-[#141414] overflow-hidden">
-              <div className="p-6 pb-4">
-                <h3 className="text-sm font-semibold text-neutral-300 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#00F2EA]" />
-                  套餐销售明细
-                </h3>
+            {/* 转化趋势 */}
+            <ChartCard title={`转化趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<TrendingUp className="h-4 w-4" />}>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats!.trends?.conversionByDay || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#525252' }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#737373' }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="freeEvaluations" stroke="#00F2EA" strokeWidth={2} dot={false} name="免费评估次数" />
+                    <Line type="monotone" dataKey="newPaid" stroke="#22c55e" strokeWidth={2} dot={false} name="新增付费" />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-neutral-500 border-y border-neutral-800 bg-[#0f0f0f]/50">
-                    <th className="px-6 py-3 font-medium">套餐名称</th>
-                    <th className="px-6 py-3 font-medium text-right">销售次数</th>
-                    <th className="px-6 py-3 font-medium text-right">总收入</th>
-                    <th className="px-6 py-3 font-medium text-right">占比</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.byPackage.map((pkg, i) => {
-                    const totalRev = r.byPackage.reduce((s, p) => s + p.revenue, 0)
-                    return (
-                      <tr key={i} className="border-b border-neutral-800/50 hover:bg-neutral-800/20 transition-colors">
-                        <td className="px-6 py-3.5 text-neutral-200">{PACKAGE_LABELS[pkg.id] || pkg.id}</td>
-                        <td className="px-6 py-3.5 text-right tabular-nums">{pkg.count} 次</td>
-                        <td className="px-6 py-3.5 text-right tabular-nums text-[#00F2EA] font-semibold">{fmtUsd(pkg.revenue)}</td>
-                        <td className="px-6 py-3.5 text-right tabular-nums text-neutral-500">{pct(pkg.revenue, totalRev)}</td>
-                      </tr>
-                    )
-                  })}
-                  {r.byPackage.length === 0 && (
-                    <tr><td colSpan={4} className="py-12 text-center text-neutral-600">暂无销售数据</td></tr>
-                  )}
-                </tbody>
-              </table>
+            </ChartCard>
+
+            {/* 每日转化率 */}
+            <ChartCard title="每日转化率（新增付费 / 免费评估次数）" icon={<Activity className="h-4 w-4" />}>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={(stats!.trends?.conversionByDay || []).map(d => ({
+                    ...d,
+                    dailyRate: d.freeEvaluations > 0 ? (d.newPaid / d.freeEvaluations) : 0,
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#525252' }} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
+                    <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#737373' }} formatter={(v) => [`${(Number(v) * 100).toFixed(1)}%`, '日转化率']} />
+                    <Line type="monotone" dataKey="dailyRate" stroke="#a855f7" strokeWidth={2} dot={false} name="日转化率" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartCard>
+          </div>
+        )}
+
+        {/* ════════ Tab: 退款分析 ════════ */}
+        {tab === 'refund' && (
+          <div className="space-y-8">
+            {/* 核心指标 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="退款笔数" value={fmtNum(o.refundCount)} sub="结构化退款记录数" icon={<RotateCcw className="h-5 w-5" />} gradient="from-orange-500/20 to-transparent" accent="text-orange-400" border="border-orange-500/30" />
+              <StatCard label="扣回积分" value={fmtNum(o.refundedCredits)} sub="累计收回评估次数" icon={<Zap className="h-5 w-5" />} gradient="from-amber-500/20 to-transparent" accent="text-amber-400" border="border-amber-500/30" />
+              <StatCard label="付费订单" value={fmtNum(o.paidOrders)} sub="累计付费笔数" icon={<CreditCard className="h-5 w-5" />} gradient="from-green-500/20 to-transparent" accent="text-green-400" border="border-green-500/30" />
+              <StatCard label="退款率" value={fmtRate(o.refundRate)} sub={`${fmtNum(o.refundCount)} / ${fmtNum(o.paidOrders)}`} icon={<Activity className="h-5 w-5" />} gradient="from-[#FF0050]/20 to-transparent" accent="text-[#FF0050]" border="border-[#FF0050]/30" />
             </div>
+
+            {/* 退款趋势 */}
+            <ChartCard title={`退款趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<RotateCcw className="h-4 w-4" />}>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats!.trends?.refundsByDay || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#525252' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#525252' }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#737373' }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="count" stroke="#f97316" strokeWidth={2} dot={false} name="退款笔数" />
+                    <Line type="monotone" dataKey="credits" stroke="#fbbf24" strokeWidth={2} dot={false} name="扣回积分" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartCard>
           </div>
         )}
 

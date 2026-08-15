@@ -7,7 +7,7 @@ import { generateTrendAnalysis, generateCommercializationAdvice, generateContent
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
-import { recordEventFromRequest } from '@/lib/analytics'
+import { recordEventFromRequest, recordFreeEvaluate } from '@/lib/analytics'
 import { getClientIp } from '@/lib/ip'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
@@ -297,6 +297,12 @@ export async function POST(req: NextRequest) {
         )
       }
       freeAllowance = allowance
+      // 记录免费评估事件（与 free_evaluations 表 1:1 对齐，作为用户级转化率分母 + 按天趋势）
+      if (userEmail) {
+        recordFreeEvaluate({ email: userEmail, username: normalized }).catch(err =>
+          console.warn('[evaluate] recordFreeEvaluate failed:', err)
+        )
+      }
     }
 
     const profile = await fetchProfile(normalized)

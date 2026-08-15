@@ -8,11 +8,13 @@
 
 import type { NeonQueryFunction } from '@neondatabase/serverless'
 import crypto from 'crypto'
+import { getClientIp } from './ip'
 
 // ── Types ──
 
 export type EventType = 'page_view' | 'search' | 'evaluate_start' | 'evaluate_done'
   | 'paywall_view' | 'paywall_click' | 'purchase' | 'api_error'
+  | 'free_evaluate'
 
 export interface AnalyticsEvent {
   id?: number
@@ -95,6 +97,15 @@ async function initDb(): Promise<boolean> {
       await sql`CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type)`
       await sql`CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics_events(created_at)`
       await sql`CREATE INDEX IF NOT EXISTS idx_analytics_hostname ON analytics_events(hostname)`
+      // 退款表：refund_id 主键（强幂等，防 Creem webhook 重试重复扣积分）
+      await sql`
+        CREATE TABLE IF NOT EXISTS refunds (
+          refund_id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          credits_deducted INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
 
       await sql`
         CREATE TABLE IF NOT EXISTS admin_audit_log (
@@ -108,11 +119,31 @@ async function initDb(): Promise<boolean> {
         )
       `
 
-      // credit_balances 表由 lib/credits-server.ts 统一管理，此处不再重复建表
-      // 但确保 disabled 列存在（credits-server 可能还未建表）
-      try {
-        await sql`ALTER TABLE credit_balances ADD COLUMN IF NOT EXISTS disabled BOOLEAN NOT NULL DEFAULT false`
-      } catch { /* 表尚未创建时忽略 */ }
+      // credit_balances 表由 lib/credits-server.ts 的 initTable 惰性建表（首次积分操作才触发）。
+      // 但统计查询（getStatsOverview 付费/转化/退款率口径）直接裸查该表，若从未触发过积分操作则表不存在导致 500。
+      // 此处幂等建表兜底，DDL 与 credits-server.ts 完全对齐。
+      await sql`
+        CREATE TABLE IF NOT EXISTS credit_balances (
+          email TEXT PRIMARY KEY,
+          credits INTEGER NOT NULL DEFAULT 0,
+          total_purchased INTEGER NOT NULL DEFAULT 0,
+          purchases JSONB NOT NULL DEFAULT '[]'::jsonb,
+          verified_at BIGINT NOT NULL DEFAULT 0,
+          disabled BOOLEAN NOT NULL DEFAULT false
+        )
+      `
+      await sql`ALTER TABLE credit_balances ADD COLUMN IF NOT EXISTS disabled BOOLEAN NOT NULL DEFAULT false`
+
+      // free_evaluations 表由 consumeFreeAllowance 惰性建表（首次免费评估才触发）。
+      // 统计查询（getStatsOverview 转化口径）直接依赖该表，若从未触发过免费评估则表不存在导致 500。
+      // 此处幂等建表兜底，DDL 与 credits-server.ts 完全对齐。
+      await sql`
+        CREATE TABLE IF NOT EXISTS free_evaluations (
+          email TEXT PRIMARY KEY,
+          used_count INTEGER NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ DEFAULT now()
+        )
+      `
 
       dbReady = true
       console.log('[analytics] Postgres init succeeded')
@@ -257,8 +288,7 @@ export async function recordEventFromRequest(
     referrer?: string
   }
 ): Promise<void> {
-  const forwarded = req.headers.get('x-forwarded-for')
-  const ip = forwarded ? forwarded.split(',')[0].trim() : '0.0.0.0'
+  const ip = getClientIp(req)
   return recordEvent({
     ...event,
     ip_hash: hashIp(ip),
@@ -287,6 +317,57 @@ export async function recordAuditLog(entry: {
   `
 }
 
+// ── Record: Free Evaluate / Refund ──
+
+/**
+ * 记录一次免费评估（用于用户级转化率分母 + 按天趋势）。
+ * 不依赖 evaluations.is_free（会被升级翻转），以本事件为免费侧唯一事实源。
+ * 重复评估同一邮箱会写多条（每次免费评估一行），趋势用 COUNT，用户去重用 DISTINCT email。
+ */
+export async function recordFreeEvaluate(entry: {
+  email: string
+  username?: string
+}): Promise<void> {
+  const useDb = await initDb()
+  if (!useDb || !sql) {
+    console.error('[analytics] recordFreeEvaluate skipped — DB not ready')
+    return
+  }
+  await sql`
+    INSERT INTO analytics_events (event_type, email, username)
+    VALUES ('free_evaluate', ${entry.email.toLowerCase().trim()}, ${entry.username || null})
+  `
+}
+
+/**
+ * 记录退款（结构化，refund_id 主键强幂等）。
+ * 返回 true = 本次是首次写入（应执行扣积分）；false = 该 refund_id 已记录过（跳过扣积分，防 webhook 重试重复扣）。
+ * 依赖 refunds 表（refund_id 主键），而非易被静默降级的局部唯一索引。
+ */
+export async function recordRefund(entry: {
+  refundId: string
+  email: string
+  creditsDeducted: number
+}): Promise<boolean> {
+  const useDb = await initDb()
+  if (!useDb || !sql) {
+    console.error('[analytics] recordRefund skipped — DB not ready:', entry.refundId)
+    return false
+  }
+  try {
+    const rows = await sql`
+      INSERT INTO refunds (refund_id, email, credits_deducted)
+      VALUES (${entry.refundId}, ${entry.email.toLowerCase().trim()}, ${entry.creditsDeducted})
+      ON CONFLICT (refund_id) DO NOTHING
+      RETURNING refund_id
+    `
+    return (rows as Array<unknown>).length > 0
+  } catch (err) {
+    console.error('[analytics] recordRefund failed:', err instanceof Error ? err.message : String(err))
+    return false
+  }
+}
+
 // ── Query: Stats Overview ──
 
 export interface ApiErrorStats {
@@ -297,14 +378,14 @@ export interface ApiErrorStats {
 }
 
 export interface StatsOverview {
-  totalRevenue: number
-  revenueToday: number
-  revenueWeek: number
-  revenueMonth: number
-  totalPayers: number
-  payersToday: number
-  payersWeek: number
-  payersMonth: number
+  freeUsers: number
+  paidUsers: number
+  convertedUsers: number
+  conversionRate: number
+  refundCount: number
+  refundedCredits: number
+  refundRate: number
+  paidOrders: number
   evaluationsToday: number
   evaluationsWeek: number
   evaluationsMonth: number
@@ -312,16 +393,13 @@ export interface StatsOverview {
   apiErrors: ApiErrorStats
 }
 
-// 安全的 numeric 聚合：过滤非数字字符串，避免 ::numeric 抛错
-const AMOUNT_EXPR = `CASE WHEN metadata->>'amount' ~ '^[0-9]+(\\\\.[0-9]+)?$' THEN (metadata->>'amount')::numeric ELSE 0 END`
-
 export async function getStatsOverview(): Promise<StatsOverview> {
   const useDb = await initDb()
   const emptyErrors: ApiErrorStats = { errorsToday: 0, errorsMonth: 0, errorsTotal: 0, byCode: [] }
   if (!useDb || !sql) {
     return {
-      totalRevenue: 0, revenueToday: 0, revenueWeek: 0, revenueMonth: 0,
-      totalPayers: 0, payersToday: 0, payersWeek: 0, payersMonth: 0,
+      freeUsers: 0, paidUsers: 0, convertedUsers: 0, conversionRate: 0,
+      refundCount: 0, refundedCredits: 0, refundRate: 0, paidOrders: 0,
       evaluationsToday: 0, evaluationsWeek: 0, evaluationsMonth: 0,
       remainingCredits: 0,
       apiErrors: emptyErrors,
@@ -331,22 +409,30 @@ export async function getStatsOverview(): Promise<StatsOverview> {
   const { todayStart, weekStart, monthStart } = shanghaiBoundaries()
 
   // 评估计数从 evaluations 表查询（单一事实源，避免双写不一致）
-  const [purchaseTotal, purchaseToday, purchaseWeek, purchaseMonth,
-    payerTotal, payerToday, payerWeek, payerMonth,
-    evalToday, evalWeek, evalMonth] = await Promise.all([
-    sql`SELECT COALESCE(SUM(${sql.unsafe(AMOUNT_EXPR)}), 0) as total FROM analytics_events WHERE event_type = 'purchase'`,
-    sql`SELECT COALESCE(SUM(${sql.unsafe(AMOUNT_EXPR)}), 0) as today FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${todayStart}::timestamptz`,
-    sql`SELECT COALESCE(SUM(${sql.unsafe(AMOUNT_EXPR)}), 0) as week FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${weekStart}::timestamptz`,
-    sql`SELECT COALESCE(SUM(${sql.unsafe(AMOUNT_EXPR)}), 0) as month FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${monthStart}::timestamptz`,
-    sql`SELECT COUNT(DISTINCT email) as total FROM analytics_events WHERE event_type = 'purchase'`,
-    sql`SELECT COUNT(DISTINCT email) as today FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${todayStart}::timestamptz`,
-    sql`SELECT COUNT(DISTINCT email) as week FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${weekStart}::timestamptz`,
-    sql`SELECT COUNT(DISTINCT email) as month FROM analytics_events WHERE event_type = 'purchase' AND created_at >= ${monthStart}::timestamptz`,
-    // 评估次数从 evaluations 表查（computed_at 字段）
+  const [
+    freeUsersRow, paidUsersRow, convertedRow,
+    refundAgg, paidOrdersRow,
+    evalToday, evalWeek, evalMonth,
+  ] = await Promise.all([
+    sql`SELECT COUNT(DISTINCT email)::int AS n FROM free_evaluations`,
+    sql`SELECT COUNT(*)::int AS n FROM credit_balances WHERE total_purchased > 0`,
+    sql`SELECT COUNT(DISTINCT fe.email)::int AS n FROM free_evaluations fe JOIN credit_balances cb ON cb.email = fe.email WHERE cb.total_purchased > 0`,
+    sql`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(credits_deducted), 0)::int AS credits FROM refunds`,
+    sql`SELECT COALESCE(SUM(jsonb_array_length(purchases)), 0)::int AS n FROM credit_balances`,
     sql`SELECT COUNT(*) as today FROM evaluations WHERE computed_at >= ${todayStart}::timestamptz`,
     sql`SELECT COUNT(*) as week FROM evaluations WHERE computed_at >= ${weekStart}::timestamptz`,
     sql`SELECT COUNT(*) as month FROM evaluations WHERE computed_at >= ${monthStart}::timestamptz`,
   ])
+
+  const freeUsers = Number((freeUsersRow[0] as Record<string, unknown>)?.n) || 0
+  const paidUsers = Number((paidUsersRow[0] as Record<string, unknown>)?.n) || 0
+  const convertedUsers = Number((convertedRow[0] as Record<string, unknown>)?.n) || 0
+  const refundCount = Number((refundAgg[0] as Record<string, unknown>)?.cnt) || 0
+  const refundedCredits = Number((refundAgg[0] as Record<string, unknown>)?.credits) || 0
+  const paidOrders = Number((paidOrdersRow[0] as Record<string, unknown>)?.n) || 0
+
+  const conversionRate = freeUsers > 0 ? convertedUsers / freeUsers : 0
+  const refundRate = paidOrders > 0 ? refundCount / paidOrders : 0
 
   let remainingCredits = 0
   try {
@@ -367,14 +453,14 @@ export async function getStatsOverview(): Promise<StatsOverview> {
   const row = (r: Record<string, unknown>, key: string) => Number(r[key]) || 0
 
   return {
-    totalRevenue: row(purchaseTotal[0] as Record<string, unknown>, 'total'),
-    revenueToday: row(purchaseToday[0] as Record<string, unknown>, 'today'),
-    revenueWeek: row(purchaseWeek[0] as Record<string, unknown>, 'week'),
-    revenueMonth: row(purchaseMonth[0] as Record<string, unknown>, 'month'),
-    totalPayers: row(payerTotal[0] as Record<string, unknown>, 'total'),
-    payersToday: row(payerToday[0] as Record<string, unknown>, 'today'),
-    payersWeek: row(payerWeek[0] as Record<string, unknown>, 'week'),
-    payersMonth: row(payerMonth[0] as Record<string, unknown>, 'month'),
+    freeUsers,
+    paidUsers,
+    convertedUsers,
+    conversionRate,
+    refundCount,
+    refundedCredits,
+    refundRate,
+    paidOrders,
     evaluationsToday: row(evalToday[0] as Record<string, unknown>, 'today'),
     evaluationsWeek: row(evalWeek[0] as Record<string, unknown>, 'week'),
     evaluationsMonth: row(evalMonth[0] as Record<string, unknown>, 'month'),
@@ -428,103 +514,102 @@ export async function getApiErrorStats(): Promise<ApiErrorStats> {
   }
 }
 
-// ── Query: Revenue by Day ──
+// ── Date-range helper ──
 
-export interface DailyRevenue {
-  date: string
-  amount: number
+/**
+ * 生成最近 `days` 天（含今天，基于 Asia/Shanghai 时区）的连续日期键，
+ * 供各按日聚合查询补齐 X 轴连续无断点。
+ */
+function lastNDayKeys(days: number): string[] {
+  const now = new Date()
+  const shanghaiNow = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }))
+  const keys: string[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(shanghaiNow.getFullYear(), shanghaiNow.getMonth(), shanghaiNow.getDate() - i)
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+  }
+  return keys
 }
 
-export async function getRevenueByDay(days: number): Promise<DailyRevenue[]> {
+// ── Query: Conversion by Day ──
+
+export interface DailyConversion {
+  date: string
+  freeEvaluations: number
+  newPaid: number
+}
+
+/**
+ * 每日「免费评估次数」与「新增付费用户数」。
+ * 免费侧事实源 = analytics_events.free_evaluate（不依赖 evaluations.is_free，避免升级翻转污染分母）。
+ * 付费侧事实源 = credit_balances.purchases JSONB 数组元素 purchasedAt（毫秒时间戳）。
+ */
+export async function getConversionByDay(days: number): Promise<DailyConversion[]> {
   const useDb = await initDb()
   if (!useDb || !sql) return []
   const since = new Date(Date.now() - days * 86400000).toISOString()
 
-  // 按 Asia/Shanghai 时区的日期聚合（子查询先算日期，避免 GROUP BY 表达式不一致）
-  const rows = await sql`
-    SELECT date, COALESCE(SUM(amount), 0) as amount
-    FROM (
-      SELECT
-        TO_CHAR((created_at AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD') as date,
-        ${sql.unsafe(AMOUNT_EXPR)} as amount
+  const [freeRows, paidRows] = await Promise.all([
+    sql`
+      SELECT TO_CHAR((created_at AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD') as date, COUNT(*)::int as count
       FROM analytics_events
-      WHERE event_type = 'purchase' AND created_at >= ${since}::timestamptz
-    ) sub
-    GROUP BY date
-    ORDER BY date
-  ` as Array<{ date: string; amount: string }>
-  return fillDailyDays(days, Object.fromEntries(rows.map(r => [String(r.date), Number(r.amount)])))
+      WHERE event_type = 'free_evaluate' AND created_at >= ${since}::timestamptz
+      GROUP BY date
+    `,
+    sql`
+      SELECT TO_CHAR((TO_TIMESTAMP((elem->>'purchasedAt')::bigint / 1000) AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD') as date, COUNT(*)::int as count
+      FROM credit_balances cb
+      CROSS JOIN LATERAL jsonb_array_elements(cb.purchases) AS elem
+      WHERE elem->>'purchasedAt' IS NOT NULL AND elem->>'purchasedAt' <> ''
+      GROUP BY date
+    `,
+  ]) as [Array<{ date: string; count: string }>, Array<{ date: string; count: string }>]
+
+  const freeByDate = new Map<string, number>()
+  for (const r of freeRows) freeByDate.set(String(r.date), Number(r.count) || 0)
+  const paidByDate = new Map<string, number>()
+  for (const r of paidRows) paidByDate.set(String(r.date), Number(r.count) || 0)
+
+  return lastNDayKeys(days).map(date => ({
+    date,
+    freeEvaluations: freeByDate.get(date) || 0,
+    newPaid: paidByDate.get(date) || 0,
+  }))
 }
 
-// ── Date-range filler ──
+// ── Query: Refunds by Day ──
 
-/**
- * 生成最近 `days` 天（含今天，基于 Asia/Shanghai 时区）的连续日期序列，
- * 缺失日期用 0 填充，保证前端折线图 X 轴连续无断点。
- */
-function fillDailyDays(days: number, valueByDate: Record<string, number>): DailyRevenue[] {
-  const result: DailyRevenue[] = []
-  const now = new Date()
-  const shanghaiNow = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }))
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(shanghaiNow.getFullYear(), shanghaiNow.getMonth(), shanghaiNow.getDate() - i)
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    result.push({ date: dateStr, amount: Number(valueByDate[dateStr] || 0) })
-  }
-  return result
-}
-
-// ── Query: Payers by Day (cumulative distinct payers) ──
-
-export interface DailyPayers {
+export interface DailyRefunds {
   date: string
   count: number
+  credits: number
 }
 
-/**
- * 累计付费用户数曲线：每个日期的值 = 截至该日已发生首购的 distinct email 数。
- * 查询所有历史首购日期（不限窗口），保证窗口起点之前的付费用户计入基线。
- */
-export async function getPayersByDay(days: number): Promise<DailyPayers[]> {
+/** 每日退款笔数 + 扣回积分（结构化 refund 事件为唯一事实源）。 */
+export async function getRefundsByDay(days: number): Promise<DailyRefunds[]> {
   const useDb = await initDb()
   if (!useDb || !sql) return []
+  const since = new Date(Date.now() - days * 86400000).toISOString()
 
-  // 每个付费用户的首购日期（全量，不限时间窗口）
   const rows = await sql`
-    SELECT MIN(TO_CHAR((created_at AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD')) as first_date
-    FROM analytics_events
-    WHERE event_type = 'purchase' AND email IS NOT NULL AND email <> ''
-    GROUP BY email
-  ` as Array<{ first_date: string }>
+    SELECT TO_CHAR((created_at AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD') as date,
+      COUNT(*)::int as count,
+      COALESCE(SUM(credits_deducted), 0)::int as credits
+    FROM refunds
+    WHERE created_at >= ${since}::timestamptz
+    GROUP BY date
+    ORDER BY date
+  ` as Array<{ date: string; count: string; credits: string }>
 
-  const newByDate = new Map<string, number>()
-  for (const r of rows) {
-    const d = String(r.first_date || '')
-    if (!d) continue
-    newByDate.set(d, (newByDate.get(d) || 0) + 1)
-  }
+  const byDate = new Map<string, { count: number; credits: number }>()
+  for (const r of rows) byDate.set(String(r.date), { count: Number(r.count) || 0, credits: Number(r.credits) || 0 })
 
-  // 计算窗口起点，累计基线 = 窗口起点之前的首购用户数
-  const now = new Date()
-  const shanghaiNow = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }))
-  const windowStartDate = new Date(shanghaiNow.getFullYear(), shanghaiNow.getMonth(), shanghaiNow.getDate() - (days - 1))
-  const windowStartStr = `${windowStartDate.getFullYear()}-${String(windowStartDate.getMonth() + 1).padStart(2, '0')}-${String(windowStartDate.getDate()).padStart(2, '0')}`
-
-  let cumulative = 0
-  for (const [date, count] of newByDate) {
-    if (date < windowStartStr) cumulative += count
-  }
-
-  // 逐日累加，填充连续日期
-  const result: DailyPayers[] = []
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(shanghaiNow.getFullYear(), shanghaiNow.getMonth(), shanghaiNow.getDate() - i)
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    cumulative += newByDate.get(dateStr) || 0
-    result.push({ date: dateStr, count: cumulative })
-  }
-  return result
+  return lastNDayKeys(days).map(date => {
+    const v = byDate.get(date) || { count: 0, credits: 0 }
+    return { date, count: v.count, credits: v.credits }
+  })
 }
+
 
 // ── Query: PV/UV by Day (daily timeseries) ──
 
@@ -574,29 +659,6 @@ export async function getPvuvByDay(days: number): Promise<DailyPvUv[]> {
     console.error('[analytics] getPvuvByDay query failed:', err instanceof Error ? err.message : String(err))
     return []
   }
-}
-
-// ── Query: Package Distribution ──
-
-export interface PackageStat {
-  id: string
-  count: number
-  revenue: number
-}
-
-export async function getRevenueByPackage(days: number): Promise<PackageStat[]> {
-  const useDb = await initDb()
-  if (!useDb || !sql) return []
-  const since = new Date(Date.now() - days * 86400000).toISOString()
-
-  const rows = await sql`
-    SELECT metadata->>'package_id' as package_id, COUNT(*) as count,
-      COALESCE(SUM(${sql.unsafe(AMOUNT_EXPR)}), 0) as revenue
-    FROM analytics_events
-    WHERE event_type = 'purchase' AND created_at >= ${since}::timestamptz
-    GROUP BY metadata->>'package_id'
-  ` as Array<{ package_id: string; count: string; revenue: string }>
-  return rows.map(r => ({ id: r.package_id || 'unknown', count: Number(r.count), revenue: Number(r.revenue) }))
 }
 
 // ── Query: Audit Log ──
