@@ -101,7 +101,7 @@ const en = {
       title: "What's your account really worth?",
       subtitle: '10-second free valuation. Overall assessment, revenue estimate, and brand deal price. No sign-up. No credit card.',
       forWhom: 'For TikTok creators, brand marketers & influencer agencies',
-      placeholder: '@username → free in 10s',
+      placeholder: '@tiktok username',
       ariaLabel: 'TikTok username',
       cta: 'Evaluate for Free',
       demoLink: 'See @demo sample report →',
