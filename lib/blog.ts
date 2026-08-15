@@ -59,6 +59,21 @@ export function getAllTags(): string[] {
   return Array.from(tags).sort()
 }
 
+/**
+ * getTagsByMinPosts — 只返回被 ≥minPosts 篇文章引用的 tag。
+ * 用于 sitemap：单篇文章的 tag 页是薄内容，不进 sitemap，避免稀释抓取配额。
+ */
+export function getTagsByMinPosts(minPosts: number): string[] {
+  const counts = new Map<string, number>()
+  getAllPosts().forEach(p =>
+    new Set(p.tags).forEach(t => counts.set(t, (counts.get(t) || 0) + 1))
+  )
+  return Array.from(counts.entries())
+    .filter(([, n]) => n >= minPosts)
+    .map(([tag]) => tag)
+    .sort()
+}
+
 export function getAllCategories(): string[] {
   const categories = new Set<string>()
   getAllPosts().forEach(p => {

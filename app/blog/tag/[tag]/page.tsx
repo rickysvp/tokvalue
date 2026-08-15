@@ -18,10 +18,13 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ tag: string }> }): Promise<Metadata> {
   const { tag } = await params
   const tagName = tag.replace(/-/g, ' ')
+  const postCount = getPostsByTag(tagName).length
 
   return {
     title: `Articles tagged "${tagName}" — TokValue Blog`,
     description: `All articles tagged with "${tagName}" on TokValue Blog.`,
+    // 单文章 tag 页是薄内容，noindex 避免稀释抓取配额（方案 B）
+    robots: postCount < 2 ? 'noindex, follow' : undefined,
     openGraph: {
       title: `#${tagName} — TokValue Blog`,
       description: `All articles tagged with "${tagName}" on TokValue Blog.`,

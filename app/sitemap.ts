@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { getAllPosts, getAllAuthors, getAllTags, getAllCategories, categoryToSlug } from '@/lib/blog'
+import { getAllPosts, getAllAuthors, getTagsByMinPosts, getAllCategories, categoryToSlug } from '@/lib/blog'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = 'https://tokvalue.com'
@@ -39,12 +39,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }))
 
-  // 标签页
-  const tagPages: MetadataRoute.Sitemap = getAllTags().map((tag) => ({
+  // 标签页：只收录被 ≥2 篇文章引用的 tag（单文章 tag 页是薄内容，不进 sitemap）
+  const tagPages: MetadataRoute.Sitemap = getTagsByMinPosts(2).map((tag) => ({
     url: `${base}/blog/tag/${tag.toLowerCase().replace(/ /g, '-')}`,
     lastModified: '2026-08-04',
     changeFrequency: 'weekly',
-    priority: 0.6,
+    priority: 0.4,
   }))
 
   return [...staticPages, ...blogPages, ...authorPages, ...categoryPages, ...tagPages]
