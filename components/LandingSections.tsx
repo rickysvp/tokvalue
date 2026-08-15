@@ -9,7 +9,8 @@ import {
   Search, Check,
 } from 'lucide-react'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
-import { CREDIT_PACKAGES } from '@/lib/credits'
+import { CREDIT_PACKAGES, savePct } from '@/lib/credits'
+import { t } from '@/lib/i18n'
 import { CtaButton } from './CtaButton'
 
 // ── Types ──
@@ -74,7 +75,8 @@ function ClientFaqItem({ question, answer, defaultOpen = false }: {
 
 export function PricingSection({ dict, interactive = true, checkoutLoading, onCheckout }: PricingSectionProps) {
   const free = dict.home.pricing.freePlan as { name: string; desc: string; cta: string }
-  const paidPkgs = CREDIT_PACKAGES.filter(p => p.id !== 'pack30')
+  // 全部三个付费套餐（含 pack30 高价锚点），让 $29 更显划算
+  const paidPkgs = CREDIT_PACKAGES
   const plansById = new Map(
     (dict.home.pricing.plans as ReadonlyArray<{ id: string; name: string; desc: string; badge?: string; highlight?: boolean }>)
       .map(p => [p.id, p] as const)
@@ -92,8 +94,8 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           <p className="max-w-xl mx-auto text-neutral-400 text-lg">{dict.home.pricing.subtitle}</p>
         </div>
 
-        {/* 3 cards: Free · $9 · $29 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto mb-10">
+        {/* Free + 3 paid plans */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto mb-10">
           {/* Free */}
           <div className="rounded-2xl border border-[#00F2EA]/20 bg-[#00F2EA]/[0.04] p-6 flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-widest text-[#00F2EA] mb-3">{free.name}</p>
@@ -114,6 +116,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           {/* Paid plans */}
           {paidPkgs.map((pkg) => {
             const plan = plansById.get(pkg.id)
+            const saving = savePct(pkg)
             return (
               <div
                 key={pkg.id}
@@ -137,11 +140,16 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                   <span className="text-neutral-500 text-lg">$</span>
                   <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
                 </div>
-                <p className="text-sm text-neutral-500 mb-5">
+                <p className="text-sm text-neutral-500 mb-1">
                   <span className="text-white font-semibold">{pkg.credits}</span> evaluation{pkg.credits > 1 ? 's' : ''}
                   <span className="mx-1.5 text-neutral-700">·</span>
                   {pkg.perUnit}
                 </p>
+                {/* 节省标注（相对单次 $9 锚点） */}
+                {saving !== null && saving > 0 && (
+                  <p className="text-xs font-semibold text-[#00F2EA] mb-5">{t(dict.home.pricing.saveBadge, { pct: saving })}</p>
+                )}
+                {saving === null && <p className="text-xs mb-5">&nbsp;</p>}
                 {interactive ? (
                   <CtaButton
                     variant={plan?.highlight ? 'primary' : 'outline'}
@@ -152,7 +160,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                     {checkoutLoading ? (
                       <span className="flex items-center justify-center gap-2"><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Redirecting...</span>
                     ) : (
-                      `Get $${pkg.price}`
+                      t(dict.home.pricing.getCta, { price: pkg.price })
                     )}
                   </CtaButton>
                 ) : (
@@ -162,7 +170,7 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
                       plan?.highlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
                   >
-                    Get ${pkg.price}
+                    {t(dict.home.pricing.getCta, { price: pkg.price })}
                   </Link>
                 )}
               </div>

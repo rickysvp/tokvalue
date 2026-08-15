@@ -158,9 +158,13 @@ const en = {
       subtitle: 'One-time payment. No subscription. No auto-renewal.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
       freePlan: { name: 'Free', desc: 'Instant overview — tier, score, value range, risk scan.', cta: 'Try Free' },
+      getCta: 'Get ${price}',
+      saveBadge: 'Save {pct}%',
+      perEvaluation: 'per evaluation',
       plans: [
         { id: 'pack1', name: 'Single', desc: 'One full report. Income breakdown, brand matching, growth forecast, PDF export.', highlight: false },
         { id: 'pack6', name: 'Growth', desc: 'Six reports. Audit your roster, compare creators, track growth. Best value per report.', highlight: true, badge: 'Best Value' },
+        { id: 'pack30', name: 'Studio', desc: 'Thirty reports. Agency-scale analysis for teams and power users. Deepest per-report savings.', highlight: false },
       ],
     },
     faq: {
