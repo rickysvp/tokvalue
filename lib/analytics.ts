@@ -626,15 +626,17 @@ export async function getPvuvByDay(days: number): Promise<DailyPvUv[]> {
   const useDb = await initDb()
   if (!useDb || !sql) return []
   const since = new Date(Date.now() - days * 86400000).toISOString()
-  const UV_COL = sql.unsafe("COALESCE(NULLIF(ip_hash, ''), session_id)")
+  // 踩坑修复：嵌套子查询里未加双引号的 ip_hash 会报 column "ip_hash" does not exist
+  // （Postgres 在子查询作用域里对含下划线的小写标识符解析异常）。
+  // 修复要点：子查询 SELECT 列必须用 "ip_hash"，外层 COUNT(DISTINCT) 走别名 uv_id。
 
   try {
     const rows = await sql`
-      SELECT date, COUNT(*) as pv, COUNT(DISTINCT ${UV_COL}) as uv
+      SELECT date, COUNT(*) as pv, COUNT(DISTINCT uv_id) as uv
       FROM (
         SELECT
           TO_CHAR((created_at AT TIME ZONE ${TIMEZONE})::date, 'YYYY-MM-DD') as date,
-          ${UV_COL} as uv_id
+          COALESCE(NULLIF("ip_hash", ''), session_id) as uv_id
         FROM analytics_events
         WHERE event_type = 'page_view' AND created_at >= ${since}::timestamptz
       ) sub
