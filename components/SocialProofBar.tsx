@@ -41,14 +41,14 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
   const countries = stats.countriesReached ?? 0
   const items = [
     {
-      icon: DollarSign,
-      value: formatCurrency(stats.totalValueAssessed),
-      label: 'Creator Value Assessed',
+      icon: TrendingUp,
+      value: formatValue(stats.uniqueVisitors),
+      label: 'Active Users',
     },
     {
-      icon: Users,
-      value: formatValue(stats.totalFollowers ?? 0),
-      label: 'Audience Reach',
+      icon: BarChart3,
+      value: formatValue(stats.accountsEvaluated),
+      label: 'Accounts Evaluated',
     },
     ...(countries > 0
       ? [{
@@ -58,14 +58,14 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
         }]
       : []),
     {
-      icon: BarChart3,
-      value: formatValue(stats.accountsEvaluated),
-      label: 'Accounts Evaluated',
+      icon: Users,
+      value: formatValue(stats.totalFollowers ?? 0),
+      label: 'Audience Reach',
     },
     {
-      icon: TrendingUp,
-      value: formatValue(stats.uniqueVisitors),
-      label: 'Active Users',
+      icon: DollarSign,
+      value: formatCurrency(stats.totalValueAssessed),
+      label: 'Creator Value Assessed',
     },
   ]
 

@@ -389,8 +389,8 @@ export async function getEvaluationStats(): Promise<{ count: number; totalValueA
     const store = type === 'file' ? readFileStore() : memoryFallback
     const count = store.length
     const totalValueAssessed = store.reduce((sum, e) => {
-      const high = e.businessValue?.totalValue?.high
-      return sum + (typeof high === 'number' && Number.isFinite(high) ? high : 0)
+      const mid = e.businessValue?.totalValue?.mid
+      return sum + (typeof mid === 'number' && Number.isFinite(mid) ? mid : 0)
     }, 0)
     return { count, totalValueAssessed }
   }
@@ -402,9 +402,9 @@ export async function getEvaluationStats(): Promise<{ count: number; totalValueA
     try {
       countRows = await getSql()`SELECT COUNT(*) as count FROM evaluations`
       valueRows = await getSql()`
-        SELECT COALESCE(SUM((business_value->'totalValue'->>'high')::numeric), 0) as total
+        SELECT COALESCE(SUM((business_value->'totalValue'->>'mid')::numeric), 0) as total
         FROM evaluations
-        WHERE business_value->'totalValue'->>'high' IS NOT NULL
+        WHERE business_value->'totalValue'->>'mid' IS NOT NULL
       `
       break
     } catch (err) {
