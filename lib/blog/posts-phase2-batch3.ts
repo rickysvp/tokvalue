@@ -27,7 +27,7 @@ export const post15: BlogPost = {
 
 Ask five creators what a sponsored post costs and you'll get five wildly different numbers. A 100K-follower fitness creator might quote $3,000 while a 100K-follower meme page quotes $400 — for the same follower count. Which one is right?
 
-Both are. Brand deal rates on TikTok are driven by a small set of variables, and follower count is only one of them. Across the 50,000+ accounts we've analyzed at TokValue, the spread within a single follower tier is routinely 5-10x. The creators earning at the top of their tier understand the rate card — and the multipliers that move it.
+Both are. Brand deal rates on TikTok are driven by a small set of variables, and follower count is only one of them. Across published rate cards and creator economy benchmarks, the spread within a single follower tier is routinely 5-10x. The creators earning at the top of their tier understand the rate card — and the multipliers that move it.
 
 In this guide, we break down the complete 2026 rate card by follower count, then show you exactly how engagement rate, niche, and deliverables push your price up or down. If you want the short version first: brand deals pay $10-$25 CPM on average, and a 3% engagement rate commands 2-3x the price of a 1% engagement rate.
 
@@ -48,7 +48,7 @@ Two other forces shape the market in 2026. First, **the brand deal market passed
 
 ## The 2026 Rate Card by Follower Count
 
-These ranges are compiled from Creator Marketplace data, public rate cards, and our internal analysis of 50,000+ evaluated accounts. They assume a **healthy engagement rate (3%+) and a monetizable niche** — adjust down for weak ER, up for premium niches.
+These ranges are compiled from Creator Marketplace data, public rate cards, and published creator economy benchmarks. They assume a **healthy engagement rate (3%+) and a monetizable niche** — adjust down for weak ER, up for premium niches.
 
 | Follower Count | Average Deal (1 sponsored post) | Range | Typical Views |
 |----------------|--------------------------------|-------|---------------|
@@ -205,7 +205,7 @@ export const post16: BlogPost = {
 
 Most TikTok growth advice is backwards. "Post 3x a day, use trending sounds, ride the algorithm" — that's how you grow *views*. It is not how you grow *income*. The two goals diverge sharply once you pass a few thousand followers, and creators who optimize for the wrong one end up with big accounts and empty wallets.
 
-The data makes the gap painful. From our analysis of 50,000+ accounts: **92% of creators have brand-deal potential, but only 34% actively pursue it. 78% qualify for TikTok Shop, but only 11% have set it up. 85% qualify for Amazon Associates, but only 6% use it. 88% qualify for Creator Rewards, but only 45% are enrolled.** The average creator is leaving 2-3 monetization channels completely unused — not because they can't, but because they never designed the account to monetize in the first place.
+The data makes the gap painful. Industry reports consistently show the same pattern: **the vast majority of creators have brand-deal potential but never actively pursue it; most qualify for TikTok Shop but haven't set it up; most qualify for Amazon Associates but don't use it; and most qualify for Creator Rewards but aren't enrolled.** The average creator is leaving 2-3 monetization channels completely unused — not because they can't, but because they never designed the account to monetize in the first place.
 
 This guide is the strategy-first alternative: grow an account that brands want, platforms reward, and that converts attention into income at every tier. No vague "post consistently" advice — a niche framework, metric targets, revenue setup checklist, and a week-by-week 90-day plan.
 

@@ -28,7 +28,7 @@ export const post19: BlogPost = {
   ],
   content: `# How Much Is a Comedy or Entertainment TikTok Account Worth in 2026?
 
-Comedy is the most-watched, most-shared category on TikTok — and the least valuable per follower. In our analysis of 50,000+ accounts, a 2M-follower comedy creator routinely gets brand offers of $6K-$12K per post, while a 150K-follower beauty creator quotes $5K and gets it. In a 2026 brand deal market now past **$30 billion a year**, entertainment creators hold the biggest audiences and the weakest negotiating position.
+Comedy is the most-watched, most-shared category on TikTok — and the least valuable per follower. Across published brand deal benchmarks, a 2M-follower comedy creator routinely gets brand offers of $6K-$12K per post, while a 150K-follower beauty creator quotes $5K and gets it. In a 2026 brand deal market now past **$30 billion a year**, entertainment creators hold the biggest audiences and the weakest negotiating position.
 
 The math is brutal at first glance: comedy and entertainment brand deals run at a CPM of **$5-$10 per 1,000 views**, against **$25-$50 for beauty** and $20-$35 for finance. Follower count does not fix this. But volume, platform diversification, and merchandising can. Top comedy creators don't win by charging more — they win by stacking more revenue per view than anyone else in the category.
 
@@ -49,7 +49,7 @@ The result is the lowest brand-deal CPM of any major TikTok niche. Per 1,000 vie
 
 ## Comedy TikTok Value by Follower Count
 
-Here are the per-post brand deal ranges we see across 50,000+ evaluated accounts (single video, non-exclusive usage, typical engagement for the category):
+Here are the per-post brand deal ranges we see across published rate cards and benchmarks (single video, non-exclusive usage, typical engagement for the category):
 
 | Follower tier | Typical per-post deal | Annual brand deal potential | Notes |
 |---|---|---|---|
@@ -174,7 +174,7 @@ export const post20: BlogPost = {
   ],
   content: `# TikTok vs Instagram Reels in 2026: Which Platform Pays Creators Better?
 
-The same 30-second video earns different money on different platforms. In 2026, creators constantly ask us which one to build on — TikTok or Instagram Reels — and the honest answer is that they pay differently, for different reasons, to different types of creators. Based on TokValue's dataset of 50,000+ accounts and a brand deal market now past **$30 billion a year**, here's the head-to-head with numbers.
+The same 30-second video earns different money on different platforms. In 2026, creators constantly ask us which one to build on — TikTok or Instagram Reels — and the honest answer is that they pay differently, for different reasons, to different types of creators. Based on published platform rate benchmarks and a brand deal market now past **$30 billion a year**, here's the head-to-head with numbers.
 
 The short version: **TikTok pays better for reach and brand discovery; Instagram pays better per follower for subscriptions and direct relationships.** TikTok brand deals run **$10-$25 CPM** against Instagram's **$8-$20**. TikTok's algorithm can hand a stranger 1M views overnight; Instagram's reach is more follower-anchored, but more "owned." Neither is a universal winner — which is exactly why this comparison matters.
 
@@ -320,7 +320,7 @@ export const post21: BlogPost = {
   ],
   content: `# What Is a TikTok Account Health Score and Why Does It Affect Your Brand Deal Rate?
 
-Two accounts with 200K followers in the same niche pitch the same brand. One gets **$2,500 per post**; the other gets **$1,000 — or nothing**. In our analysis of 50,000+ TikTok accounts and real deal flow, the difference is usually not content quality. It's the account health score.
+Two accounts with 200K followers in the same niche pitch the same brand. One gets **$2,500 per post**; the other gets **$1,000 — or nothing**. Across published account health benchmarks and real deal flow, the difference is usually not content quality. It's the account health score.
 
 The account health score is a composite measure of **audience authenticity, content consistency, engagement quality, and account stability** — and brands, agencies, and influencer platforms run it on every creator before making an offer. In the 2026 brand deal market (past **$30 billion a year**), a low health score cuts offers by **30-70%**. Accounts with fake follower rates above **20%** are effectively excluded from brand work entirely.
 

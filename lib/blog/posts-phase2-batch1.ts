@@ -5,7 +5,7 @@ export const post7: BlogPost = {
   slug: 'tiktok-rpm-cpm-2026-real-rates-by-country-niche',
   title: 'TikTok RPM in 2026: Real Creator Payout Rates by Country, Niche, and Follower Count',
   description:
-    'TikTok RPM varies wildly by country, niche, and follower count. We analyzed payout data across 1,200+ creators to bring you the 2026 benchmarks that actually matter.',
+    'TikTok RPM varies wildly by country, niche, and follower count. We aggregated published creator payout data and RPM reports to bring you the 2026 benchmarks that actually matter.',
   excerpt:
     'TikTok pays $0.02–$0.04 per 1,000 views through Creator Rewards. But brand deal CPMs hit $10–$25. Here\'s why the gap matters — and how to maximize every view.',
   tags: [
@@ -37,7 +37,7 @@ TikTok has crossed 2 billion monthly active users and paid out over $10 billion 
 
 The confusion isn't accidental. TikTok publishes no official RPM figures. Creator Rewards uses a proprietary formula weighing watch time, completion rates, audience geography, and engagement signals — but the math is opaque. Meanwhile, the brand deal market operates on a different plane entirely, with CPMs (Cost Per Mille) that run 100–500x higher than Creator Fund payouts.
 
-This guide closes that gap. Based on data from 1,200+ TikTok creators analyzed by TokValue across Q1–Q2 2026, here's what creators actually earn per 1,000 views — and why.
+This guide closes that gap. Based on published creator payout data, RPM reports, and agency rate surveys through Q2 2026, here's what creators actually earn per 1,000 views — and why.
 
 
 **📊 Also Read:** [Brand Deal Rates](/blog/tiktok-brand-deal-rates-by-follower-count-2026) · [Income Report](/blog/tiktok-creator-income-report-2026) · [Valuation Guide](/blog/tiktok-account-worth-2026)
@@ -303,7 +303,7 @@ Anything within 1% of the "Average" for your niche and follower tier is acceptab
 
 ## Benchmarks by Niche
 
-Based on TokValue's analysis of 50,000+ TikTok accounts, here are the 2026 engagement rate benchmarks by niche:
+Based on published engagement benchmarks and industry reports, here are the 2026 engagement rate benchmarks by niche:
 
 | Niche | Poor (< Avg) | Average | Good | Great | Top 10% |
 |-------|-------------|---------|------|-------|---------|
@@ -692,7 +692,7 @@ A compelling 30-day transformation video routinely hits 5–10x the views of a s
 
 ## Fitness Account Valuation by Follower Count
 
-Here's the 2026 fitness TikTok valuation table based on TokValue's analysis of 3,200+ fitness TikTok accounts:
+Here's the 2026 fitness TikTok valuation table based on published fitness creator benchmarks and agency rate data:
 
 | Follower Count | Avg. Monthly Views | ER Range | Per-Deal Value | Deals/Month | Annual Brand Revenue | Estimated Account Value* |
 |---------------|-------------------|----------|----------------|-------------|---------------------|------------------------|

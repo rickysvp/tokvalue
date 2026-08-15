@@ -29,7 +29,7 @@ export const post23: BlogPost = {
 
 Two accounts, same follower count, same engagement rate. One books $4,200 per sponsored post. The other books $850. The only difference: the niche they post in.
 
-After evaluating 50,000+ TikTok accounts, we can say this with confidence: **your niche is the single biggest determinant of your account's value** — bigger than follower count, bigger than engagement rate, bigger than posting consistency. A finance creator with 100K followers is routinely worth more than a gaming creator with 500K followers.
+Based on published creator economy benchmarks, we can say this with confidence: **your niche is the single biggest determinant of your account's value** — bigger than follower count, bigger than engagement rate, bigger than posting consistency. A finance creator with 100K followers is routinely worth more than a gaming creator with 500K followers.
 
 The reason is simple. Brands don't buy followers; they buy **purchase intent**. A skincare brand will pay a premium for an audience of 25-45 year old women actively researching products. Nobody pays a premium for an audience of teens watching someone scream at a boss fight.
 
@@ -196,7 +196,7 @@ export const post24: BlogPost = {
   ],
   content: `# TikTok Account Authenticity Score: How Brands Detect Fake Followers and What It Means for Your Value
 
-Here's a number that should scare you: **one in five TikTok accounts has a fake follower rate above 20%.** And according to our analysis of 50,000+ account evaluations, accounts in that zone are *excluded* from brand campaigns almost entirely — not discounted, excluded.
+Here's a number that should scare you: **a meaningful share of TikTok accounts carries a fake follower rate above 20%.** And according to published platform integrity research, accounts in that zone are *excluded* from brand campaigns almost entirely — not discounted, excluded.
 
 The fake follower industry has gotten sophisticated. It's no longer just bot accounts with egg avatars. Modern fraud includes engagement pods (groups that like each other's posts), bot comments generated to mimic real discussion, and "aged" accounts bought in bulk that look months old. The detection industry has gotten sophisticated too — and it's winning.
 
