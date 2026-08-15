@@ -98,8 +98,8 @@ const en = {
   // ── Home Page / Landing ──
   home: {
     hero: {
-      title: "What's your account really worth?",
-      subtitle: '10-second free valuation. Overall assessment, revenue estimate, and brand deal price. No sign-up. No credit card.',
+      title: "What's your TikTok account really worth?",
+      subtitle: 'Free 10-second valuation. Overall assessment, revenue estimate, and brand deal price. No sign-up. No credit card.',
       forWhom: 'For TikTok creators, brand marketers & influencer agencies',
       placeholder: '@tiktok username',
       ariaLabel: 'TikTok username',
