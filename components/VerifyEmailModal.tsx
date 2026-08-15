@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import {
   X, Mail, KeyRound, CheckCircle2, Loader2, Sparkles,
-  Zap, ArrowRight, Star, DollarSign, Shield, TrendingUp, Copy,
+  Zap, ArrowRight, Star, DollarSign, Shield, TrendingUp, Copy, CreditCard,
 } from 'lucide-react'
 import { useI18n, t } from '@/lib/i18n'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import {
   getActiveEmail, setActiveEmail, setPendingEmail, clearPendingEmail,
-  fetchBalance, setSessionToken, setPendingToken,
+  fetchBalance, setSessionToken, getSessionToken,
 } from '@/lib/credits-client'
 
 type Step = 'choose' | 'email' | 'code' | 'success'
@@ -137,6 +137,69 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
     await handleSendCode()
   }
 
+  // ── 新用户主路径：输邮箱后先查状态再分流（无验证码直付）──
+  // - 已有额度的邮箱（老用户）→ 自动发验证码验证所有权（防重复付费 + 恢复登录）
+  // - 新邮箱 → 直接创建 Creem 支付会话并跳转，全程无验证码
+  async function handleEmailSubmit(e?: React.FormEvent) {
+    e?.preventDefault()
+    if (loading) return
+    const trimmed = email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError(dict.verifyEmail.invalidEmail)
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      // Step 1: 查询邮箱状态（限流防枚举，fail-open 按新用户处理）
+      const lookupRes = await fetch('/api/credits/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      })
+      const lookup = await lookupRes.json().catch(() => ({ hasCredits: false }))
+
+      if (lookup.hasCredits) {
+        // 老用户：转验证码验证所有权，无需重复购买
+        setShowReturning(true)
+        await handleSendCode()
+        return
+      }
+
+      // Step 2: 新用户 → Guest Checkout 直达支付
+      const token = getSessionToken()
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.ok) throw new Error(data.error || dict.verifyEmail.paymentStartFailed)
+
+      // DEV_SKIP_PAYMENT：本地开发跳过支付直接解锁
+      if (data.devMode) {
+        setStep('success')
+        setTimeout(() => { onClose(); onUnlock() }, 800)
+        return
+      }
+
+      if (data.checkoutUrl) {
+        // 记住邮箱：支付回跳后 guest claim 自动认领
+        setActiveEmail(trimmed)
+        window.location.href = data.checkoutUrl
+        return
+      }
+      throw new Error(dict.verifyEmail.paymentStartFailed)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : dict.verifyEmail.paymentStartFailed)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleVerify(codeOverride?: string) {
     if (verifying) return
     const fullCode = codeOverride || code.join('')
@@ -170,14 +233,6 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
           onClose()
           onUnlock()
         }, 1500)
-        return
-      }
-
-      if (data.requiresPayment && data.checkoutUrl) {
-        // 支付流程：token 存到 sessionStorage（临时），支付成功后才晋升为正式 token
-        // 防止用户不付款就拿到 token 去评估
-        if (data.token) setPendingToken(data.token)
-        window.location.href = data.checkoutUrl
         return
       }
 
@@ -459,9 +514,9 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
             </>
           )}
 
-          {/* Step 2: Email */}
+          {/* Step 2: Email（新用户 → 直付；老用户 → 自动转验证码） */}
           {step === 'email' && (
-            <form onSubmit={handleSendCode}>
+            <form onSubmit={handleEmailSubmit}>
               <div className="text-center mb-5">
                 <div className="mx-auto w-12 h-12 rounded-full bg-[#FF0050]/10 flex items-center justify-center mb-3">
                   <Mail className="h-6 w-6 text-[#FF0050]" />
@@ -488,7 +543,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
                 disabled={loading}
                 className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FF0050] py-3 text-sm font-bold text-white hover:bg-[#e60049] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><KeyRound className="h-4 w-4" />{dict.verifyEmail.sendCode}</>}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CreditCard className="h-4 w-4" />{dict.verifyEmail.continueToPayment}</>}
               </button>
               <p className="mt-3 text-center text-xs text-neutral-500">{dict.verifyEmail.noRegistration}</p>
               <button
@@ -523,6 +578,12 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
                   >
                     {devCode} {copied ? <CheckCircle2 className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
                   </button>
+                </div>
+              )}
+
+              {showReturning && (
+                <div className="mb-4 rounded-lg border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-3 py-2 text-[11px] text-[#00F2EA] text-center leading-relaxed">
+                  {dict.verifyEmail.existingAccountHint}
                 </div>
               )}
 

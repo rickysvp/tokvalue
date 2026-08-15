@@ -11,7 +11,7 @@ import type { Evaluation } from '@/types'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import {
-  getActiveEmail, setActiveEmail, fetchBalance, getSessionToken,
+  getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken,
 } from '@/lib/credits-client'
 import { useI18n, t } from '@/lib/i18n'
 
@@ -28,9 +28,10 @@ interface PaidWallProps {
   mode?: 'evaluate' | 'unlock'
 }
 
-// Guest Checkout 主流程：选套餐 → 输邮箱 → 直达 Creem 支付（无验证码往返），
-// 支付成功回跳后由回跳逻辑（claimCreditsApi）完成认领并换取会话 token
-type Step = 'choose' | 'email' | 'success'
+// Guest Checkout 主流程：选套餐 → 输邮箱 →（新用户）直达 Creem 支付（无验证码往返），
+// 支付成功回跳后由回跳逻辑（claimCreditsApi）完成认领并换取会话 token。
+// 已有额度的老用户（换设备/清存储）→ 验证码验证邮箱所有权恢复使用，防止重复付费。
+type Step = 'choose' | 'email' | 'returning-code' | 'success'
 
 const UNLOCK_MODULES = [
   { icon: DollarSign,   color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
@@ -53,6 +54,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [returningCode, setReturningCode] = useState('')
   const [balance, setBalance] = useState<CreditBalance | null>(existingBalance || null)
 
   const username = result?.username || ''
@@ -83,6 +85,30 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
     setLoading(true)
     setError('')
     try {
+      // 先查邮箱状态：已有额度的老用户 → 验证码验证所有权（防重复付费）
+      const lookupRes = await fetch('/api/credits/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      })
+      const lookup = await lookupRes.json().catch(() => ({ hasCredits: false }))
+
+      if (lookup.hasCredits) {
+        // 老用户：发验证码（_returning，不产生购买记录），转输码步骤恢复所有权
+        const sendRes = await fetch('/api/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmed, packageId: '_returning' }),
+        })
+        const sendData = await sendRes.json().catch(() => ({}))
+        if (!sendRes.ok) throw new Error(sendData.error || dict.paidWall.sendFailed)
+        setActiveEmail(trimmed)
+        setReturningCode('')
+        setStep('returning-code')
+        return
+      }
+
+      // 新用户：直达支付
       const token = getSessionToken()
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -121,6 +147,39 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
   function handleDirectUnlock() {
     // User has credits, directly proceed to unlock (parent will call consume API)
     onUnlock()
+  }
+
+  // 老用户所有权验证：输码 → verify-code(returning) → 换 token → 解锁
+  async function handleReturningVerify(e?: React.FormEvent) {
+    e?.preventDefault()
+    if (loading) return
+    const code = returningCode.replace(/\D/g, '')
+    if (code.length !== 6) {
+      setError('Please enter the complete 6-digit code')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || dict.paidWall.sendFailed)
+
+      if (data.token) setSessionToken(data.token)
+      const bal = await fetchBalance(email.trim())
+      if (bal) setBalance(bal)
+      setStep('success')
+      setTimeout(() => onUnlock(), 1200)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : dict.paidWall.sendFailed)
+      setReturningCode('')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -364,6 +423,49 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
             </div>
             <div className="mt-3 rounded-xl bg-neutral-900/50 px-4 py-2.5 text-[11px] text-neutral-500 text-center">
               {t(dict.paidWall.purchaseSummary, { label: selectedPkg.label, price: selectedPkg.price, count: selectedPkg.credits })}
+            </div>
+          </form>
+        )}
+
+        {/* ── 老用户所有权验证（检测到已有额度，无需重复购买）── */}
+        {step === 'returning-code' && (
+          <form onSubmit={handleReturningVerify} className="mt-6 max-w-md mx-auto">
+            <div className="rounded-2xl border border-[#00F2EA]/30 bg-[#00F2EA]/5 p-5">
+              <div className="text-center mb-4">
+                <div className="mx-auto w-12 h-12 rounded-full bg-[#00F2EA]/10 flex items-center justify-center mb-3">
+                  <Sparkles className="h-6 w-6 text-[#00F2EA]" />
+                </div>
+                <div className="text-base font-bold text-white">{dict.verifyEmail.codeTitle}</div>
+                <div className="mt-1 text-xs text-neutral-400">{t(dict.verifyEmail.codeSent, { email })}</div>
+              </div>
+              <div className="rounded-lg border border-[#00F2EA]/20 bg-[#0a0a0a]/60 px-3 py-2 text-[11px] text-[#00F2EA] text-center leading-relaxed mb-4">
+                {dict.verifyEmail.existingAccountHint}
+              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={returningCode}
+                onChange={e => { setReturningCode(e.target.value); setError('') }}
+                placeholder="——————"
+                className="w-full rounded-xl border border-neutral-700 bg-[#0a0a0a] px-4 py-3 text-center text-xl font-black tracking-[0.5em] text-white placeholder-neutral-700 outline-none focus:border-[#00F2EA] focus:ring-2 focus:ring-[#00F2EA]/20 transition-colors"
+                autoFocus
+              />
+              {error && <div className="mt-2 text-xs text-red-400 text-center">{error}</div>}
+              <button
+                type="submit"
+                disabled={loading || returningCode.length !== 6}
+                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-[#00F2EA] py-3 text-sm font-bold text-black hover:bg-[#00dccb] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4" />{dict.verifyEmail.verifyAndUnlock}</>}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('email'); setError(''); setReturningCode('') }}
+                className="mt-2 w-full text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                {dict.verifyEmail.changeEmail}
+              </button>
             </div>
           </form>
         )}
