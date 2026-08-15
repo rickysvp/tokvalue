@@ -135,9 +135,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     const email = getActiveEmail()
     const token = getSessionToken()
     if (email && token) {
-      setIsLoggedIn(true)
       setBalanceLoading(true)
-      fetchBalance(email).then(b => { if (b) setCreditBalance(b) }).finally(() => setBalanceLoading(false))
+      // 登录态仅在服务端验证 token 有效（= 邮箱已验证）后才置位
+      fetchBalance(email).then(b => { if (b) { setCreditBalance(b); setIsLoggedIn(true); } }).finally(() => setBalanceLoading(false))
     }
   }, [])
 
@@ -219,6 +219,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       // Refresh with full result
       setResult(data)
       setIsPremium(true)
+      setIsLoggedIn(true)
       toast('Report unlocked! 🎉')
       setCreditBalance(prev => prev ? { ...prev, credits: Math.max(0, prev.credits - 1) } : null)
     } catch {
@@ -409,6 +410,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   // 此前那次评估早已结束（防重入 guard 已复位），重评不会被 guard 挡住。
   const handleFreeVerified = useCallback(() => {
     setFreeVerifyOpen(false)
+    // 验证已通过，token 已由服务端签发 → 置登录态（tracker/history 可显示）
+    setIsLoggedIn(true)
     const target = pendingUsername.current
     if (target) handleEvaluate(target)
   }, [handleEvaluate])

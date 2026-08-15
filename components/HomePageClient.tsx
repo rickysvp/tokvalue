@@ -43,9 +43,9 @@ export default function HomePage() {
     const email = getActiveEmail()
     const token = getSessionToken()
     if (email && token) {
-      setIsLoggedIn(true)
       setBalanceLoading(true)
-      fetchBalance(email).then(b => { if (b) setCreditBalance(b) }).finally(() => setBalanceLoading(false))
+      // 登录态仅在服务端验证 token 有效（= 邮箱已验证）后才置位
+      fetchBalance(email).then(b => { if (b) { setCreditBalance(b); setIsLoggedIn(true); } }).finally(() => setBalanceLoading(false))
     }
   }, [])
 

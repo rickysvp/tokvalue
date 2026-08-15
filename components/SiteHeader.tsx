@@ -23,11 +23,12 @@ export function SiteHeader() {
     const email = getActiveEmail()
     const token = getSessionToken()
     if (email && token) {
-      setIsLoggedIn(true)
+      // 登录态仅在服务端验证 token 有效（= 邮箱已验证）后才置位，
+      // 防止 token 过期/残留或未完成验证时误显示 tracker/history。
       setBalanceLoading(true)
       fetch('/api/credits/balance', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : null)
-        .then((data: CreditBalance | null) => { if (data) { setCreditBalance(data); } setBalanceLoading(false) })
+        .then((data: CreditBalance | null) => { if (data) { setCreditBalance(data); setIsLoggedIn(true); } setBalanceLoading(false) })
         .catch(() => setBalanceLoading(false))
     }
   }, [])
