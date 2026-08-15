@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     siteName: 'TokValue',
     images: [
       {
-        url: '/og.png?v=2',
+        url: '/og.jpg?v=2',
         width: 1200,
         height: 630,
         alt: 'TokValue — TikTok Account Value Calculator',
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/og.png?v=2'],
+    images: ['/og.jpg?v=2'],
   },
   robots: {
     index: true,

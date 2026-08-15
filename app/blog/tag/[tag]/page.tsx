@@ -1,4 +1,4 @@
-import { getPostsByTag, getAllPosts } from '@/lib/blog'
+import { getPostsByTag, getAllPosts, categoryToSlug } from '@/lib/blog'
 import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Calendar, Clock } from 'lucide-react'
@@ -80,7 +80,7 @@ export default async function TagPage({ params }: { params: Promise<{ tag: strin
                 </div>
                 {post.category && (
                   <Link
-                    href={`/blog/category/${post.category.toLowerCase().replace(/ /g, '-')}`}
+                    href={`/blog/category/${categoryToSlug(post.category)}`}
                     className="text-xs text-[#FF0050] hover:underline"
                   >
                     {post.category}

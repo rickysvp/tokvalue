@@ -66,3 +66,15 @@ export function getAllCategories(): string[] {
   })
   return Array.from(categories).sort()
 }
+
+/**
+ * categoryToSlug — 把分类名（如 "Analytics & Strategy"）转成 URL slug（"analytics-strategy"）。
+ * 与 app/blog/category/[slug]/page.tsx 的 CATEGORIES key 保持一致。
+ */
+export function categoryToSlug(category: string): string {
+  return category
+    .toLowerCase()
+    .replace(/&/g, '-')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}

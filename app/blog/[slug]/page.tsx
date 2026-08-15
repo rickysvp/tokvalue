@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Calendar, Clock, ArrowLeft } from 'lucide-react'
-import { getPostBySlug, getAllPosts, getRelatedPosts, getAuthorBySlug } from '@/lib/blog'
+import { getPostBySlug, getAllPosts, getRelatedPosts, getAuthorBySlug, categoryToSlug } from '@/lib/blog'
 import { extractTOC } from '@/lib/blog'
 import { SiteHeader } from '@/components/SiteHeader'
 import { SiteFooter } from '@/components/SiteFooter'
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url,
       images: [
         {
-          url: '/og.png?v=2',
+          url: '/og.jpg?v=2',
           width: 1200,
           height: 630,
           alt: post.title,
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: ['/og.png?v=2'],
+      images: ['/og.jpg?v=2'],
     },
     alternates: {
       canonical: url,
@@ -130,7 +130,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <div className="mt-4 flex flex-wrap gap-2">
                   {post.category && (
                     <Link
-                      href={`/blog/category/${post.category.toLowerCase().replace(/ /g, '-')}`}
+                      href={`/blog/category/${categoryToSlug(post.category)}`}
                       className="inline-block rounded bg-[#FF0050]/20 px-2.5 py-1 text-xs text-[#FF0050] hover:bg-[#FF0050]/30 transition-colors"
                     >
                       {post.category}
