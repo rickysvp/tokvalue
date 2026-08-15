@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import type { Evaluation } from '@/types'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
-import { CREDIT_PACKAGES } from '@/lib/credits'
+import { CREDIT_PACKAGES, savePct } from '@/lib/credits'
 import {
   getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken,
 } from '@/lib/credits-client'
@@ -352,21 +352,30 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {CREDIT_PACKAGES.map(pkg => {
                       const isSelected = selectedPkg.id === pkg.id
+                      const saving = savePct(pkg)
                       return (
                         <button
                           key={pkg.id}
                           onClick={() => setSelectedPkg(pkg)}
-                          className={`relative rounded-2xl border-2 p-4 text-left transition-all ${
+                          className={`relative rounded-2xl p-4 text-left transition-all ${
                             isSelected
-                              ? 'border-[#FF0050] bg-[#FF0050]/5 shadow-lg shadow-[#FF0050]/10'
-                              : 'border-neutral-800 bg-[#111] hover:border-neutral-700'
+                              ? 'border-2 border-[#FF0050] bg-[#FF0050]/[0.08] shadow-lg shadow-[#FF0050]/15 ring-1 ring-[#FF0050]/30'
+                              : 'border border-neutral-800 bg-[#111] hover:border-neutral-600'
                           }`}
                         >
                           {pkg.badge && (
-                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-2.5 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-[#FF0050]/30">
+                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-2.5 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-[#FF0050]/30 whitespace-nowrap">
                                 <Star className="h-2.5 w-2.5" />
                                 {pkg.badge}
+                              </span>
+                            </div>
+                          )}
+                          {/* 节省徽章：右上角实心高对比 */}
+                          {saving !== null && saving > 0 && (
+                            <div className="absolute top-2.5 right-2.5">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black ${isSelected ? 'bg-[#00F2EA] text-black' : 'bg-[#00F2EA]/15 text-[#00F2EA]'}`}>
+                                {t(dict.home.pricing.saveBadge, { pct: saving })}
                               </span>
                             </div>
                           )}
@@ -375,7 +384,8 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
                             <span className={`text-3xl font-black ${isSelected ? 'text-white' : 'text-neutral-200'}`}>{pkg.price}</span>
                           </div>
                           <div className="mt-1 text-sm font-bold text-white">{pkg.label}</div>
-                          <div className="mt-0.5 text-[11px] text-neutral-500">{pkg.credits} evaluations · {pkg.perUnit}</div>
+                          <div className="mt-0.5 text-[11px] text-neutral-500">{pkg.credits} evaluations</div>
+                          <div className={`mt-0.5 text-[11px] ${isSelected ? 'text-[#00F2EA] font-semibold' : 'text-neutral-500'}`}>{pkg.perUnit}</div>
                           <div className="mt-3 space-y-1">
                             {(dict.paidWall.packageFeatures[pkg.id as keyof typeof dict.paidWall.packageFeatures] || []).map((f, i) => (
                               <div key={i} className="flex items-start gap-1.5 text-[11px] text-neutral-400">

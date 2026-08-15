@@ -6,7 +6,7 @@ import {
   DollarSign,
   Shield, Sparkles,
   Zap, Star, ArrowRight, ChevronDown, MessageCircle,
-  Search, Check,
+  Search, Check, CheckCircle2,
 } from 'lucide-react'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import { CREDIT_PACKAGES, savePct } from '@/lib/credits'
@@ -83,9 +83,14 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
   )
 
   return (
-    <section id="pricing" className="py-20">
-      <div className="mx-auto max-w-5xl px-4">
-        <div className="text-center mb-10">
+    <section id="pricing" className="py-20 relative">
+      {/* 背景光斑：定价区强化氛围 */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[640px] h-[320px] bg-[#FF0050]/[0.07] rounded-full blur-3xl" />
+      </div>
+
+      <div className="mx-auto max-w-6xl px-4 relative">
+        <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-4 py-1.5 text-xs font-medium text-[#00F2EA] mb-4">
             <Zap className="h-3.5 w-3.5" />
             Pricing
@@ -94,10 +99,10 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           <p className="max-w-xl mx-auto text-neutral-400 text-lg">{dict.home.pricing.subtitle}</p>
         </div>
 
-        {/* Free + 3 paid plans */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto mb-10">
+        {/* Free + 3 paid plans：推荐套餐（Growth）视觉放大 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch mb-8">
           {/* Free */}
-          <div className="rounded-2xl border border-[#00F2EA]/20 bg-[#00F2EA]/[0.04] p-6 flex flex-col">
+          <div className="rounded-2xl border border-[#00F2EA]/20 bg-[#00F2EA]/[0.03] p-6 flex flex-col">
             <p className="text-xs font-semibold uppercase tracking-widest text-[#00F2EA] mb-3">{free.name}</p>
             <p className="text-sm text-neutral-400 mb-4 leading-relaxed">{free.desc}</p>
             <div className="flex items-baseline gap-0.5 mb-4">
@@ -117,60 +122,72 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           {paidPkgs.map((pkg) => {
             const plan = plansById.get(pkg.id)
             const saving = savePct(pkg)
+            const isHighlight = !!plan?.highlight
             return (
               <div
                 key={pkg.id}
-                className={`relative rounded-2xl border-2 p-6 transition-all flex flex-col ${
-                  plan?.highlight
-                    ? 'border-[#FF0050]/30 bg-gradient-to-b from-[#FF0050]/[0.06] to-[#0E0E14] shadow-lg shadow-[#FF0050]/5'
-                    : 'border-[#1F1D26] bg-[#0E0E14] hover:border-neutral-600'
+                className={`relative rounded-2xl p-6 transition-all flex flex-col ${
+                  isHighlight
+                    ? 'border-2 border-[#FF0050] bg-gradient-to-b from-[#FF0050]/[0.10] via-[#160a10] to-[#0E0E14] shadow-[0_0_40px_-8px_rgba(255,0,80,0.45)] lg:scale-[1.06] lg:-my-2 lg:z-10'
+                    : 'border border-[#1F1D26] bg-[#0E0E14] hover:border-neutral-600'
                 }`}
               >
+                {/* 推荐徽章 */}
                 {plan?.badge && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-[#FF0050]/25">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#FF0050] px-3.5 py-1 text-[11px] font-bold text-white shadow-lg shadow-[#FF0050]/40 whitespace-nowrap">
                       <Star className="h-3 w-3" fill="currentColor" />
                       {plan.badge}
                     </span>
                   </div>
                 )}
-                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-1 mt-1">{plan?.name ?? pkg.label}</p>
-                <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan?.desc ?? ''}</p>
-                <div className="flex items-baseline gap-0.5 mb-1">
-                  <span className="text-neutral-500 text-lg">$</span>
-                  <span className="text-5xl font-black text-white tracking-tight">{pkg.price}</span>
-                </div>
-                <p className="text-sm text-neutral-500 mb-1">
-                  <span className="text-white font-semibold">{pkg.credits}</span> evaluation{pkg.credits > 1 ? 's' : ''}
-                  <span className="mx-1.5 text-neutral-700">·</span>
-                  {pkg.perUnit}
-                </p>
-                {/* 节省标注（相对单次 $9 锚点） */}
+
+                {/* 节省徽章（右上角，实心高对比） */}
                 {saving !== null && saving > 0 && (
-                  <p className="text-xs font-semibold text-[#00F2EA] mb-5">{t(dict.home.pricing.saveBadge, { pct: saving })}</p>
+                  <div className={`absolute -top-3 right-3 z-10 ${isHighlight ? 'top-3 right-3' : '-top-3 right-3'}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ${isHighlight ? 'bg-[#00F2EA] text-black' : 'bg-[#00F2EA]/15 text-[#00F2EA] border border-[#00F2EA]/30'}`}>
+                      {t(dict.home.pricing.saveBadge, { pct: saving })}
+                    </span>
+                  </div>
                 )}
-                {saving === null && <p className="text-xs mb-5">&nbsp;</p>}
+
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isHighlight ? 'text-[#FF0050] mt-1' : 'text-neutral-500 mt-1'}`}>{plan?.name ?? pkg.label}</p>
+                <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{plan?.desc ?? ''}</p>
+
+                {/* 价格 */}
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className={`text-xl font-bold ${isHighlight ? 'text-white' : 'text-neutral-500'}`}>$</span>
+                  <span className={`text-5xl font-black tracking-tight ${isHighlight ? 'text-white' : 'text-white'}`}>{pkg.price}</span>
+                  <span className="text-sm text-neutral-500 ml-1">one-time</span>
+                </div>
+
+                {/* 单价：核心说服点，独立一行醒目展示 */}
+                <div className="mb-4">
+                  <p className="text-sm text-white font-bold">{pkg.credits} evaluation{pkg.credits > 1 ? 's' : ''}</p>
+                  <p className={`text-sm mt-0.5 ${isHighlight ? 'text-[#00F2EA] font-semibold' : 'text-neutral-500'}`}>{pkg.perUnit}</p>
+                </div>
+
                 {interactive ? (
                   <CtaButton
-                    variant={plan?.highlight ? 'primary' : 'outline'}
-                    className="mt-auto w-full"
+                    variant={isHighlight ? 'primary' : 'outline'}
+                    className={`mt-auto w-full ${isHighlight ? 'py-3.5' : ''}`}
                     disabled={checkoutLoading}
                     onClick={() => onCheckout(pkg.id)}
                   >
                     {checkoutLoading ? (
                       <span className="flex items-center justify-center gap-2"><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Redirecting...</span>
                     ) : (
-                      t(dict.home.pricing.getCta, { price: pkg.price })
+                      dict.home.pricing.getCta
                     )}
                   </CtaButton>
                 ) : (
                   <Link
                     href="/"
                     className={`mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                      plan?.highlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
+                      isHighlight ? 'bg-[#FF0050] text-white hover:bg-[#e60049] shadow-lg shadow-[#FF0050]/20' : 'border border-neutral-700 text-neutral-300 hover:border-[#FF0050] hover:text-[#FF0050]'
                     }`}
                   >
-                    {t(dict.home.pricing.getCta, { price: pkg.price })}
+                    {t(dict.home.pricing.getCta)}
                   </Link>
                 )}
               </div>
@@ -178,10 +195,16 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           })}
         </div>
 
-        <div className="flex flex-wrap justify-center gap-6 text-xs text-neutral-600">
-          {dict.home.pricing.footer.map((text: string, i: number) => (
-            <div key={i} className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-[#00F2EA]/50" />{text}</div>
-          ))}
+        {/* 担保背书：提升转化信任 */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-2 text-sm text-neutral-500">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-[#00F2EA]" />
+            <span>{dict.home.pricing.oneTime}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-[#00F2EA]" />
+            <span>{dict.home.pricing.moneyBack}</span>
+          </div>
         </div>
       </div>
     </section>
