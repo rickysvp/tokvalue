@@ -565,7 +565,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="Enter TikTok handle"
+                placeholder="Enter tiktok handle"
                 autoComplete="off"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-600"
               />

@@ -101,7 +101,7 @@ const en = {
       title: "What's your TikTok account really worth?",
       subtitle: 'A data-driven estimate of your TikTok account\'s market value — real brand deal rates, revenue potential, and audience quality across 10 dimensions.',
       forWhom: 'For TikTok creators, brand marketers & influencer agencies',
-      placeholder: '@tiktok handle',
+      placeholder: 'tiktok handle',
       ariaLabel: 'TikTok handle',
       cta: 'Evaluate for Free',
       demoLink: 'See a full sample report — free',
