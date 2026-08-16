@@ -352,17 +352,11 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                   if (!cardRef.current) return
                   try {
                     const canvas = await html2canvas(cardRef.current, { backgroundColor: null, scale: 2, useCORS: true, allowTaint: true, logging: false })
-                    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-                    if (!blob) return
-                    const file = new File([blob], `tokvalue-${result.username}.png`, { type: 'image/png' })
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                      await navigator.share({ title: 'My TikTok Account Value', text: `My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`, files: [file] })
-                    } else {
-                      const link = document.createElement('a')
-                      link.download = `tokvalue-${result.username}.png`
-                      link.href = canvas.toDataURL('image/png')
-                      link.click()
-                    }
+                    const link = document.createElement('a')
+                    link.download = `tokvalue-${result.username}.png`
+                    link.href = canvas.toDataURL('image/png')
+                    link.click()
+                    alert('Image saved! Open TikTok app to upload.')
                   } catch (err) { console.error('[share] failed:', err) }
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
@@ -375,17 +369,11 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                   if (!cardRef.current) return
                   try {
                     const canvas = await html2canvas(cardRef.current, { backgroundColor: null, scale: 2, useCORS: true, allowTaint: true, logging: false })
-                    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-                    if (!blob) return
-                    const file = new File([blob], `tokvalue-${result.username}.png`, { type: 'image/png' })
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                      await navigator.share({ title: 'My TikTok Account Value', text: `My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`, files: [file] })
-                    } else {
-                      const link = document.createElement('a')
-                      link.download = `tokvalue-${result.username}.png`
-                      link.href = canvas.toDataURL('image/png')
-                      link.click()
-                    }
+                    const link = document.createElement('a')
+                    link.download = `tokvalue-${result.username}.png`
+                    link.href = canvas.toDataURL('image/png')
+                    link.click()
+                    alert('Image saved! Open Instagram app to upload.')
                   } catch (err) { console.error('[share] failed:', err) }
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
@@ -394,19 +382,8 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                 Instagram
               </button>
               <button
-                onClick={async () => {
-                  if (!cardRef.current) return
-                  try {
-                    const canvas = await html2canvas(cardRef.current, { backgroundColor: null, scale: 2, useCORS: true, allowTaint: true, logging: false })
-                    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-                    if (!blob) return
-                    const file = new File([blob], `tokvalue-${result.username}.png`, { type: 'image/png' })
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                      await navigator.share({ title: 'My TikTok Account Value', text: `My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`, files: [file] })
-                    } else {
-                      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`)}`, '_blank')
-                    }
-                  } catch (err) { console.error('[share] failed:', err) }
+                onClick={() => {
+                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`)}`, '_blank')
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
               >
