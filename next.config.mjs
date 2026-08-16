@@ -10,17 +10,6 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.muscdn.com' },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.tokvalue.com' }],
-        destination: 'https://tokvalue.com/:path*',
-        permanent: true,
-      },
-    ]
-  },
-
   async headers() {
     return [{
       source: '/(.*)',

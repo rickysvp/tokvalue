@@ -23,16 +23,8 @@ const PROTECTED_API_PATTERNS = [
 ]
 
 export async function middleware(request: NextRequest) {
-  const { pathname, host } = request.nextUrl
+  const { pathname } = request.nextUrl
   const method = request.method
-
-  // Force 308 permanent redirect for www.tokvalue.com → tokvalue.com
-  // Vercel's automatic redirect uses 307; we override it here for SEO.
-  if (host === 'www.tokvalue.com') {
-    const url = request.nextUrl.clone()
-    url.host = 'tokvalue.com'
-    return NextResponse.redirect(url, 308)
-  }
 
   // 只对 GET /api/history 等敏感路由进行基本检查
   const isProtectedRoute = PROTECTED_API_PATTERNS.some(
