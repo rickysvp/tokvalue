@@ -23,6 +23,9 @@ export async function generateMetadata({ params }: { params: Promise<{ tag: stri
   return {
     title: `Articles tagged "${tagName}" — TokValue Blog`,
     description: `All articles tagged with "${tagName}" on TokValue Blog.`,
+    alternates: {
+      canonical: `https://tokvalue.com/blog/tag/${tag}`,
+    },
     // 单文章 tag 页是薄内容，noindex 避免稀释抓取配额（方案 B）
     robots: postCount < 2 ? 'noindex, follow' : undefined,
     openGraph: {

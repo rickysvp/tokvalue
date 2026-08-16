@@ -40,6 +40,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${category.name} Guides — TokValue Blog`,
     description: category.description,
+    alternates: {
+      canonical: `https://tokvalue.com/blog/category/${slug}`,
+    },
     openGraph: {
       title: `${category.name} — TokValue Blog`,
       description: category.description,

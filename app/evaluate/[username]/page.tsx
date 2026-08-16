@@ -9,10 +9,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const raw = await params
   const username = decodeURIComponent(raw.username).replace(/^@/, '')
   return {
-    title: `@${username} TikTok Account Valuation — TokValue`,
+    title: `@${username} TikTok Account Valuation`,
     description: `See the valuation, income estimate, and growth analysis for @${username} on TikTok. Powered by TokValue.`,
     alternates: {
       canonical: `https://tokvalue.com/evaluate/@${username}`,
+    },
+    robots: {
+      index: false,
+      follow: true,
     },
   }
 }

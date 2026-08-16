@@ -6,7 +6,7 @@ import { getServerDict } from '@/lib/i18n/server'
 const d = getServerDict()
 
 export const metadata: Metadata = {
-  title: d.seo.title,
+  title: { absolute: d.seo.title },
   description: d.seo.description,
   alternates: {
     canonical: '/',

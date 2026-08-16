@@ -20,7 +20,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tokvalue.com'),
-  title: d.seo.title,
+  title: { default: 'TokValue', template: '%s · TokValue' },
   description: d.seo.description,
   icons: {
     icon: '/w.png?v=2',
