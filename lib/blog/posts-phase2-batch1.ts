@@ -37,7 +37,7 @@ TikTok has crossed 2 billion monthly active users and paid out over $10 billion 
 
 The confusion isn't accidental. TikTok publishes no official RPM figures. Creator Rewards uses a proprietary formula weighing watch time, completion rates, audience geography, and engagement signals — but the math is opaque. Meanwhile, the brand deal market operates on a different plane entirely, with CPMs (Cost Per Mille) that run 100–500x higher than Creator Fund payouts.
 
-This guide closes that gap. Based on published creator payout data, RPM reports, and agency rate surveys through Q2 2026, here's what creators actually earn per 1,000 views — and why.
+This guide closes that gap. Based on published creator payout data (CreatorIQ, Influencer Marketing Hub), RPM reports, and agency rate surveys through Q2 2026, here's what creators actually earn per 1,000 views — and why.
 
 
 **📊 Also Read:** [Brand Deal Rates](/blog/tiktok-brand-deal-rates-by-follower-count-2026) · [Income Report](/blog/tiktok-creator-income-report-2026) · [Valuation Guide](/blog/tiktok-account-worth-2026)
@@ -303,7 +303,7 @@ Anything within 1% of the "Average" for your niche and follower tier is acceptab
 
 ## Benchmarks by Niche
 
-Based on published engagement benchmarks and industry reports, here are the 2026 engagement rate benchmarks by niche:
+Based on published engagement benchmarks and industry reports (CreatorIQ, Influencer Marketing Hub), here are the 2026 engagement rate benchmarks by niche:
 
 | Niche | Poor (< Avg) | Average | Good | Great | Top 10% |
 |-------|-------------|---------|------|-------|---------|
@@ -449,7 +449,9 @@ export const post9: BlogPost = {
 
 Every week, creators ask us: "How much is my TikTok account worth?" And every week, the same pattern emerges — they lead with follower count, and we have to explain why follower count barely matters.
 
-**📊 Related:** [En: a 500,000-follower comedy account with a 1.5% engagement rate earns $18,000–$24,000 per year in brand deals. An 80,000-follower beauty account with a 6.3% engagement rate earns $120,000–$150,000 per year.
+**📊 Methodology note:** Valuation figures below are compiled from public creator economy data (CreatorIQ, Influencer Marketing Hub) and TikTok Creator Marketplace rate guidance — reflecting typical 2026 ranges, not guarantees.
+
+**📊 Quick example:** a 500,000-follower comedy account with a 1.5% engagement rate earns $18,000–$24,000 per year in brand deals. An 80,000-follower beauty account with a 6.3% engagement rate earns $120,000–$150,000 per year.
 
 The comedy account has 6x more followers. The beauty account is worth 6–8x more money. This gap isn't unusual — it's the fundamental rule of TikTok account valuation that most calculators get completely wrong.
 
@@ -669,6 +671,8 @@ export const post10: BlogPost = {
 The fitness niche is one of the highest-value categories on TikTok. While entertainment and comedy creators struggle to clear $10 CPMs, fitness creators command $14–$24 CPMs — and that's just the beginning of their revenue advantages.
 
 Why? Fitness content sits at the intersection of three of TikTok's most valuable audience segments: health-conscious consumers, beauty/body-focused viewers, and aspirational lifestyle audiences. The niche also has some of the most direct conversion paths of any TikTok category — a workout video with a supplement recommendation converts at 3–8x the rate of a meme repost.
+
+**📊 Methodology note:** CPM and deal ranges below are compiled from public creator economy data (CreatorIQ, Influencer Marketing Hub) and TikTok Creator Marketplace rate guidance — reflecting typical 2026 ranges.
 
 This guide gives you the complete 2026 fitness TikTok account valuation framework — from a 1,000-follower beginner to a 1M+ mega-creator.
 

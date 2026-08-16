@@ -29,6 +29,8 @@ Type "free TikTok account value calculator" into Google and you'll get a page fu
 
 I tested the free tools that actually exist in 2026, and I'm going to tell you the truth about how they work — because I've been a TikTok creator for years, and I've watched too many people make pricing decisions off garbage numbers.
 
+**📊 Methodology note:** The valuation benchmarks referenced here are grounded in public creator economy research (CreatorIQ, Influencer Marketing Hub) and TikTok Creator Marketplace rate guidance — not the flat follower-count multipliers most free calculators use.
+
 ## Why "Free Calculators" Are Everywhere
 
 Free calculators aren't free. They're lead magnets. The classic playbook is:
@@ -158,6 +160,8 @@ export const post31: BlogPost = {
 Yes — TokValue's core TikTok account valuation is free. You can enter any public TikTok handle and get an overall assessment, a dollar value range, and a risk scan in about a minute, with no credit card and no signup wall.
 
 But "free" means different things to different tools, so let me break down exactly what you get without paying, what the paid tier adds, and whether it's actually worth the money. I write this as someone on the team, but I'll be straight about where the free tier stops and the paid tier starts.
+
+**📊 Methodology note:** Our valuation model uses multi-dimensional scoring (engagement quality, niche benchmarks, monetization signals) grounded in public creator economy data — CreatorIQ and Influencer Marketing Hub reports plus TikTok Creator Marketplace rate guidance — rather than a flat follower-count multiplier.
 
 ## The Short Answer
 

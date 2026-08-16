@@ -28,6 +28,8 @@ Ask five people how much a gaming TikTok account is worth and you'll get five wi
 
 Here's the reality from published creator economy benchmarks and rate data: **gaming creators earn less per follower than beauty or fitness creators at every single tier.** But that's only half the story. When you factor in Twitch, game affiliate programs, and the $180+ billion global gaming market's ad spend, a gaming account's true value often exceeds what brand-deal rates alone suggest. The trick is knowing which parts of the valuation equation you're actually being paid for.
 
+**📊 Methodology note:** Rates below are compiled from public sources — CreatorIQ creator economy reports, Influencer Marketing Hub TikTok benchmarks, and TikTok Creator Marketplace rate guidance — and reflect typical 2026 ranges.
+
 
 **📊 Also Read:** [Valuation Framework](/blog/tiktok-account-worth-2026) · [Niche Values](/blog/tiktok-niche-valuation-guide-2026) · [Beauty Comparison](/blog/how-much-is-beauty-tiktok-account-worth-2026)
 ## The Gaming Valuation Paradox
@@ -168,6 +170,8 @@ export const post12: BlogPost = {
   content: `# How Much Is a Beauty TikTok Account Worth in 2026?
 
 If you're a beauty creator — or thinking about starting a beauty account — you're in the right place at the right time. Across published creator economy benchmarks, **beauty is consistently the highest-value niche per follower, commanding 3-5x the average account's value.** This isn't a temporary trend. It's a structural advantage baked into the economics of the industry.
+
+**📊 Methodology note:** Valuation and CPM ranges below are compiled from public sources — CreatorIQ, Influencer Marketing Hub, and TikTok Creator Marketplace rate guidance — reflecting typical 2026 ranges.
 
 Beauty brands have two things most industries don't: **high margins and high repeat purchase rates.** A skincare product that costs $4 to make sells for $40. That margin is what funds premium creator rates. When a brand's customer lifetime value is $300+, paying a creator $5,000 for a video that drives 200 sales is an easy yes. Compare that to a gaming or meme account where the same $5,000 might drive zero measurable purchases, and you understand why beauty rates dwarf every other niche.
 
@@ -318,6 +322,8 @@ export const post13: BlogPost = {
 Food content is TikTok's comfort food — reliable, shareable, and endlessly bingeable. A 30-second recipe video gets saved, rewatched, and texted to friends more than almost any other content type. That behavior is exactly what makes food a **mid-to-high value niche** in 2026: not as premium as beauty, but structurally stronger than entertainment or gaming.
 
 Across published creator economy benchmarks, food and recipe creators land in the upper-middle band of account valuations. A food account with 100K followers is worth roughly $2K-$5K per brand deal — respectable, but with a twist that makes food uniquely interesting: **food creators often earn more from affiliate and cookbook revenue than from brand deals themselves.** The niche rewards creators who build a diversified income stack, and the numbers below show exactly how that works.
+
+**📊 Methodology note:** Deal ranges below are compiled from public sources — CreatorIQ, Influencer Marketing Hub, and TikTok Creator Marketplace rate guidance — reflecting typical 2026 ranges.
 
 
 **📊 Also Read:** [Valuation Guide](/blog/tiktok-account-worth-2026) · [Niche Rankings](/blog/tiktok-niche-valuation-guide-2026) · [Fitness Values](/blog/how-much-is-fitness-tiktok-account-worth-2026)

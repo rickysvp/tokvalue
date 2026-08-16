@@ -34,6 +34,8 @@ The math is brutal at first glance: comedy and entertainment brand deals run at 
 
 This guide breaks down exactly what comedy and entertainment TikTok accounts are worth in 2026 — by follower tier, by deal type, and by strategy — and shows why the category's discount is actually a playbook opportunity.
 
+**📊 Methodology note:** Figures below are compiled from public sources — CreatorIQ creator economy reports, Influencer Marketing Hub TikTok benchmarks, and TikTok Creator Marketplace rate guidance — and represent typical 2026 ranges, not guarantees.
+
 ## The Entertainment Valuation Paradox
 
 Comedy and entertainment are TikTok's biggest categories by raw views. Skits, pranks, POVs, reaction content, and meme formats are exactly what the algorithm loves to push to the For You page, and they pull the highest non-follower engagement of any niche. That gives comedy accounts a structural advantage on growth: they can out-grow almost any other category, faster.
@@ -177,6 +179,8 @@ export const post20: BlogPost = {
 The same 30-second video earns different money on different platforms. In 2026, creators constantly ask us which one to build on — TikTok or Instagram Reels — and the honest answer is that they pay differently, for different reasons, to different types of creators. Based on published platform rate benchmarks and a brand deal market now past **$30 billion a year**, here's the head-to-head with numbers.
 
 The short version: **TikTok pays better for reach and brand discovery; Instagram pays better per follower for subscriptions and direct relationships.** TikTok brand deals run **$10-$25 CPM** against Instagram's **$8-$20**. TikTok's algorithm can hand a stranger 1M views overnight; Instagram's reach is more follower-anchored, but more "owned." Neither is a universal winner — which is exactly why this comparison matters.
+
+**📊 Methodology note:** Per-post and CPM figures are compiled from public creator economy reports (CreatorIQ, Influencer Marketing Hub) and platform rate guidance (TikTok Creator Marketplace), reflecting typical 2026 ranges.
 
 This guide compares reach, direct payouts, brand deals, and audience quality with data — and ends with a decision framework so you know which platform to prioritize (and why the answer for most creators is "both, with different jobs").
 
@@ -323,6 +327,8 @@ export const post21: BlogPost = {
 Two accounts with 200K followers in the same niche pitch the same brand. One gets **$2,500 per post**; the other gets **$1,000 — or nothing**. Across published account health benchmarks and real deal flow, the difference is usually not content quality. It's the account health score.
 
 The account health score is a composite measure of **audience authenticity, content consistency, engagement quality, and account stability** — and brands, agencies, and influencer platforms run it on every creator before making an offer. In the 2026 brand deal market (past **$30 billion a year**), a low health score cuts offers by **30-70%**. Accounts with fake follower rates above **20%** are effectively excluded from brand work entirely.
+
+**📊 Methodology note:** Health-score weighting and pricing impact figures are compiled from public creator economy research (CreatorIQ, Influencer Marketing Hub) and platform integrity guidance (TikTok Creator Marketplace), reflecting typical 2026 ranges.
 
 Here's what the health score actually measures, why brands weight it so heavily, and how a 30-day plan can add **15-40%** to your next offer.
 

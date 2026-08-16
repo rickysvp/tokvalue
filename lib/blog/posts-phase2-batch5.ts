@@ -49,7 +49,7 @@ This is also why our valuation engine at [TokValue](/ ) applies a hard category 
 
 ## The 2026 Niche Valuation Ranking
 
-We ranked 11 major niches by **per-follower brand value** — the amount of annual brand deal revenue a typical active account generates per real (non-fake) follower. The data below is aggregated from TokValue evaluations, public rate cards, CreatorIQ benchmark data, and agency rate surveys collected through Q2 2026.
+We ranked 11 major niches by **per-follower brand value** — the amount of annual brand deal revenue a typical active account generates per real (non-fake) follower. The data below is aggregated from public rate cards, CreatorIQ benchmark data, Influencer Marketing Hub benchmarks, and agency rate surveys collected through Q2 2026.
 
 | Rank | Niche | Per-Follower Value (annual) | Brand CPM (per 1K views) | Value Drivers |
 |------|-------|----------------------------|--------------------------|---------------|
