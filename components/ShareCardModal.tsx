@@ -316,8 +316,13 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                 <div 
                   className="flex items-center justify-between pt-4 border-t border-[#262626]"
                 >
-                  <div className="flex items-center">
-                    <img src={TOKVALUE_LOGO_BASE64} alt="TokValue" className="h-6 w-auto" />
+                  <div className="flex items-center" style={{ maxWidth: '140px' }}>
+                    <img 
+                      src={TOKVALUE_LOGO_BASE64} 
+                      alt="TokValue" 
+                      className="w-full h-auto object-contain"
+                      style={{ maxHeight: '32px' }}
+                    />
                   </div>
                   <div className="text-right">
                     <div className="text-[11px] text-[#8B8792]">What&apos;s your account worth?</div>
