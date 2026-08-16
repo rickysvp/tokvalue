@@ -30,6 +30,7 @@ import { ReportTabs } from '@/components/ReportTabs'
 import { LockedSection } from '@/components/LockedSection'
 import { FreeBanner } from '@/components/FreeBanner'
 import { UnlockFooter } from '@/components/UnlockFooter'
+import { DemoConversionBar } from '@/components/DemoConversionBar'
 import { saveToTracker, getTrackedByUsername } from '@/lib/tracker'
 import { downloadPdf } from '@/lib/export-pdf'
 import { formatNumber } from '@/lib/format'
@@ -1030,6 +1031,15 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         <div className="block sm:hidden">
           <UnlockFooter sticky onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
         </div>
+      )}
+
+      {/* Demo conversion bar — mock report can't be paid for, route to real evaluation */}
+      {result && result.mock && (
+        <>
+          <DemoConversionBar />
+          {/* spacer so the fixed bar doesn't cover the footer */}
+          <div className="h-28 sm:h-24" />
+        </>
       )}
       <VerifyEmailModal
         isOpen={showVerifyModal}
