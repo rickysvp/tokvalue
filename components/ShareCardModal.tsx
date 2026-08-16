@@ -31,8 +31,16 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
   const [generating, setGenerating] = useState(false)
 
   const color = tierColor(result.tier)
-  const valueRange = formatUsdRange(result.businessValue.totalValue.low, result.businessValue.totalValue.high)
+  // Show highest value for bragging rights
+  const valueHigh = result.businessValue.totalValue.high
+  const valueDisplay = valueHigh >= 1000000 
+    ? `$${(valueHigh / 1000000).toFixed(1)}M`
+    : valueHigh >= 1000 
+    ? `$${(valueHigh / 1000).toFixed(0)}K`
+    : `$${valueHigh}`
   const engagement = result.metrics?.engagementRate != null ? `${result.metrics.engagementRate}%` : null
+  // Get avatar initial for display
+  const avatarInitial = result.nickname?.[0]?.toUpperCase() || result.username[0]?.toUpperCase() || '?'
 
   const handleDownload = useCallback(async () => {
     if (!cardRef.current || generating) return
@@ -110,82 +118,97 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
               {/* Content container */}
               <div className="relative flex-1 flex flex-col p-12">
                 
-                {/* Header: Brand — clean, iconic */}
-                <div className="flex items-center justify-center">
-                  <img 
-                    src={W_LOGO_BASE64}
-                    alt="TokValue"
-                    className="w-14 h-14 rounded-2xl"
-                    style={{ 
-                      boxShadow: '0 8px 32px rgba(255,0,80,0.4)',
-                    }}
-                  />
-                </div>
-
-                {/* Account — minimal */}
-                <div className="mt-6 text-center">
-                  <div className="text-neutral-400 text-sm">@{result.username}</div>
-                </div>
-
-                {/* Main Value — Big, bold, centered */}
-                <div className="mt-4 text-center">
+                {/* User Profile Header */}
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
                   <div 
-                    className="text-7xl font-black tracking-tighter"
+                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white"
+                    style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)` }}
+                  >
+                    {avatarInitial}
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-white">{result.nickname || result.username}</div>
+                    <div className="text-neutral-400 text-sm">@{result.username}</div>
+                    {result.verified && (
+                      <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#00F2EA]/20 text-[#00F2EA] text-xs font-medium">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                        Verified
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Main Value — Highest value for bragging */}
+                <div className="mt-6 text-center">
+                  <div className="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-1">My Account Value</div>
+                  <div 
+                    className="text-8xl font-black tracking-tighter"
                     style={{ 
                       background: 'linear-gradient(135deg, #FF0050 0%, #00F2EA 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
-                      filter: 'drop-shadow(0 4px 20px rgba(255,0,80,0.3))',
+                      filter: 'drop-shadow(0 4px 30px rgba(255,0,80,0.4))',
                     }}
                   >
-                    {valueRange}
+                    {valueDisplay}
                   </div>
-                  <div className="mt-2 text-sm text-neutral-400">estimated value</div>
+                  <div className="mt-2 text-sm text-neutral-400">up to</div>
                 </div>
 
-                {/* Tier Badge — centered, glowing */}
-                <div className="mt-6 flex justify-center">
-                  <div
-                    className="flex items-center justify-center w-24 h-24 rounded-3xl"
-                    style={{ 
-                      border: `3px solid ${color}`,
-                      background: `${color}20`,
-                      boxShadow: `0 0 40px ${color}40, inset 0 0 20px ${color}10`,
-                    }}
-                  >
-                    <span className="text-5xl font-black" style={{ color }}>
-                      {result.tier}
+                {/* Bragging Stats Row */}
+                <div className="mt-6 flex justify-center items-center gap-6">
+                  {/* Tier Badge */}
+                  <div className="text-center">
+                    <div
+                      className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto"
+                      style={{ 
+                        border: `3px solid ${color}`,
+                        background: `${color}20`,
+                        boxShadow: `0 0 30px ${color}40`,
+                      }}
+                    >
+                      <span className="text-4xl font-black" style={{ color }}>{result.tier}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500">Tier</div>
+                  </div>
+                  
+                  {/* Score */}
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-white">{result.score}</div>
+                    <div className="text-xs text-neutral-500">/100 Score</div>
+                  </div>
+                  
+                  {/* Followers */}
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-white">{formatNumber(result.followerCount)}</div>
+                    <div className="text-xs text-neutral-500">Followers</div>
+                  </div>
+                </div>
+
+                {/* Engagement highlight */}
+                {engagement && (
+                  <div className="mt-4 text-center">
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
+                      <span className="text-[#00F2EA] font-bold">{engagement}</span>
+                      <span className="text-neutral-400 text-sm">engagement rate</span>
                     </span>
                   </div>
-                </div>
-                <div className="mt-3 text-center">
-                  <div className="text-lg font-bold text-white">{result.score}<span className="text-neutral-500">/100</span></div>
-                </div>
-
-                {/* Stats — minimal row */}
-                <div className="mt-6 flex justify-center gap-8 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-white">{formatNumber(result.followerCount)}</div>
-                    <div className="text-xs text-neutral-500">followers</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-white">{engagement ?? '—'}</div>
-                    <div className="text-xs text-neutral-500">engagement</div>
-                  </div>
-                </div>
+                )}
 
                 {/* Spacer */}
                 <div className="flex-1" />
 
-                {/* Footer: CTA */}
-                <div className="mt-auto pt-6 text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-                    <QRCodeSVG value="https://tokvalue.com" size={40} fgColor="#ffffff" bgColor="transparent" level="M" />
-                    <span className="text-sm text-neutral-300">tokvalue.com</span>
+                {/* Footer: Brand + CTA */}
+                <div className="mt-auto pt-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src={W_LOGO_BASE64} alt="TokValue" className="w-8 h-8 rounded-lg" />
+                    <span className="text-white font-bold">TokValue</span>
                   </div>
-                  <div className="mt-3 text-xs text-neutral-500">
-                    What&apos;s your account worth? · Free valuation
+                  <div className="text-right">
+                    <div className="text-xs text-neutral-400">What&apos;s your account worth?</div>
+                    <div className="text-sm text-[#00F2EA] font-medium">tokvalue.com</div>
                   </div>
                 </div>
               </div>
