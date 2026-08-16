@@ -6,8 +6,8 @@ const en = {
   // ── SEO / Metadata ──
   seo: {
     title: 'Free TikTok Account Value Calculator — TokValue',
-    description: 'Get a data-driven estimate of any TikTok account\'s worth — real brand deal rates, revenue potential, and audience quality. Free, no sign-up, no credit card.',
-    shortDescription: 'Free TikTok account value calculator. Data-driven estimate of any account\'s worth — no sign-up, no credit card.',
+    description: 'Get a data-driven estimate of any TikTok account\'s worth — real brand deal rates, revenue potential, and audience quality. Free to try — just verify your email. No credit card.',
+    shortDescription: 'Free TikTok account value calculator. Data-driven estimate of any account\'s worth — verify your email to start, no credit card.',
   },
 
   // ── Common / Shared ──
@@ -113,7 +113,7 @@ const en = {
       prompt: 'Find out what {your} TikTok account is really worth — free first look.',
       your: 'your',
       cta: 'Evaluate My Account',
-      reassurance: 'Your first evaluation is free · No sign-up · No credit card required',
+      reassurance: 'Your first evaluation is free · Just verify your email · No credit card required',
     },
 
     howItWorks: {
