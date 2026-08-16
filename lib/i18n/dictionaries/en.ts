@@ -105,6 +105,15 @@ const en = {
       ariaLabel: 'TikTok username',
       cta: 'Evaluate for Free',
       demoLink: 'See a full sample report — free',
+      demoLinkHint: 'See exactly what a full report looks like',
+    },
+
+    demo: {
+      badge: 'This is a sample report',
+      prompt: 'Find out what {your} TikTok account is really worth — free first look.',
+      your: 'your',
+      cta: 'Evaluate My Account',
+      reassurance: 'Your first evaluation is free · No sign-up · No credit card required',
     },
 
     howItWorks: {

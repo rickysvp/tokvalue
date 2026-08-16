@@ -329,7 +329,7 @@ export default function HomePage() {
               </span>
               <span className="text-left leading-tight">
                 <span className="block">{dict.home.hero.demoLink}</span>
-                <span className="block text-[11px] font-normal text-neutral-400">See exactly what a full report looks like</span>
+                <span className="block text-[11px] font-normal text-neutral-400">{dict.home.hero.demoLinkHint}</span>
               </span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>

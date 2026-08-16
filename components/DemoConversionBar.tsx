@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Sparkles, ArrowRight } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 /**
  * DemoConversionBar — sticky bottom conversion bar for the @demo sample report page.
@@ -12,28 +13,34 @@ import { Sparkles, ArrowRight } from 'lucide-react'
  * account: free first look → paid unlock of the full report.
  */
 export function DemoConversionBar() {
+  const { dict } = useI18n()
+  const demo = dict.home.demo
+  const [before, after] = demo.prompt.split('{your}')
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#FF0050]/20 px-4 py-3 sm:py-4">
       <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start gap-2 text-sm font-semibold text-white">
             <Sparkles className="h-4 w-4 text-[#FF0050]" />
-            This is a sample report
+            {demo.badge}
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Find out what <span className="text-[#00F2EA]">your</span> TikTok account is really worth — free first look.
+            {before}
+            <span className="text-[#00F2EA]">{demo.your}</span>
+            {after}
           </p>
         </div>
         <Link
           href="/#hero"
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#FF0050] to-[#e60049] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#FF0050]/25 hover:from-[#e60049] hover:to-[#cc0040] transition-all whitespace-nowrap"
         >
-          Evaluate My Account
+          {demo.cta}
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
       <p className="text-center text-[10px] text-neutral-600 mt-1.5">
-        Your first evaluation is free · No sign-up · No credit card required
+        {demo.reassurance}
       </p>
     </div>
   )
