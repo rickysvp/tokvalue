@@ -117,8 +117,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const [showPaidWallModal, setShowPaidWallModal] = useState(false)
   const [paidWallMode, setPaidWallMode] = useState<'evaluate' | 'unlock'>('evaluate')
   const [evaluatingModal, setEvaluatingModal] = useState<{
-    open: boolean; status: EvaluatingStatus; currentStage: number; errorMessage?: string
-  }>({ open: false, status: 'evaluating', currentStage: 0 })
+    open: boolean; status: EvaluatingStatus; errorMessage?: string
+  }>({ open: false, status: 'evaluating' })
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -289,7 +289,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         setResult(null)
         setNeedPurchase(false)
         setIsLoading(false)
-        setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
+        setEvaluatingModal({ open: true, status: 'evaluating' })
 
         try {
           const controller = new AbortController()
@@ -341,7 +341,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       setResult(null)
       setNeedPurchase(false)
       pendingUsername.current = target
-      setEvaluatingModal({ open: true, status: 'evaluating', currentStage: 0 })
+      setEvaluatingModal({ open: true, status: 'evaluating' })
 
       trackEvent('search', { username: target })
 
@@ -417,21 +417,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     if (target) handleEvaluate(target)
   }, [handleEvaluate])
 
-  // Evaluating modal stage progression
-  useEffect(() => {
-    if (!evaluatingModal.open || evaluatingModal.status !== 'evaluating') return
-    if (evaluatingModal.currentStage >= 4) return
-    const timer = setTimeout(() => {
-      setEvaluatingModal(prev => {
-        if (prev.status !== 'evaluating' || prev.currentStage >= 4) return prev
-        return { ...prev, currentStage: prev.currentStage + 1 }
-      })
-    }, 2500)
-    return () => clearTimeout(timer)
-  }, [evaluatingModal.open, evaluatingModal.status, evaluatingModal.currentStage])
 
   const handleEvaluatingComplete = useCallback(() => {
-    setEvaluatingModal({ open: false, status: 'evaluating', currentStage: 0 })
+    setEvaluatingModal({ open: false, status: 'evaluating' })
   }, [])
 
   // Handle ?paid=success callback
@@ -1073,7 +1061,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         open={evaluatingModal.open}
         username={pendingUsername.current || username}
         status={evaluatingModal.status}
-        currentStage={evaluatingModal.currentStage}
         errorMessage={evaluatingModal.errorMessage}
         onComplete={handleEvaluatingComplete}
         labels={{
