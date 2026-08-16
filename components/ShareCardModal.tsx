@@ -2,11 +2,11 @@
 
 import { useRef, useCallback, useState } from 'react'
 import { X, Download, Loader2, ImageDown } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+// QRCodeSVG removed — footer redesigned
 import html2canvas from 'html2canvas'
 import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
-import { formatNumber, formatUsdRange } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import { tierColor } from '@/lib/tier'
 import { W_LOGO_BASE64 } from '@/lib/logo-base64'
 

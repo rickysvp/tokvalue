@@ -511,7 +511,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     }
   }
 
-  // Loading state
+  // Loading state — use EvaluatingModal for consistent UX
   if (isLoading) {
     return (
       <main className="min-h-screen bg-[#0a0a0a]">
@@ -524,15 +524,19 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           onVerifyClick={() => { /* no-op during loading */ }}
           onLogout={() => {}}
         />
-        <div className="flex items-center justify-center py-40">
-          <div className="text-center">
-            <div className="mx-auto mb-6 h-20 w-20 rounded-2xl bg-gradient-to-br from-[#FF0050]/20 to-[#00F2EA]/20 flex items-center justify-center animate-pulse">
-              <Search className="h-8 w-8 text-[#FF0050]" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">Evaluating @{initialUsername}</h2>
-            <p className="text-neutral-500 text-sm">Fetching account data and running analysis...</p>
-          </div>
-        </div>
+        <EvaluatingModal
+          open={true}
+          username={initialUsername}
+          status="evaluating"
+          onComplete={() => {}}
+          labels={{
+            title: dict.evaluation.evaluating.title,
+            subtitle: dict.evaluation.evaluating.subtitle,
+            stages: [dict.evaluation.evaluating.stages.fetch, dict.evaluation.evaluating.stages.analyze, dict.evaluation.evaluating.stages.score, dict.evaluation.evaluating.stages.value, dict.evaluation.evaluating.stages.report] as [string, string, string, string, string],
+            completing: dict.evaluation.evaluating.completing,
+            error: dict.evaluation.evaluating.error,
+          }}
+        />
         <SiteFooter />
       </main>
     )
