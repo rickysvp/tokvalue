@@ -1,13 +1,14 @@
 'use client'
 
+import Image from 'next/image'
 import { useRef, useCallback, useState } from 'react'
 import { X, Download, Loader2, ImageDown } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
 import { formatNumber } from '@/lib/format'
-import { tierColor } from '@/lib/tier'
-import { W_LOGO_BASE64 } from '@/lib/logo-base64'
+
+
 
 interface ShareCardModalProps {
   isOpen: boolean
@@ -30,7 +31,7 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
   const cardRef = useRef<HTMLDivElement>(null)
   const [generating, setGenerating] = useState(false)
 
-  const color = tierColor(result.tier)
+  // const color = tierColor(result.tier) // reserved for future use
   // Show highest value for bragging rights
   const valueHigh = result.businessValue.totalValue.high
   const valueDisplay = valueHigh >= 1000000 
@@ -42,18 +43,19 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
   // Get avatar initial for fallback
   const avatarInitial = result.nickname?.[0]?.toUpperCase() || result.username[0]?.toUpperCase() || '?'
 
-  // 10 dimensions for radar chart
-  const dimensions = result.dimensions || [
-    { label: 'Reach', value: 92 },
-    { label: 'Engage', value: 88 },
-    { label: 'Content', value: 80 },
-    { label: 'Authentic', value: 85 },
-    { label: 'Momentum', value: 78 },
-    { label: 'Stable', value: 82 },
-    { label: 'Commerce', value: 76 },
-    { label: 'Monetize', value: 90 },
-    { label: 'Health', value: 88 },
-    { label: 'Influence', value: 84 },
+  // 10 dimensions for radar chart (DimensionScores object → array)
+  const d = result.dimensions
+  const dimensions = [
+    { label: 'Reach',      value: d?.reach      ?? 80 },
+    { label: 'Engage',     value: d?.engagement  ?? 80 },
+    { label: 'Content',    value: d?.content     ?? 80 },
+    { label: 'Authentic',  value: d?.authenticity ?? 80 },
+    { label: 'Momentum',   value: d?.momentum    ?? 80 },
+    { label: 'Stable',     value: d?.stability   ?? 80 },
+    { label: 'Commerce',   value: d?.commerce    ?? 80 },
+    { label: 'Monetize',   value: d?.monetization ?? 80 },
+    { label: 'Health',     value: d?.health      ?? 80 },
+    { label: 'Influence',  value: d?.influence   ?? 80 },
   ]
 
   const handleDownload = useCallback(async () => {
@@ -150,14 +152,15 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                 <div className="flex items-center gap-3.5">
                   {/* Avatar */}
                   {result.avatarData || result.avatar ? (
-                    <img 
-                      src={result.avatarData || result.avatar} 
-                      alt="" 
+                    <Image 
+                      src={result.avatarData || result.avatar || ''} 
+                      alt=""
+                      width={56}
+                      height={56}
                       className="w-14 h-14 rounded-full object-cover"
                       style={{
                         boxShadow: '0 0 0 2px #FF0050, 0 0 0 4px rgba(0,242,234,0.5)',
                       }}
-                      crossOrigin="anonymous"
                     />
                   ) : (
                     <div 
