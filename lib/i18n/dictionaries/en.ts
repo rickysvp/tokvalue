@@ -470,6 +470,11 @@ const en = {
     shareLinkError: 'Failed to create share link',
     saveToTracker: 'Save to Tracker',
     savedToTracker: 'Saved to Tracker',
+    // Share card (image generation for social sharing)
+    shareCard: 'Share Card',
+    shareCardHint: 'A ready-to-post image of this valuation',
+    shareCardDownloading: 'Generating card...',
+    shareCardError: 'Failed to generate card. Please try again.',
     // Income Breakdown
     income: {
       estMonthlyIncome: 'Est. Monthly Income',

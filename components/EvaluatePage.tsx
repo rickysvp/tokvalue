@@ -41,6 +41,7 @@ import { useI18n, t } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, claimCreditsApi, setSessionToken, promotePendingToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { ShareModal } from '@/components/ShareModal'
+import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
 import type { TabId } from '@/components/HomePageClient'
@@ -114,6 +115,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   // 免费评估邮箱验证弹窗（401 NEED_VERIFY 触发，独立实例避免与购买流程互相干扰）
   const [freeVerifyOpen, setFreeVerifyOpen] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showShareCardModal, setShowShareCardModal] = useState(false)
   const [showPaidWallModal, setShowPaidWallModal] = useState(false)
   const [paidWallMode, setPaidWallMode] = useState<'evaluate' | 'unlock'>('evaluate')
   const [evaluatingModal, setEvaluatingModal] = useState<{
@@ -955,6 +957,15 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            {/* Share Card — available to everyone (free-tier data, viral image) */}
+            <button
+              onClick={() => setShowShareCardModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-purple-500/40 bg-purple-950/20 px-5 py-2.5 text-sm font-medium text-purple-300 hover:border-purple-400 hover:text-purple-200 transition-colors"
+            >
+              <Share2 className="h-4 w-4" />
+              {dict.evaluation.shareCard}
+            </button>
+
             {/* Export Dropdown */}
             <div className="relative" ref={exportMenuRef}>
               <button
@@ -1048,6 +1059,13 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
           username={result.username}
+        />
+      )}
+      {result && (
+        <ShareCardModal
+          isOpen={showShareCardModal}
+          onClose={() => setShowShareCardModal(false)}
+          result={result}
         />
       )}
       <PaidWallModal
