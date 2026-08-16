@@ -98,7 +98,7 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#FF0050]/20 to-[#00F2EA]/20 flex items-center justify-center">
               <ImageDown className="h-4 w-4 text-[#00F2EA]" />
             </div>
-            <h3 className="text-base font-semibold text-white">{dict.evaluation.shareCard}</h3>
+            <h3 className="text-base font-semibold text-white">Share your TokValue</h3>
           </div>
           <button
             onClick={onClose}
@@ -111,7 +111,6 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
 
         {/* Card preview */}
         <div className="p-5">
-          <p className="text-xs text-neutral-500 mb-4">{dict.evaluation.shareCardHint}</p>
 
           <div className="flex justify-center overflow-auto">
             {/* Share Card — 540×960 logical, 1080×1920 actual */}
@@ -150,22 +149,22 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                 />
 
                 {/* User Profile Header */}
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-4">
                   {/* Avatar */}
                   {result.avatarData || result.avatar ? (
                     <Image 
                       src={result.avatarData || result.avatar || ''} 
                       alt=""
-                      width={56}
-                      height={56}
-                      className="w-14 h-14 rounded-full object-cover"
+                      width={64}
+                      height={64}
+                      className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                       style={{
                         boxShadow: '0 0 0 2px #FF0050, 0 0 0 4px rgba(0,242,234,0.5)',
                       }}
                     />
                   ) : (
                     <div 
-                      className="w-14 h-14 rounded-full flex items-center justify-center text-[22px] font-extrabold text-white"
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-[24px] font-extrabold text-white flex-shrink-0"
                       style={{ 
                         background: 'linear-gradient(135deg, #2a2a36, #15151d)',
                         boxShadow: '0 0 0 2px #FF0050, 0 0 0 4px rgba(0,242,234,0.5)',
@@ -174,26 +173,28 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                       {avatarInitial}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xl font-bold text-white leading-tight">{result.nickname || result.username}</div>
-                    <div className="text-[#8B8792] text-[13px] mt-0.5">@{result.username}</div>
-                    {result.verified && (
-                      <div className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-[#00F2EA]/15 text-[#00F2EA] text-[11px] font-semibold">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                        Verified
-                      </div>
-                    )}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                      <div className="text-xl font-bold text-white leading-tight">{result.nickname || result.username}</div>
+                      {result.verified && (
+                        <div className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#00F2EA]/15 text-[#00F2EA] text-[10px] font-semibold">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-[#8B8792] text-[14px]">@{result.username}</div>
                   </div>
-                  {/* Tier Badge */}
-                  <div 
-                    className="w-[76px] h-[76px] rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ 
-                      border: '3px solid rgba(255,0,80,0.7)',
-                      background: 'rgba(255,0,80,0.18)',
-                      boxShadow: '0 0 28px rgba(255,0,80,0.35), 0 0 60px rgba(255,0,80,0.15)',
-                    }}
-                  >
-                    <span className="text-[38px] font-extrabold text-[#FF0050] leading-none">{result.tier}</span>
+                  {/* Tier Badge - no circle, larger text */}
+                  <div className="flex-shrink-0">
+                    <span 
+                      className="text-[56px] font-black leading-none"
+                      style={{ 
+                        color: '#FF0050',
+                        textShadow: '0 0 30px rgba(255,0,80,0.5)',
+                      }}
+                    >
+                      {result.tier}
+                    </span>
                   </div>
                 </div>
 
