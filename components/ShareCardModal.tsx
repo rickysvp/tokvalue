@@ -8,6 +8,7 @@ import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
 import { formatNumber, formatUsdRange } from '@/lib/format'
 import { tierColor } from '@/lib/tier'
+import { W_LOGO_BASE64 } from '@/lib/logo-base64'
 
 interface ShareCardModalProps {
   isOpen: boolean
@@ -115,16 +116,15 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                 {/* Header: Brand */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {/* TokValue Logo — CSS-drawn to avoid CORS */}
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg"
+                    {/* TokValue Logo — real w.png inlined as base64 to avoid CORS */}
+                    <img 
+                      src={W_LOGO_BASE64}
+                      alt="TokValue"
+                      className="w-10 h-10 rounded-xl"
                       style={{ 
-                        background: 'linear-gradient(135deg, #FF0050 0%, #00F2EA 100%)',
                         boxShadow: '0 4px 20px rgba(255,0,80,0.3)',
                       }}
-                    >
-                      TV
-                    </div>
+                    />
                     <div>
                       <div className="text-xl font-black text-white tracking-tight">TokValue</div>
                       <div className="text-[10px] font-medium text-neutral-400 uppercase tracking-widest">
