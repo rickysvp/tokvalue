@@ -32,9 +32,6 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
 
   const color = tierColor(result.tier)
   const valueRange = formatUsdRange(result.businessValue.totalValue.low, result.businessValue.totalValue.high)
-  const perVideo = result.brandDealPerVideo
-    ? formatUsdRange(result.brandDealPerVideo.low, result.brandDealPerVideo.high)
-    : null
   const engagement = result.metrics?.engagementRate != null ? `${result.metrics.engagementRate}%` : null
 
   const handleDownload = useCallback(async () => {
@@ -113,111 +110,82 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
               {/* Content container */}
               <div className="relative flex-1 flex flex-col p-12">
                 
-                {/* Header: Brand */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {/* TokValue Logo — real w.png inlined as base64 to avoid CORS */}
-                    <img 
-                      src={W_LOGO_BASE64}
-                      alt="TokValue"
-                      className="w-10 h-10 rounded-xl"
-                      style={{ 
-                        boxShadow: '0 4px 20px rgba(255,0,80,0.3)',
-                      }}
-                    />
-                    <div>
-                      <div className="text-xl font-black text-white tracking-tight">TokValue</div>
-                      <div className="text-[10px] font-medium text-neutral-400 uppercase tracking-widest">
-                        TikTok Valuation
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Info */}
-                <div className="mt-8">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-                    <span className="text-neutral-400 text-sm">@</span>
-                    <span className="text-white font-semibold text-sm">{result.username}</span>
-                  </div>
-                  <h2 className="mt-3 text-3xl font-bold text-white leading-tight">
-                    {result.nickname}
-                  </h2>
-                </div>
-
-                {/* Main Value — Hero Section */}
-                <div className="mt-8">
-                  <div className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                    Estimated Account Value
-                  </div>
-                  <div 
-                    className="text-6xl font-black tracking-tighter leading-none"
+                {/* Header: Brand — clean, iconic */}
+                <div className="flex items-center justify-center">
+                  <img 
+                    src={W_LOGO_BASE64}
+                    alt="TokValue"
+                    className="w-14 h-14 rounded-2xl"
                     style={{ 
-                      background: 'linear-gradient(90deg, #FF0050 0%, #00F2EA 100%)',
+                      boxShadow: '0 8px 32px rgba(255,0,80,0.4)',
+                    }}
+                  />
+                </div>
+
+                {/* Account — minimal */}
+                <div className="mt-6 text-center">
+                  <div className="text-neutral-400 text-sm">@{result.username}</div>
+                </div>
+
+                {/* Main Value — Big, bold, centered */}
+                <div className="mt-4 text-center">
+                  <div 
+                    className="text-7xl font-black tracking-tighter"
+                    style={{ 
+                      background: 'linear-gradient(135deg, #FF0050 0%, #00F2EA 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
+                      filter: 'drop-shadow(0 4px 20px rgba(255,0,80,0.3))',
                     }}
                   >
                     {valueRange}
                   </div>
+                  <div className="mt-2 text-sm text-neutral-400">estimated value</div>
                 </div>
 
-                {/* Tier Badge Row */}
-                <div className="mt-6 flex items-center gap-4">
+                {/* Tier Badge — centered, glowing */}
+                <div className="mt-6 flex justify-center">
                   <div
-                    className="flex items-center justify-center w-20 h-20 rounded-2xl border-3"
+                    className="flex items-center justify-center w-24 h-24 rounded-3xl"
                     style={{ 
-                      borderColor: color,
-                      background: `${color}15`,
-                      boxShadow: `0 0 30px ${color}30`,
+                      border: `3px solid ${color}`,
+                      background: `${color}20`,
+                      boxShadow: `0 0 40px ${color}40, inset 0 0 20px ${color}10`,
                     }}
                   >
-                    <span className="text-4xl font-black" style={{ color }}>
+                    <span className="text-5xl font-black" style={{ color }}>
                       {result.tier}
                     </span>
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-white">{result.score}<span className="text-neutral-500 text-lg">/100</span></div>
-                    <div className="text-sm text-neutral-400">Overall Score</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">10-dimension analysis</div>
-                  </div>
+                </div>
+                <div className="mt-3 text-center">
+                  <div className="text-lg font-bold text-white">{result.score}<span className="text-neutral-500">/100</span></div>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="mt-8 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl bg-white/[0.03] border border-white/[0.08] p-4 text-center">
-                    <div className="text-xl font-bold text-white tabular-nums">{formatNumber(result.followerCount)}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Followers</div>
+                {/* Stats — minimal row */}
+                <div className="mt-6 flex justify-center gap-8 text-center">
+                  <div>
+                    <div className="text-lg font-bold text-white">{formatNumber(result.followerCount)}</div>
+                    <div className="text-xs text-neutral-500">followers</div>
                   </div>
-                  <div className="rounded-2xl bg-white/[0.03] border border-white/[0.08] p-4 text-center">
-                    <div className="text-xl font-bold text-white tabular-nums">{engagement ?? '—'}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Engagement</div>
-                  </div>
-                  <div className="rounded-2xl bg-white/[0.03] border border-white/[0.08] p-4 text-center">
-                    <div className="text-xl font-bold text-white tabular-nums">{perVideo ?? '—'}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500 mt-1">Per Video</div>
+                  <div>
+                    <div className="text-lg font-bold text-white">{engagement ?? '—'}</div>
+                    <div className="text-xs text-neutral-500">engagement</div>
                   </div>
                 </div>
 
                 {/* Spacer */}
                 <div className="flex-1" />
 
-                {/* Footer: CTA + QR */}
-                <div className="mt-8 pt-6 border-t border-white/[0.08]">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-xl bg-white p-2 shadow-lg">
-                        <QRCodeSVG value="https://tokvalue.com" size={56} fgColor="#0a0a0a" bgColor="#ffffff" level="M" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-base">What&apos;s your account worth?</div>
-                        <div className="text-neutral-400 text-sm">Free valuation at <span className="text-[#00F2EA] font-medium">tokvalue.com</span></div>
-                      </div>
-                    </div>
+                {/* Footer: CTA */}
+                <div className="mt-auto pt-6 text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
+                    <QRCodeSVG value="https://tokvalue.com" size={40} fgColor="#ffffff" bgColor="transparent" level="M" />
+                    <span className="text-sm text-neutral-300">tokvalue.com</span>
                   </div>
-                  <div className="mt-4 text-[10px] text-neutral-600 text-center">
-                    Estimate only · Not financial advice · Data from public sources
+                  <div className="mt-3 text-xs text-neutral-500">
+                    What&apos;s your account worth? · Free valuation
                   </div>
                 </div>
               </div>
