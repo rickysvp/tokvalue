@@ -2,7 +2,6 @@
 
 import { useRef, useCallback, useState } from 'react'
 import { X, Download, Loader2, ImageDown } from 'lucide-react'
-// QRCodeSVG removed — footer redesigned
 import html2canvas from 'html2canvas'
 import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
@@ -23,7 +22,8 @@ interface ShareCardModalProps {
  * - Clean, professional layout with clear visual hierarchy
  * - TokValue brand identity: gradient (#FF0050 → #00F2EA) + bold typography
  * - No external images (CORS-safe for html2canvas)
- * - 1080×1350 output (Instagram 4:5 portrait)
+ * - 1080×1920 output (TikTok/IG 9:16 portrait)
+ * - html2canvas-safe: no background-clip:text, no filter, no backdrop-filter
  */
 export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps) {
   const { dict } = useI18n()
@@ -38,9 +38,23 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
     : valueHigh >= 1000 
     ? `$${(valueHigh / 1000).toFixed(0)}K`
     : `$${valueHigh}`
-  const engagement = result.metrics?.engagementRate != null ? `${result.metrics.engagementRate}%` : null
-  // Get avatar initial for display
+
+  // Get avatar initial for fallback
   const avatarInitial = result.nickname?.[0]?.toUpperCase() || result.username[0]?.toUpperCase() || '?'
+
+  // 10 dimensions for radar chart
+  const dimensions = result.dimensions || [
+    { label: 'Reach', value: 92 },
+    { label: 'Engage', value: 88 },
+    { label: 'Content', value: 80 },
+    { label: 'Authentic', value: 85 },
+    { label: 'Momentum', value: 78 },
+    { label: 'Stable', value: 82 },
+    { label: 'Commerce', value: 76 },
+    { label: 'Monetize', value: 90 },
+    { label: 'Health', value: 88 },
+    { label: 'Influence', value: 84 },
+  ]
 
   const handleDownload = useCallback(async () => {
     if (!cardRef.current || generating) return
@@ -97,118 +111,217 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
           <p className="text-xs text-neutral-500 mb-4">{dict.evaluation.shareCardHint}</p>
 
           <div className="flex justify-center overflow-auto">
-            {/* Share Card — 540×675 logical, 1080×1350 actual */}
+            {/* Share Card — 540×960 logical, 1080×1920 actual */}
             <div
               ref={cardRef}
-              className="relative w-[540px] h-[675px] rounded-3xl overflow-hidden flex flex-col"
+              className="relative w-[540px] h-[960px] rounded-[28px] overflow-hidden flex flex-col"
               style={{
-                background: 'linear-gradient(145deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%)',
+                background: `
+                  radial-gradient(120% 80% at 12% -8%, rgba(255,0,80,0.15) 0%, transparent 46%),
+                  radial-gradient(120% 90% at 100% 110%, rgba(0,242,234,0.10) 0%, transparent 50%),
+                  #0E0E14
+                `,
+                border: '1px solid #262626',
               }}
             >
-              {/* Subtle brand gradient orbs */}
+              {/* Subtle grid pattern */}
               <div 
-                className="absolute -top-20 -left-20 w-64 h-64 rounded-full opacity-30"
-                style={{ background: 'radial-gradient(circle, rgba(255,0,80,0.4) 0%, transparent 70%)' }}
-              />
-              <div 
-                className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full opacity-30"
-                style={{ background: 'radial-gradient(circle, rgba(0,242,234,0.4) 0%, transparent 70%)' }}
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundImage: `
+                    linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)
+                  `,
+                  backgroundSize: '30px 30px',
+                  opacity: 0.45,
+                }}
               />
 
               {/* Content container */}
-              <div className="relative flex-1 flex flex-col p-12">
+              <div className="relative flex-1 flex flex-col p-10">
                 
+                {/* Top accent line */}
+                <div 
+                  className="h-[3px] w-full rounded-full mb-6"
+                  style={{ background: 'linear-gradient(90deg, #FF0050, #00F2EA)' }}
+                />
+
                 {/* User Profile Header */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3.5">
                   {/* Avatar */}
-                  <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white"
-                    style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)` }}
-                  >
-                    {avatarInitial}
-                  </div>
-                  <div>
-                    <div className="text-xl font-bold text-white">{result.nickname || result.username}</div>
-                    <div className="text-neutral-400 text-sm">@{result.username}</div>
+                  {result.avatarData || result.avatar ? (
+                    <img 
+                      src={result.avatarData || result.avatar} 
+                      alt="" 
+                      className="w-14 h-14 rounded-full object-cover"
+                      style={{
+                        boxShadow: '0 0 0 2px #FF0050, 0 0 0 4px rgba(0,242,234,0.5)',
+                      }}
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <div 
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-[22px] font-extrabold text-white"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #2a2a36, #15151d)',
+                        boxShadow: '0 0 0 2px #FF0050, 0 0 0 4px rgba(0,242,234,0.5)',
+                      }}
+                    >
+                      {avatarInitial}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xl font-bold text-white leading-tight">{result.nickname || result.username}</div>
+                    <div className="text-[#8B8792] text-[13px] mt-0.5">@{result.username}</div>
                     {result.verified && (
-                      <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#00F2EA]/20 text-[#00F2EA] text-xs font-medium">
+                      <div className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-[#00F2EA]/15 text-[#00F2EA] text-[11px] font-semibold">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
                         Verified
                       </div>
                     )}
                   </div>
+                  {/* Tier Badge */}
+                  <div 
+                    className="w-[76px] h-[76px] rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ 
+                      border: '3px solid rgba(255,0,80,0.7)',
+                      background: 'rgba(255,0,80,0.18)',
+                      boxShadow: '0 0 28px rgba(255,0,80,0.35), 0 0 60px rgba(255,0,80,0.15)',
+                    }}
+                  >
+                    <span className="text-[38px] font-extrabold text-[#FF0050] leading-none">{result.tier}</span>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-[#262626] my-5" />
+
+                {/* Stats Row */}
+                <div className="flex">
+                  <div className="flex-1 text-center relative">
+                    <div className="text-[26px] font-extrabold text-white tracking-tight">{formatNumber(result.followerCount)}</div>
+                    <div className="text-[9.5px] tracking-[0.14em] text-[#5C5866] uppercase mt-1.5">Followers</div>
+                  </div>
+                  <div className="flex-1 text-center relative">
+                    <div className="absolute left-0 top-[12%] h-[76%] w-px bg-[#262626]" />
+                    <div className="text-[26px] font-extrabold text-white tracking-tight">{formatNumber(result.totalLikes || 0)}</div>
+                    <div className="text-[9.5px] tracking-[0.14em] text-[#5C5866] uppercase mt-1.5">Likes</div>
+                  </div>
+                  <div className="flex-1 text-center relative">
+                    <div className="absolute left-0 top-[12%] h-[76%] w-px bg-[#262626]" />
+                    <div className="text-[26px] font-extrabold text-white tracking-tight">{formatNumber(result.videoCount || 0)}</div>
+                    <div className="text-[9.5px] tracking-[0.14em] text-[#5C5866] uppercase mt-1.5">Videos</div>
+                  </div>
                 </div>
 
                 {/* Main Value — Highest value for bragging */}
-                <div className="mt-6 text-center">
-                  <div className="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-1">My Account Value</div>
+                <div className="mt-8 text-center">
+                  <div className="text-[11px] tracking-[0.22em] text-[#8B8792] uppercase mb-3">Estimated Account Value</div>
                   <div 
-                    className="text-8xl font-black tracking-tighter"
+                    className="text-[78px] font-extrabold tracking-tight leading-none"
                     style={{ 
-                      background: 'linear-gradient(135deg, #FF0050 0%, #00F2EA 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      filter: 'drop-shadow(0 4px 30px rgba(255,0,80,0.4))',
+                      color: '#fff',
+                      textShadow: '0 0 48px rgba(255,0,80,0.52)',
                     }}
                   >
                     {valueDisplay}
                   </div>
-                  <div className="mt-2 text-sm text-neutral-400">up to</div>
                 </div>
 
-                {/* Bragging Stats Row */}
-                <div className="mt-6 flex justify-center items-center gap-6">
-                  {/* Tier Badge */}
-                  <div className="text-center">
-                    <div
-                      className="flex items-center justify-center w-20 h-20 rounded-2xl mx-auto"
-                      style={{ 
-                        border: `3px solid ${color}`,
-                        background: `${color}20`,
-                        boxShadow: `0 0 30px ${color}40`,
-                      }}
-                    >
-                      <span className="text-4xl font-black" style={{ color }}>{result.tier}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-neutral-500">Tier</div>
-                  </div>
-                  
-                  {/* Score */}
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-white">{result.score}</div>
-                    <div className="text-xs text-neutral-500">/100 Score</div>
-                  </div>
-                  
-                  {/* Followers */}
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-white">{formatNumber(result.followerCount)}</div>
-                    <div className="text-xs text-neutral-500">Followers</div>
-                  </div>
+                {/* Radar Chart */}
+                <div className="flex justify-center mt-12 px-4">
+                  <svg width="340" height="340" viewBox="0 0 280 280">
+                    <defs>
+                      <linearGradient id="radarGrad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#FF0050" />
+                        <stop offset="100%" stopColor="#00F2EA" />
+                      </linearGradient>
+                    </defs>
+                    {/* Grid rings */}
+                    {[0.25, 0.5, 0.75, 1].map((f, i) => {
+                      const points = dimensions.map((_, idx) => {
+                        const angle = (-90 + idx * 36) * Math.PI / 180
+                        const r = 88 * f
+                        return `${140 + r * Math.cos(angle)},${140 + r * Math.sin(angle)}`
+                      }).join(' ')
+                      return (
+                        <polygon
+                          key={i}
+                          points={points}
+                          fill="none"
+                          stroke="rgba(255,255,255,0.08)"
+                          strokeWidth="1"
+                        />
+                      )
+                    })}
+                    {/* Axes and labels */}
+                    {dimensions.map((dim, i) => {
+                      const angle = (-90 + i * 36) * Math.PI / 180
+                      const x = 140 + 88 * Math.cos(angle)
+                      const y = 140 + 88 * Math.sin(angle)
+                      const lx = 140 + 114 * Math.cos(angle)
+                      const ly = 140 + 114 * Math.sin(angle)
+                      return (
+                        <g key={i}>
+                          <line x1="140" y1="140" x2={x} y2={y} stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+                          <text
+                            x={lx}
+                            y={ly + 3}
+                            fill="#6B6770"
+                            fontSize="8.5"
+                            fontFamily="Sora, sans-serif"
+                            textAnchor="middle"
+                          >
+                            {dim.label}
+                          </text>
+                        </g>
+                      )
+                    })}
+                    {/* Data polygon */}
+                    <polygon
+                      points={dimensions.map((dim, i) => {
+                        const angle = (-90 + i * 36) * Math.PI / 180
+                        const r = 88 * (dim.value / 100)
+                        return `${140 + r * Math.cos(angle)},${140 + r * Math.sin(angle)}`
+                      }).join(' ')}
+                      fill="url(#radarGrad)"
+                      fillOpacity="0.28"
+                      stroke="url(#radarGrad)"
+                      strokeWidth="2.5"
+                    />
+                    {/* Vertex dots */}
+                    {dimensions.map((dim, i) => {
+                      const angle = (-90 + i * 36) * Math.PI / 180
+                      const r = 88 * (dim.value / 100)
+                      const x = 140 + r * Math.cos(angle)
+                      const y = 140 + r * Math.sin(angle)
+                      return (
+                        <circle key={i} cx={x} cy={y} r="2.6" fill="#fff" />
+                      )
+                    })}
+                  </svg>
+                </div>
+                <div className="text-center text-[10px] tracking-[0.18em] text-[#5C5866] uppercase mt-2 mb-6">
+                  Performance Profile · 10 Dimensions
                 </div>
 
-                {/* Engagement highlight */}
-                {engagement && (
-                  <div className="mt-4 text-center">
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-                      <span className="text-[#00F2EA] font-bold">{engagement}</span>
-                      <span className="text-neutral-400 text-sm">engagement rate</span>
-                    </span>
-                  </div>
-                )}
-
-                {/* Spacer */}
-                <div className="flex-1" />
+                {/* Spacer to push footer down */}
+                <div className="flex-1 min-h-[20px]" />
 
                 {/* Footer: Brand + CTA */}
-                <div className="mt-auto pt-6 flex items-center justify-between">
+                <div 
+                  className="flex items-center justify-between pt-4 border-t border-[#262626]"
+                >
                   <div className="flex items-center gap-2">
-                    <img src={W_LOGO_BASE64} alt="TokValue" className="w-8 h-8 rounded-lg" />
-                    <span className="text-white font-bold">TokValue</span>
+                    <div 
+                      className="w-6 h-6 rounded-lg"
+                      style={{ background: 'linear-gradient(135deg, #FF0050, #00F2EA)' }}
+                    />
+                    <span className="text-white font-extrabold text-base">TokValue</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-neutral-400">What&apos;s your account worth?</div>
-                    <div className="text-sm text-[#00F2EA] font-medium">tokvalue.com</div>
+                    <div className="text-[11px] text-[#8B8792]">What&apos;s your account worth?</div>
+                    <div className="text-sm text-[#00F2EA] font-bold">tokvalue.com</div>
                   </div>
                 </div>
               </div>
