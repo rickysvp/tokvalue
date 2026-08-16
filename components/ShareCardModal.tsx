@@ -1,12 +1,13 @@
 'use client'
 
 import Image from 'next/image'
-import { useRef, useCallback, useState } from 'react'
-import { X, Download, Loader2, ImageDown } from 'lucide-react'
+import { useRef, useCallback, useState, useEffect } from 'react'
+import { X, Download, Loader2, ImageDown, Link2 } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
 import { formatNumber } from '@/lib/format'
+import { getSessionToken } from '@/lib/credits-client'
 import { TOKVALUE_LOGO_BASE64 } from '@/lib/logo-base64'
 
 
@@ -31,6 +32,29 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
   const { dict } = useI18n()
   const cardRef = useRef<HTMLDivElement>(null)
   const [generating, setGenerating] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+
+  // Create share link when modal opens (reuse /api/share, requires paid ownership)
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const token = getSessionToken()
+        if (!token) return
+        const res = await fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ username: result.username }),
+        })
+        const data = await res.json()
+        if (!cancelled && res.ok && data.shareUrl) setShareUrl(data.shareUrl)
+      } catch (err) {
+        console.error('[share-card] create link failed:', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isOpen, result.username])
 
   // const color = tierColor(result.tier) // reserved for future use
   // Show highest value for bragging rights
@@ -346,6 +370,28 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
               {generating ? dict.evaluation.shareCardDownloading : 'Download Share Card'}
             </button>
 
+            {/* Share link display */}
+            {shareUrl && (
+              <div className="flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2.5">
+                <Link2 className="h-4 w-4 text-[#00F2EA] shrink-0" />
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 min-w-0 bg-transparent text-xs text-neutral-300 outline-none"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(shareUrl) } catch {}
+                  }}
+                  className="shrink-0 text-xs font-semibold text-[#00F2EA] hover:underline"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+
             {/* Share buttons */}
             <div className="flex gap-3">
               <button
@@ -357,7 +403,10 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                     link.download = `tokvalue-${result.username}.png`
                     link.href = canvas.toDataURL('image/png')
                     link.click()
-                    alert('Image saved! Open TikTok app to upload.')
+                    if (shareUrl) {
+                      try { await navigator.clipboard.writeText(shareUrl) } catch {}
+                    }
+                    alert(`Image saved!${shareUrl ? '\nReport link copied: ' + shareUrl : ''}\nOpen TikTok app to upload.`)
                   } catch (err) { console.error('[share] failed:', err) }
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
@@ -374,7 +423,10 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                     link.download = `tokvalue-${result.username}.png`
                     link.href = canvas.toDataURL('image/png')
                     link.click()
-                    alert('Image saved! Open Instagram app to upload.')
+                    if (shareUrl) {
+                      try { await navigator.clipboard.writeText(shareUrl) } catch {}
+                    }
+                    alert(`Image saved!${shareUrl ? '\nReport link copied: ' + shareUrl : ''}\nOpen Instagram app to upload.`)
                   } catch (err) { console.error('[share] failed:', err) }
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
@@ -384,7 +436,8 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
               </button>
               <button
                 onClick={() => {
-                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My TikTok account is worth ${valueDisplay}! Check yours at tokvalue.com`)}`, '_blank')
+                  const text = encodeURIComponent(`My TikTok account is worth ${valueDisplay}!${shareUrl ? ' ' + shareUrl : ' Check yours at tokvalue.com'}`)
+                  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank')
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm font-medium text-white hover:bg-[#1a1a1a] transition-colors"
               >
