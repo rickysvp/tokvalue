@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail, Shield } from 'lucide-react'
+import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
@@ -322,10 +322,16 @@ export default function HomePage() {
           <div className="mt-4 flex items-center justify-center">
             <Link
               href="/evaluate/@demo"
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#00F2EA]/40 bg-[#00F2EA]/10 px-4 py-1.5 text-sm font-medium text-[#00F2EA] hover:bg-[#00F2EA]/20 transition-colors"
+              className="group inline-flex items-center gap-2.5 rounded-2xl border border-[#00F2EA]/30 bg-gradient-to-r from-[#00F2EA]/[0.08] to-[#FF0050]/[0.06] px-5 py-3 text-sm font-semibold text-[#00F2EA] hover:border-[#00F2EA]/60 hover:from-[#00F2EA]/[0.14] hover:to-[#FF0050]/[0.10] transition-all"
             >
-              <Play className="h-3.5 w-3.5" />
-              {dict.home.hero.demoLink}
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#00F2EA]/15 group-hover:bg-[#00F2EA]/25 transition-colors">
+                <Play className="h-3.5 w-3.5" fill="currentColor" />
+              </span>
+              <span className="text-left leading-tight">
+                <span className="block">{dict.home.hero.demoLink}</span>
+                <span className="block text-[11px] font-normal text-neutral-400">See exactly what a full report looks like</span>
+              </span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
 

@@ -33,7 +33,7 @@ export function DemoConversionBar() {
         </Link>
       </div>
       <p className="text-center text-[10px] text-neutral-600 mt-1.5">
-        First evaluation free · Full report from $9 · No subscription
+        Your first evaluation is free · No sign-up · No credit card required
       </p>
     </div>
   )

@@ -104,7 +104,7 @@ const en = {
       placeholder: '@tiktok username',
       ariaLabel: 'TikTok username',
       cta: 'Evaluate for Free',
-      demoLink: 'See @demo sample report →',
+      demoLink: 'See a full sample report — free',
     },
 
     howItWorks: {
