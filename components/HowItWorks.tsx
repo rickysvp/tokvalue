@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, ArrowRight, ScanLine, Radar, TrendingUp } from 'lucide-react'
+import { Search, ScanLine, Radar, TrendingUp } from 'lucide-react'
 
 interface HowItWorksProps {
   dict: {
@@ -15,7 +14,6 @@ interface HowItWorksProps {
 
 /* ─────────────────────────────────────────────────────────────
    Demo data — fixed, hand-tuned shape so the motion reads clearly.
-   Real reports fill these from the actual evaluation result.
 ────────────────────────────────────────────────────────────── */
 const DEMO_PROFILE = {
   nickname: 'Maya Chen',
@@ -39,8 +37,54 @@ const DEMO_DIMS = [
   { label: 'Influence', value: 76 },
 ]
 
-const DEMO_VALUE = 2_100_000 // $2.1M
+const DEMO_VALUE = 2_100_000
+const DEMO_VALUE_LOW = 1_700_000
+const DEMO_VALUE_HIGH = 2_600_000
 const DEMO_TIER = 'A'
+const DEMO_PERCENTILE = 'Top 1%'
+
+const DEMO_METRICS = [
+  { label: 'Followers', value: '1.2M' },
+  { label: 'Engagement', value: '8.4%' },
+  { label: 'Avg. Views', value: '486K' },
+]
+
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v))
+}
+
+/* ─── mount-triggered animation flag ────────────────────────── */
+function useReveal(delay = 60) {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setOn(true), delay)
+    return () => clearTimeout(t)
+  }, [delay])
+  return on
+}
+
+/* ─── scene progress (interval-driven, rAF-free so it also
+       completes under throttled/headless environments) ──────── */
+function useProgress(active: boolean, duration = 2600) {
+  const [progress, setProgress] = useState(0)
+  useEffect(() => {
+    if (!active) {
+      setProgress(0)
+      return
+    }
+    const steps = 48
+    const stepMs = duration / steps
+    let i = 0
+    const id = setInterval(() => {
+      i++
+      const t = i / steps
+      setProgress(1 - Math.pow(1 - t, 3))
+      if (i >= steps) clearInterval(id)
+    }, stepMs)
+    return () => clearInterval(id)
+  }, [active, duration])
+  return progress
+}
 
 /* ─── SVG radar helpers ─────────────────────────────────────── */
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
@@ -48,30 +92,45 @@ function polar(cx: number, cy: number, r: number, angleDeg: number) {
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
 }
 
-function RadarSVG({ values, animated }: { values: { label: string; value: number }[]; animated: boolean }) {
+function RadarSVG({ values, progress }: { values: { label: string; value: number }[]; progress: number }) {
   const cx = 180
   const cy = 180
   const R = 95
-  const n = values.length
+  const total = values.length
   const levels = [0.25, 0.5, 0.75, 1]
 
+  // per-vertex staggered growth: vertex i sprouts from center in sequence
+  const WINDOW = total + 2
+  const vertexEase = (i: number) => {
+    const start = i / WINDOW
+    const end = (i + 1.5) / WINDOW
+    const p = clamp((progress - start) / (end - start), 0, 1)
+    return 1 - Math.pow(1 - p, 3)
+  }
+  const dataPos = (i: number) => polar(cx, cy, (R * values[i].value) / 100, -90 + (i * 360) / total)
+  const vertexPos = (i: number) => {
+    const p = vertexEase(i)
+    const d = dataPos(i)
+    return { x: cx + (d.x - cx) * p, y: cy + (d.y - cy) * p }
+  }
+
   const ringPoints = (fraction: number) =>
-    values
-      .map((_, i) => polar(cx, cy, R * fraction, -90 + (i * 360) / n))
-      .map((p) => `${p.x},${p.y}`)
-      .join(' ')
+    values.map((_, i) => polar(cx, cy, R * fraction, -90 + (i * 360) / total)).map((p) => `${p.x},${p.y}`).join(' ')
 
-  const dataPoints = values
-    .map((d, i) => polar(cx, cy, (R * d.value) / 100, -90 + (i * 360) / n))
-    .map((p) => `${p.x},${p.y}`)
-    .join(' ')
+  const axisEnds = values.map((_, i) => polar(cx, cy, R, -90 + (i * 360) / total))
+  const labelPts = values.map((_, i) => polar(cx, cy, R + 24, -90 + (i * 360) / total))
 
-  const axisEnds = values.map((_, i) => polar(cx, cy, R, -90 + (i * 360) / n))
-  const labelPts = values.map((_, i) => polar(cx, cy, R + 24, -90 + (i * 360) / n))
+  const polyPoints = values.map((_, i) => {
+    const p = vertexPos(i)
+    return `${p.x},${p.y}`
+  }).join(' ')
+
+  const ringOp = clamp(progress / 0.18, 0, 1)
+  const axisOp = clamp((progress - 0.04) / 0.3, 0, 1)
 
   return (
     <svg viewBox="0 0 360 360" className="w-full h-full" role="img" aria-label="10-dimension analysis radar">
-      {/* grid rings */}
+      {/* grid rings — fade in early */}
       {levels.map((lv, i) => (
         <polygon
           key={i}
@@ -79,52 +138,29 @@ function RadarSVG({ values, animated }: { values: { label: string; value: number
           fill="none"
           stroke="#27272a"
           strokeWidth="0.6"
-          style={{ opacity: animated ? 1 : 0, transition: `opacity 0.5s ease ${0.1 + i * 0.12}s` }}
+          opacity={ringOp * (0.45 + 0.55 * (i / (levels.length - 1)))}
         />
       ))}
-      {/* axes */}
+      {/* axes — draw outward once, subtle */}
       {axisEnds.map((p, i) => (
-        <line
-          key={i}
-          x1={cx}
-          y1={cy}
-          x2={p.x}
-          y2={p.y}
-          stroke="#1f1d26"
-          strokeWidth="0.6"
-          style={{ opacity: animated ? 1 : 0, transition: `opacity 0.4s ease ${0.2 + i * 0.05}s` }}
-        />
+        <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#2a2931" strokeWidth="0.6" opacity={axisOp} />
       ))}
-      {/* data polygon */}
+      {/* data polygon — sprouts vertex by vertex from center */}
       <polygon
-        points={dataPoints}
+        points={polyPoints}
         fill="#FF0050"
         fillOpacity="0.14"
         stroke="#FF0050"
         strokeWidth="1.6"
         strokeLinejoin="round"
-        style={{
-          opacity: animated ? 1 : 0,
-          transform: animated ? 'scale(1)' : 'scale(0.2)',
-          transformOrigin: '180px 180px',
-          transition: 'opacity 0.6s ease 0.4s, transform 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.4s',
-        }}
+        opacity={clamp(progress / 0.1, 0, 1)}
       />
-      {/* vertex dots */}
-      {dataPoints.split(' ').map((pt, i) => {
-        const [x, y] = pt.split(',').map(Number)
-        return (
-          <circle
-            key={i}
-            cx={x}
-            cy={y}
-            r="2.6"
-            fill="#FF0050"
-            style={{ opacity: animated ? 1 : 0, transition: `opacity 0.4s ease ${0.55 + i * 0.04}s` }}
-          />
-        )
+      {/* vertex dots — light up as each vertex lands */}
+      {values.map((_, i) => {
+        const p = vertexPos(i)
+        return <circle key={i} cx={p.x} cy={p.y} r="2.6" fill="#FF0050" opacity={vertexEase(i)} />
       })}
-      {/* labels */}
+      {/* labels — light up in sweep order, synced to each vertex */}
       {values.map((d, i) => {
         const p = labelPts[i]
         const anchor = p.x < cx - 20 ? 'end' : p.x > cx + 20 ? 'start' : 'middle'
@@ -138,7 +174,7 @@ function RadarSVG({ values, animated }: { values: { label: string; value: number
             fontSize="11"
             fontWeight="600"
             fill={i % 2 === 0 ? '#f5f5f5' : '#8b8792'}
-            style={{ opacity: animated ? 1 : 0, transition: `opacity 0.4s ease ${0.5 + i * 0.07}s` }}
+            opacity={vertexEase(i)}
           >
             {d.label}
           </text>
@@ -148,84 +184,90 @@ function RadarSVG({ values, animated }: { values: { label: string; value: number
   )
 }
 
-/* ─── Count-up hook ─────────────────────────────────────────── */
-function useCountUp(target: number, active: boolean, duration = 1200) {
-  const [val, setVal] = useState(target)
-  useEffect(() => {
-    if (!active) return
-    let raf = 0
-    const start = performance.now()
-    setVal(0) // restart from zero for the count-up effect
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - t, 3)
-      setVal(Math.round(target * eased))
-      if (t < 1) raf = requestAnimationFrame(tick)
-      else setVal(target) // ensure final value
-    }
-    raf = requestAnimationFrame(tick)
-    // Fallback: if rAF is throttled/blocked (e.g. headless), force final value
-    const fallback = setTimeout(() => setVal(target), duration + 120)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(fallback)
-    }
-  }, [target, active, duration])
-  return val
-}
-
 function formatUsd(n: number) {
   if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   if (n >= 1_000) return '$' + (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
   return '$' + Math.round(n)
 }
 
-/* ─── Step scenes ───────────────────────────────────────────── */
+function formatFullUsd(n: number) {
+  return '$' + n.toLocaleString('en-US')
+}
+
+/* ─── Step 1 · Scan the account ─────────────────────────────── */
 function SceneScan({ active }: { active: boolean }) {
+  const on = useReveal()
+  const play = active && on
   return (
     <div className="relative flex flex-col items-center justify-center h-full px-6">
-      {/* scan line sweeping over the profile card */}
       <div className="w-full max-w-[300px] rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-5 relative overflow-hidden">
+        {/* sweeping scan line with trailing glow */}
+        <div
+          className="pointer-events-none absolute inset-x-0"
+          style={{
+            height: 44,
+            top: -44,
+            background: 'linear-gradient(180deg, transparent, rgba(0,242,234,0.14) 45%, rgba(0,242,234,0.85) 100%)',
+            filter: 'blur(0.5px)',
+            animation: play ? 'hiw-scan 2.4s cubic-bezier(0.4,0,0.6,1) infinite' : 'none',
+          }}
+        />
         <div
           className="pointer-events-none absolute inset-x-0 h-px"
           style={{
             background: 'linear-gradient(90deg, transparent, #00F2EA, transparent)',
-            boxShadow: '0 0 24px 2px rgba(0,242,234,0.35)',
-            animation: active ? 'hiw-scan 2.2s ease-in-out infinite' : 'none',
+            boxShadow: '0 0 22px 2px rgba(0,242,234,0.5)',
+            animation: play ? 'hiw-scan 2.4s cubic-bezier(0.4,0,0.6,1) infinite' : 'none',
           }}
         />
+
         {/* header */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#00F2EA]">Scanning</span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#00F2EA] inline-flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00F2EA] animate-scan-pulse" />
+            Scanning
+          </span>
           <ScanLine className="h-3.5 w-3.5 text-[#00F2EA]" />
         </div>
-        {/* avatar + name */}
+
+        {/* avatar with rotating radar sweep ring */}
         <div className="flex items-center gap-3 mb-4">
-          <div
-            className="h-12 w-12 rounded-full bg-gradient-to-br from-[#FF0050] to-[#00F2EA] p-[2px] shrink-0 animate-burst"
-            style={{ animationDelay: '0.3s' }}
-          >
-            <div className="h-full w-full rounded-full bg-[#0E0E14] flex items-center justify-center text-lg font-bold text-white">
+          <div className="relative h-14 w-14 shrink-0">
+            <svg className="absolute inset-0 h-full w-full animate-scan-rotate" viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="26.5" stroke="rgba(0,242,234,0.18)" strokeWidth="2" />
+              <circle
+                cx="28"
+                cy="28"
+                r="26.5"
+                stroke="#00F2EA"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="42 124"
+                style={{ filter: 'drop-shadow(0 0 6px rgba(0,242,234,0.8))' }}
+              />
+            </svg>
+            <div className="absolute inset-[4px] rounded-full bg-[#0E0E14] flex items-center justify-center text-lg font-bold text-white">
               {DEMO_PROFILE.avatarInitial}
             </div>
           </div>
           <div>
-            <div className="text-sm font-semibold text-white animate-fade-in-up" style={{ animationDelay: '0.45s' }}>
+            <div className="text-sm font-semibold text-white" style={{ opacity: play ? 1 : 0.25, transition: 'opacity 0.5s ease 0.5s' }}>
               {DEMO_PROFILE.nickname}
             </div>
-            <div className="text-xs text-neutral-400 animate-fade-in-up" style={{ animationDelay: '0.55s' }}>
+            <div className="text-xs text-neutral-400" style={{ opacity: play ? 1 : 0.25, transition: 'opacity 0.5s ease 0.65s' }}>
               {DEMO_PROFILE.handle}
             </div>
           </div>
         </div>
-        {/* data rows */}
+
+        {/* data rows — light up as scan passes */}
         <div className="grid grid-cols-3 gap-2 border-t border-[#1F1D26] pt-3">
           {[
             { k: 'Followers', v: DEMO_PROFILE.followers },
             { k: 'Likes', v: DEMO_PROFILE.likes },
             { k: 'Videos', v: DEMO_PROFILE.videos },
           ].map((s, i) => (
-            <div key={s.k} className="text-center animate-fade-in-up" style={{ animationDelay: `${0.65 + i * 0.12}s` }}>
+            <div key={s.k} className="text-center" style={{ opacity: play ? 1 : 0.15, transition: `opacity 0.4s ease ${0.9 + i * 0.18}s` }}>
               <div className="text-sm font-bold text-white tabular-nums">{s.v}</div>
               <div className="text-[9px] uppercase tracking-wide text-neutral-500 mt-0.5">{s.k}</div>
             </div>
@@ -236,68 +278,155 @@ function SceneScan({ active }: { active: boolean }) {
   )
 }
 
+/* ─── Step 2 · AI analysis radar ────────────────────────────── */
 function SceneAnalyze({ active }: { active: boolean }) {
+  const progress = useProgress(active)
   return (
     <div className="relative flex flex-col items-center justify-center h-full px-6">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1" style={{ opacity: clamp(progress / 0.15, 0, 1), transition: 'opacity 0.3s ease' }}>
         <Radar className="h-3.5 w-3.5 text-[#FF0050]" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">10-dimension AI analysis</span>
       </div>
       <div className="w-full max-w-[320px] aspect-square">
-        <RadarSVG values={DEMO_DIMS} animated={active} />
+        <RadarSVG values={DEMO_DIMS} progress={progress} />
       </div>
     </div>
   )
 }
 
+/* ─── Step 3 · Personal valuation certificate ──────────────── */
 function SceneValue({ active }: { active: boolean }) {
-  const display = useCountUp(DEMO_VALUE, active)
-  const bandLow = useCountUp(1_700_000, active, 1400)
-  const bandHigh = useCountUp(2_600_000, active, 1400)
+  const on = useReveal()
+  const play = active && on
+  const progress = useProgress(play, 3000)
+
+  // value count-up: roll 0 → final, then settle
+  const valueProgress = clamp((progress - 0.12) / 0.45, 0, 1)
+  const displayValue = Math.round(DEMO_VALUE * (1 - Math.pow(1 - valueProgress, 3)))
+  const valueSettled = valueProgress >= 1
+
+  // tier ring draw — after value settles
+  const tierProgress = clamp((progress - 0.58) / 0.3, 0, 1)
+  const tierSettled = tierProgress >= 1
+  const RING = 2 * Math.PI * 29 // r=29 in 64 viewBox
+
   return (
     <div className="relative flex flex-col items-center justify-center h-full px-6">
-      <div className="w-full max-w-[340px] rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-6 text-center relative overflow-hidden">
+      <div className="w-full max-w-[340px] rounded-2xl border border-[#1F1D26] bg-[#0E0E14] px-7 py-6 text-center relative overflow-hidden">
         {/* top accent */}
-        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#FF0050] to-[#00F2EA]" />
-        <div className="inline-flex items-center justify-center h-11 w-11 rounded-full border-2 border-[#FF0050] bg-[#FF0050]/10 text-lg font-bold text-[#FF0050] mb-3 animate-burst">
-          {DEMO_TIER}
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#FF0050] to-[#00F2EA]" />
+
+        {/* user identity — avatar + name + handle + verified */}
+        <div
+          className="flex items-center justify-center gap-3 mb-6"
+          style={{ opacity: play ? 1 : 0, transform: play ? 'translateY(0)' : 'translateY(6px)', transition: 'opacity 0.45s ease 0.08s, transform 0.5s ease 0.08s' }}
+        >
+          <div className="relative h-12 w-12 shrink-0">
+            <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 180deg, #FF0050, #00F2EA, #FF0050)' }} />
+            <div className="absolute inset-[2px] rounded-full bg-[#0E0E14] flex items-center justify-center text-base font-bold text-white">
+              {DEMO_PROFILE.avatarInitial}
+            </div>
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-white">{DEMO_PROFILE.nickname}</span>
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#00F2EA]" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div className="text-xs text-neutral-400">{DEMO_PROFILE.handle}</div>
+          </div>
         </div>
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-neutral-500 mb-1">Estimated value</div>
-        <div className="text-4xl font-extrabold text-white tabular-nums" style={{ textShadow: '0 0 40px rgba(255,0,80,0.45)' }}>
-          {formatUsd(display)}
-        </div>
-        {/* value band */}
-        <div className="mt-4 h-1.5 w-full rounded-full bg-[#1A1A24] overflow-hidden">
+
+        {/* tier — enlarged rating medallion */}
+        <div
+          className="flex flex-col items-center mb-5"
+          style={{ opacity: play ? 1 : 0, transform: play ? 'scale(1)' : 'scale(0.6)', transition: 'opacity 0.4s ease 0.55s, transform 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.55s' }}
+        >
+          <div className="relative flex h-16 w-16 items-center justify-center">
+            <svg viewBox="0 0 64 64" className="absolute inset-0 h-full w-full -rotate-90">
+              <circle cx="32" cy="32" r="29" fill="none" stroke="rgba(255,0,80,0.15)" strokeWidth="2.5" />
+              <circle
+                cx="32"
+                cy="32"
+                r="29"
+                fill="none"
+                stroke="#FF0050"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={RING}
+                strokeDashoffset={RING * (1 - tierProgress)}
+                style={{ filter: 'drop-shadow(0 0 8px rgba(255,0,80,0.6))' }}
+              />
+            </svg>
+            <span
+              className="relative text-3xl font-extrabold text-white"
+              style={{
+                opacity: tierSettled ? 1 : 0,
+                transform: tierSettled ? 'scale(1)' : 'scale(0.4)',
+                transition: 'opacity 0.25s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+              }}
+            >
+              {DEMO_TIER}
+            </span>
+          </div>
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#00F2EA] to-[#FF0050]"
-            style={{ width: active ? '82%' : '0%', transition: 'width 1s cubic-bezier(0.22,1,0.36,1) 0.5s' }}
-          />
-        </div>
-        <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-neutral-400 animate-fade-in-up" style={{ animationDelay: '1.2s' }}>
-          <TrendingUp className="h-3 w-3 text-[#00F2EA]" />
-          Tier {DEMO_TIER} · Top-tier commercial potential
+            className="mt-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400"
+            style={{ opacity: tierSettled ? 1 : 0, transition: 'opacity 0.3s ease 0.1s' }}
+          >
+            {DEMO_PERCENTILE}
+          </div>
         </div>
 
-        {/* range row */}
-        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-neutral-500">
-          <span className="tabular-nums">{formatUsd(bandLow)}</span>
-          <span className="h-px w-8 bg-[#2A2931]" />
-          <span className="text-[#00F2EA] tabular-nums font-semibold">{formatUsd(bandHigh)}</span>
-          <span className="text-neutral-600">range</span>
+        {/* hero value — centered, large */}
+        <div
+          className="text-[42px] leading-none font-bold font-serif text-white tracking-tight tabular-nums"
+          style={{
+            textShadow: '0 0 44px rgba(255,0,80,0.4)',
+            opacity: play ? 1 : 0,
+            transform: valueSettled ? 'scale(1)' : 'scale(0.98)',
+            transition: 'opacity 0.4s ease 0.12s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+          }}
+        >
+          {formatFullUsd(displayValue)}
+        </div>
+        <div
+          className="mt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500"
+          style={{ opacity: play ? 1 : 0, transition: 'opacity 0.4s ease 0.2s' }}
+        >
+          Estimated account value
         </div>
 
-        {/* data strip */}
-        <div className="mt-5 grid grid-cols-3 border-t border-[#1F1D26] pt-4">
-          {[
-            { k: 'Followers', v: DEMO_PROFILE.followers },
-            { k: 'Likes', v: DEMO_PROFILE.likes },
-            { k: 'Videos', v: DEMO_PROFILE.videos },
-          ].map((s) => (
-            <div key={s.k} className="text-center">
-              <div className="text-sm font-bold text-white tabular-nums">{s.v}</div>
-              <div className="text-[9px] uppercase tracking-wide text-neutral-500 mt-0.5">{s.k}</div>
+        {/* range */}
+        <div className="mt-6">
+          <div className="relative h-1 rounded-full bg-[#1A1A24] overflow-hidden">
+            <div
+              className="absolute inset-y-0 rounded-full bg-gradient-to-r from-[#00F2EA] to-[#FF0050]"
+              style={{ width: play ? '82%' : '0%', transition: 'width 1.2s cubic-bezier(0.22,1,0.36,1) 0.5s' }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[11px] tabular-nums text-neutral-400 mt-2">
+            <span>{formatUsd(DEMO_VALUE_LOW)}</span>
+            <span>{formatUsd(DEMO_VALUE_HIGH)}</span>
+          </div>
+        </div>
+
+        {/* divider */}
+        <div className="my-5 h-px bg-[#1F1D26]" />
+
+        {/* metrics */}
+        <div className="grid grid-cols-3 gap-2">
+          {DEMO_METRICS.map((m, i) => (
+            <div key={m.label} className="text-center" style={{ opacity: play ? 1 : 0, transition: `opacity 0.4s ease ${0.72 + i * 0.1}s` }}>
+              <div className="text-sm font-bold text-white tabular-nums">{m.value}</div>
+              <div className="text-[9px] uppercase tracking-wide text-neutral-500 mt-0.5">{m.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* footer */}
+        <div className="mt-6 flex items-center justify-center gap-2 border-t border-[#1F1D26] pt-4" style={{ opacity: play ? 1 : 0, transition: 'opacity 0.4s ease 0.95s' }}>
+          <span className="text-[10px] font-semibold tracking-wider text-neutral-500">TOKVALUE</span>
+          <span className="text-[10px] text-neutral-600">·</span>
+          <span className="text-[10px] text-neutral-600">Independent valuation</span>
         </div>
       </div>
     </div>
@@ -306,10 +435,8 @@ function SceneValue({ active }: { active: boolean }) {
 
 /* ─── Main component ────────────────────────────────────────── */
 export function HowItWorks({ dict }: HowItWorksProps) {
-  const router = useRouter()
   const [step, setStep] = useState(0)
   const [inView, setInView] = useState(false)
-  const [username, setUsername] = useState('')
   const sectionRef = useRef<HTMLDivElement>(null)
   const totalSteps = dict.steps.length
 
@@ -332,23 +459,11 @@ export function HowItWorks({ dict }: HowItWorksProps) {
     if (!inView) return
     const id = setInterval(() => {
       setStep((s) => (s + 1) % totalSteps)
-    }, 4200)
+    }, 5200)
     return () => clearInterval(id)
   }, [inView, totalSteps])
 
-  const goTo = useCallback(
-    (i: number) => {
-      setStep(i)
-    },
-    []
-  )
-
-  const onTry = (e: React.FormEvent) => {
-    e.preventDefault()
-    const target = username.trim()
-    if (!target) return
-    router.push(`/evaluate/${encodeURIComponent(target)}`)
-  }
+  const goTo = useCallback((i: number) => setStep(i), [])
 
   const stepIcons = [Search, Radar, TrendingUp]
 
@@ -365,8 +480,6 @@ export function HowItWorks({ dict }: HowItWorksProps) {
 
         {/* continuous demo window */}
         <div className="relative rounded-3xl border border-[#1F1D26] bg-[#0E0E14] overflow-hidden">
-          {/* subtle grid backdrop */}
-          <div className="absolute inset-0 bg-grid-pattern opacity-40 pointer-events-none" />
           <div className="absolute inset-0 bg-mesh-gradient pointer-events-none" />
 
           <div className="relative">
@@ -403,10 +516,10 @@ export function HowItWorks({ dict }: HowItWorksProps) {
 
             {/* stage */}
             <div className="relative h-[360px] sm:h-[400px]">
-              <div key={step} className="absolute inset-0 animate-fade-in-up">
-                {step === 0 && <SceneScan active={step === 0} />}
-                {step === 1 && <SceneAnalyze active={step === 1} />}
-                {step === 2 && <SceneValue active={step === 2} />}
+              <div key={step} className="absolute inset-0">
+                {step === 0 && <SceneScan active />}
+                {step === 1 && <SceneAnalyze active />}
+                {step === 2 && <SceneValue active />}
               </div>
             </div>
 
@@ -417,38 +530,11 @@ export function HowItWorks({ dict }: HowItWorksProps) {
             </div>
           </div>
         </div>
-
-        {/* Try it live */}
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <p className="text-sm text-neutral-500">{dict.cta}</p>
-          <form onSubmit={onTry} className="w-full max-w-md">
-            <div className="flex items-center rounded-xl border border-neutral-700 bg-neutral-900/80 px-4 py-2.5 focus-within:border-[#FF0050] transition-colors">
-              <span className="text-neutral-500 mr-2">@</span>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="tiktok handle"
-                aria-label="TikTok handle"
-                autoComplete="off"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-600"
-              />
-              <button
-                type="submit"
-                className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#FF0050] to-[#e60049] px-4 py-2 text-xs font-semibold text-white shadow-md shadow-[#FF0050]/20 hover:from-[#e60049] hover:to-[#cc0040] transition-all"
-              >
-                Try it live
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </form>
-        </div>
       </div>
 
-      {/* component-scoped keyframes (reduced-motion handled globally) */}
       <style jsx>{`
         @keyframes hiw-scan {
-          0% { top: -2px; }
+          0% { top: -44px; }
           100% { top: 100%; }
         }
       `}</style>
