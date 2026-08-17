@@ -154,10 +154,10 @@ export const MATURITY_WINDOWS = {
  * 顶级互动账号溢价上限提到 3.0x（原 1.6x 严重低估头部）
  */
 export const ENGAGEMENT_TIERS = [
-  { min: 15, multiplier: 3.0, label: 'Viral' },
-  { min: 9, multiplier: 2.4, label: 'Very High' },
-  { min: 6, multiplier: 1.8, label: 'High' },
-  { min: 3, multiplier: 1.3, label: 'Good' },
+  { min: 15, multiplier: 1.5, label: 'Viral' },
+  { min: 9, multiplier: 1.3, label: 'Very High' },
+  { min: 6, multiplier: 1.2, label: 'High' },
+  { min: 3, multiplier: 1.1, label: 'Good' },
   { min: 1, multiplier: 1.0, label: 'Normal' },
   { min: 0, multiplier: 0.7, label: 'Low' },
 ] as const
@@ -182,10 +182,10 @@ export const TIER_PREMIUM = {
  * 依据：nano（<1万粉）市场行情 $50-800/条但成交率极低；小号品牌合作月均 0-2 条，中腰部 2-5 条。
  */
 export const BRAND_DEAL_LIMITS_BY_TIER: Record<string, { maxRatioOfMonthlyPosts: number; maxPerMonth: number }> = {
-  nano: { maxRatioOfMonthlyPosts: 0.5, maxPerMonth: 2 },
-  micro: { maxRatioOfMonthlyPosts: 0.4, maxPerMonth: 4 },
-  mid: { maxRatioOfMonthlyPosts: 0.35, maxPerMonth: 5 },
-  macro: { maxRatioOfMonthlyPosts: 0.3, maxPerMonth: 4 },
+  nano: { maxRatioOfMonthlyPosts: 0.5, maxPerMonth: 1 },
+  micro: { maxRatioOfMonthlyPosts: 0.4, maxPerMonth: 3 },
+  mid: { maxRatioOfMonthlyPosts: 0.35, maxPerMonth: 2 },
+  macro: { maxRatioOfMonthlyPosts: 0.3, maxPerMonth: 2 },
   mega: { maxRatioOfMonthlyPosts: 0.2, maxPerMonth: 2 },
 }
 

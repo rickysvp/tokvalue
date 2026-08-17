@@ -144,17 +144,33 @@ export function calcEffectivePlays(profile: RawProfile, now: number = Date.now()
   let source: EffectivePlaysResult['source'] = 'fallback'
   let excludedReason: string | undefined
 
-  if (matureCount >= 5 && historicalImplied > 0) {
-    effectiveAvgPlays = matureWeightedAvg * 0.4 + historicalImplied * 0.6
-    source = 'mature+historical'
-  } else if (matureCount > 0 && historicalImplied > 0) {
-    effectiveAvgPlays = matureWeightedAvg * 0.2 + historicalImplied * 0.8
-    source = 'mature+historical'
-    excludedReason = `Only ${matureCount} mature videos, ${immatureCount} videos still in cold-start — primarily using historical aggregate data`
+  // 稳健核心：成熟帖加权中位数（抗爆款污染）。
+  // 播放分布高度偏态（历史爆款 + 大量普通帖）时，均值会被爆款拉高 3-4 倍，
+  // 中位数才是「稳定触达」的无偏估计。
+  const median = matureWeightedMedian > 0 ? matureWeightedMedian : matureWeightedAvg
+
+  if (matureCount >= 5) {
+    if (historicalImplied > 0) {
+      // 历史隐含播放作参考，clamp 到中位数 [0.5x, 2x] 防止历史爆款污染（如过气号靠千万级爆款撑估值）
+      const impliedCapped = clamp(historicalImplied, median * 0.5, median * 2)
+      effectiveAvgPlays = median * 0.6 + impliedCapped * 0.4
+      source = 'mature+historical'
+    } else {
+      effectiveAvgPlays = median
+      source = 'mature-only'
+      excludedReason = 'Insufficient historical data — score based on mature videos only'
+    }
   } else if (matureCount > 0) {
-    effectiveAvgPlays = matureWeightedAvg
-    source = 'mature-only'
-    excludedReason = 'Insufficient historical data — score based on mature videos only'
+    if (historicalImplied > 0) {
+      const impliedCapped = clamp(historicalImplied, median * 0.5, median * 2)
+      effectiveAvgPlays = median * 0.5 + impliedCapped * 0.5
+      source = 'mature+historical'
+      excludedReason = `Only ${matureCount} mature videos, ${immatureCount} videos still in cold-start — primarily using historical aggregate data`
+    } else {
+      effectiveAvgPlays = median
+      source = 'mature-only'
+      excludedReason = 'Insufficient historical data — score based on mature videos only'
+    }
   } else if (immatureCount + growingCount > 0 && historicalImplied > 0) {
     effectiveAvgPlays = historicalImplied
     source = 'historical-only'

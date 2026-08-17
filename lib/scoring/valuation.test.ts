@@ -101,9 +101,9 @@ describe('calcBrandDealValue 报价上限 clamp', () => {
     expect(r.perVideoMid).toBe(12_000)
     // high = mid × 1.5，同受锚点约束
     expect(r.perVideoHigh).toBe(18_000)
-    // monthly = perVideo × monthlyBrandPosts（4 条/月）
-    expect(r.monthlyBrandPosts).toBe(4)
-    expect(r.monthlyMid).toBe(48_000)
+    // monthly = perVideo × monthlyBrandPosts（2 条/月，mid 层接单上限下调 5→2）
+    expect(r.monthlyBrandPosts).toBe(2)
+    expect(r.monthlyMid).toBe(24_000)
     // 标记锚点生效
     expect(r.detail.followerCapAnchored).toBe(true)
     expect(r.detail.marketAnchored).toBe(false)
@@ -149,9 +149,9 @@ describe('calcBrandDealValue 报价上限 clamp', () => {
 
 describe('正常账号报价不受 clamp 影响（不回归）', () => {
   it('micro 正常爆款账号（50K 粉，粉比 ~6.5x，er 5.7%）：报价与修复前一致', () => {
-    // 基线：perVideoMid = $9,292（tier premium micro 1.2→1.1 后，下调 8.3%，低于 micro 锚点 $10,500，不触 clamp）
+    // 基线：perVideoMid = $6,037（播放量改用中位数抗爆款 + 互动溢价封顶后下调）
     const e = scoreProfile(buildProfile(), { now })
-    expect(e.brandDealPerVideo!.mid).toBe(9_292)
+    expect(e.brandDealPerVideo!.mid).toBe(6_037)
     // 收入明细不应带 Follower-Cap 标记
     const brandBreakdown = e.incomeEstimate.breakdown.find(b => b.source === 'brand_deals')!
     expect(brandBreakdown.detail).not.toContain('Follower-Cap')
@@ -164,8 +164,8 @@ describe('正常账号报价不受 clamp 影响（不回归）', () => {
       videoCount: 80,
       posts: Array.from({ length: 10 }, (_, i) => post(`m${i}`, 30_000, now - (i + 1) * 86400)),
     }), { now })
-    // 基线：perVideoMid = $2,039（tier premium micro 1.2→1.1 后下调 8.3%，远低于 micro 锚点，不触 clamp）
-    expect(e.brandDealPerVideo!.mid).toBe(2_039)
+    // 基线：perVideoMid = $1,006（播放量改用中位数 + 互动溢价封顶后下调）
+    expect(e.brandDealPerVideo!.mid).toBe(1_006)
   })
 
   it('nano 正常小号（3K 粉）：报价与修复前一致', () => {
@@ -175,8 +175,8 @@ describe('正常账号报价不受 clamp 影响（不回归）', () => {
       videoCount: 20,
       posts: Array.from({ length: 6 }, (_, i) => post(`n${i}`, 800, now - (i + 1) * 86400, '#lifestyle daily vlog')),
     }), { now })
-    // 修复前基线：perVideoMid = $1,034（低于 nano 线性锚点 $1,050，不触 clamp）
-    expect(e.brandDealPerVideo!.mid).toBe(1_034)
+    // 基线：perVideoMid = $30（nano 层最低保底价，播放量用中位数后跌至保底）
+    expect(e.brandDealPerVideo!.mid).toBe(30)
   })
 })
 
