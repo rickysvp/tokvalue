@@ -164,25 +164,27 @@ export const ENGAGEMENT_TIERS = [
 
 /**
  * 层级溢价系数（品牌报价倍数）
- * nano 1.0x → mega 8.0x
- * mega 基于公开市场报价校准（MrBeast $2.5M/条 vs 公式基础 ~$200K）
+ * nano 1.0x → mega 2.5x
+ * 名人溢价（8x）只属 0.1% 头部，不应作通用乘数；且 mega 已由 MARKET_ANCHORS 单独夹紧。
+ * 品牌报价 = 均播 × 真实 CPM，CPM 本身已含品类/地区/互动溢价。
  */
 export const TIER_PREMIUM = {
   nano: 1.0,
-  micro: 1.2,
-  mid: 1.8,
-  macro: 3.0,
-  mega: 8.0,
+  micro: 1.1,
+  mid: 1.3,
+  macro: 1.6,
+  mega: 2.5,
 } as const
 
 /**
  * 品牌合作月均接单上限（按 tier 分层）
- * mega 单条价值高，月均 2 条；nano 小单多，月均 10 条
+ * 对齐真实成交率：nano 号几乎接不到稳定品牌单（月均 0-1 条），mega 单条价值高月均 2 条封顶。
+ * 依据：nano（<1万粉）市场行情 $50-800/条但成交率极低；小号品牌合作月均 0-2 条，中腰部 2-5 条。
  */
 export const BRAND_DEAL_LIMITS_BY_TIER: Record<string, { maxRatioOfMonthlyPosts: number; maxPerMonth: number }> = {
-  nano: { maxRatioOfMonthlyPosts: 0.5, maxPerMonth: 10 },
-  micro: { maxRatioOfMonthlyPosts: 0.4, maxPerMonth: 8 },
-  mid: { maxRatioOfMonthlyPosts: 0.35, maxPerMonth: 6 },
+  nano: { maxRatioOfMonthlyPosts: 0.5, maxPerMonth: 2 },
+  micro: { maxRatioOfMonthlyPosts: 0.4, maxPerMonth: 4 },
+  mid: { maxRatioOfMonthlyPosts: 0.35, maxPerMonth: 5 },
   macro: { maxRatioOfMonthlyPosts: 0.3, maxPerMonth: 4 },
   mega: { maxRatioOfMonthlyPosts: 0.2, maxPerMonth: 2 },
 }
@@ -216,27 +218,32 @@ export const DISCOUNT_FACTOR_BY_TIER: Record<string, number> = {
 
 /**
  * 粉丝资产幂律定价基础单价（USD/粉，应用时 value = base * followers^0.85）
- * 基于真实市场校准：1亿粉娱乐账号粉丝资产 ≈ $200-500M
- * mega 校准：1 亿粉 × 12.0 × 100M^0.85 ≈ $200-400M
+ * 依据：真实粉丝单价 —— 垂类 $0.01-0.05/粉、泛粉 $0.001-0.005/粉。
+ * 粉丝是"潜在触达"而非"已实现收入"，应按触达能力（粉播比）强折价。
+ * 旧值（mega 12.0）会把 5M 粉估到 $4.7M，严重脱离可交易现实。
  */
 export const FOLLOWER_BASE_RATE: Record<string, number> = {
-  nano: 0.005,
-  micro: 0.01,
-  mid: 0.05,
-  macro: 0.5,
-  mega: 12.0,
+  nano: 0.002,
+  micro: 0.004,
+  mid: 0.02,
+  macro: 0.15,
+  mega: 3.0,
 }
 
 /** 幂律指数（粉丝边际价值递减） */
 export const FOLLOWER_POWER_LAW_EXPONENT = 0.85
 
-/** 变现能力估值周期（月，按 tier） */
+/**
+ * 变现能力估值周期（月，按 tier）
+ * TikTok 创作者商业生命周期短（多数 6-18 个月热度），高波动短生命周期现金流不宜 24 个月长周期。
+ * 依据：业内对"非稳定网红收入"的保守倍数约 6-12 个月（再乘折现+存活率）。
+ */
 export const VALUATION_PERIOD_BY_TIER: Record<string, number> = {
-  nano: 4,
-  micro: 6,
-  mid: 12,
-  macro: 18,
-  mega: 24,
+  nano: 3,
+  micro: 4,
+  mid: 6,
+  macro: 9,
+  mega: 12,
 }
 
 /** 变现渠道权重（品牌 > Shop > 订阅 > LIVE > 基金） */
@@ -252,13 +259,15 @@ export const CHANNEL_WEIGHTS: Record<string, number> = {
 }
 
 /** IP/品牌资产倍数（IP = brandDealAnnual × multiple，仅 macro/mega 计入）
- * 调整：mega 5→3, macro 2→1.5 — IP 价值不应 5 倍于年收入，避免高粉低播账号 IP 资产虚高 */
+ * 依据：可交易商誉需真实现金流 + 可转移资产。TikTok 网红影响力不可转移
+ * （粉丝绑定创作者本人，账号不能合法交易），商誉概念基本不成立。
+ * 大幅下调：mega 3→0.8, macro 1.5→0.5，且需品牌信号门槛（见 calcIpBrandValue）。 */
 export const TIER_IP_MULTIPLE: Record<string, number> = {
   nano: 0,
   micro: 0,
   mid: 0,
-  macro: 1.5,
-  mega: 3,
+  macro: 0.5,
+  mega: 0.8,
 }
 
 /** 品类 IP 系数（金融/科技 IP 价值高，搞笑低） */
@@ -331,8 +340,8 @@ export const PLAY_FAN_PENALTY = {
 
 /** 粉丝资产播放因子配置（calcFollowerAssetValue 用）
  * playFanFactor = clamp(playFanRatio / tierBenchmark, min, max)
- * 高粉低播账号粉丝资产应反映真实触达能力 */
-export const PLAY_FAN_FACTOR_CLAMP = { min: 0.3, max: 1.5 }
+ * min 0.3→0.1：僵尸号（粉播比极低）粉丝资产可打到 1 折，而非 3 折保底 */
+export const PLAY_FAN_FACTOR_CLAMP = { min: 0.1, max: 1.5 }
 
 /** 动量乘数参数（playGrowth → momentumMultiplier） */
 export const MOMENTUM_PARAMS = {
@@ -352,9 +361,12 @@ export const GROWTH_MULTIPLIER_PARAMS = {
   neutral: 1.0,
 } as const
 
-/** 风险折损系数（影响全组件估值） */
+/**
+ * 风险折损系数（影响全组件估值）
+ * high 0.7→0.4：僵尸号/买粉号应折损 60%，而非只打 7 折。
+ */
 export const RISK_DISCOUNT = {
-  high: 0.7,
+  high: 0.4,
   medium: 0.85,
   none: 1.0,
 } as const
@@ -571,14 +583,18 @@ export const LIVE_COMMERCE_METRICS: Record<string, { aov: number; commission: nu
   'default': { aov: 32, commission: 0.14, conversionRate: 0.006, viewerRate: 0.05 },
 }
 
-/** LIVE 礼物月收入系数（每粉 USD/月） */
+/**
+ * LIVE 礼物月收入系数（每粉 USD/月）
+ * 全线降 10 倍：LIVE 礼物是极边缘收入，头部主播月礼物收入占比通常 <1%。
+ * 旧值（mega 0.002）会把 2M 粉号估出 $4,000/月礼物收入，拍脑袋。
+ */
 export const LIVE_GIFT_MULTIPLIERS = {
-  nano: 0.01,
-  micro: 0.008,
-  mid: 0.005,
-  macro: 0.003,
-  mega: 0.002,
-  default: 0.001,
+  nano: 0.001,
+  micro: 0.0008,
+  mid: 0.0005,
+  macro: 0.0003,
+  mega: 0.0002,
+  default: 0.0001,
 } as const
 
 /** 收入区间系数（low=mid×factor, high=mid×factor） */
@@ -587,8 +603,22 @@ export const INCOME_LOW_HIGH_FACTORS = {
   high: 1.5,
 } as const
 
-/** 最低单条品牌合作报价（USD）——nano 账号也有基础制作成本 */
-export const MIN_BRAND_DEAL_PRICE = 100
+/**
+ * 最低单条品牌合作报价（USD，按 tier）
+ * 依据：nano 真实成交 $50-200/条、micro $100-500/条、mid $200-1000/条。
+ * 旧版统一 $100 硬兜底会把 nano 号（公式输出 $54）强托到 $100，再 ×10 条/月造成"5K 粉月入 $1000"幻觉。
+ */
+export const MIN_BRAND_DEAL_PRICE_BY_TIER: Record<string, number> = {
+  nano: 30,
+  micro: 50,
+  mid: 80,
+  macro: 100,
+  mega: 100,
+}
+
+export function getMinBrandDealPrice(tier: string): number {
+  return MIN_BRAND_DEAL_PRICE_BY_TIER[tier] ?? 30
+}
 
 /** 品牌合作月均接单上限（占月发布量比例 + 绝对上限） */
 export const BRAND_DEAL_LIMITS = {

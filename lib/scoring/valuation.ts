@@ -7,13 +7,13 @@ import {
 import {
   CATEGORY_BRAND_CPM, CATEGORY_CREATOR_RPM, REGION_VALUE_MULTIPLIER,
   ENGAGEMENT_TIERS, CATEGORY_FAN_VALUE_MULT,
-  INCOME_LOW_HIGH_FACTORS, MIN_BRAND_DEAL_PRICE,
+  INCOME_LOW_HIGH_FACTORS, getMinBrandDealPrice,
   MONETIZATION_THRESHOLDS, GROWTH_RATE_PARAMS, clamp, getPeerBenchmarks,
   // 新增 tier 分层配置
   TIER_PREMIUM, BRAND_DEAL_LIMITS_BY_TIER, VIDEO_COUNT_CAP_BY_TIER,
   CONTENT_CPM_RATIO_BY_TIER, DISCOUNT_FACTOR_BY_TIER,
   FOLLOWER_BASE_RATE, FOLLOWER_POWER_LAW_EXPONENT,
-  VALUATION_PERIOD_BY_TIER, CHANNEL_WEIGHTS,
+  VALUATION_PERIOD_BY_TIER,
   TIER_IP_MULTIPLE, MARKET_ANCHORS, MARKET_ANCHOR_CLAMP,
   PLAY_FAN_PENALTY, PLAY_FAN_FACTOR_CLAMP,
   MOMENTUM_PARAMS, GROWTH_MULTIPLIER_PARAMS, RISK_DISCOUNT, VERIFIED_MULTIPLIER,
@@ -281,6 +281,12 @@ export function calcIpBrandValue(
   }
 
   const brandingBonus = detectBrandingSignals(bio, posts, verified)
+  // 品牌信号门槛：无真实品牌信号（无 founder/brand/crossPlatform/product/verified）→ IP = 0
+  // 可交易商誉需真实现金流 + 可转移品牌资产；纯网红影响力不可转移，不应计入 IP 资产
+  if (brandingBonus <= 1.0) {
+    return { value: 0, detail: 'No IP asset (no branding signals detected — influence is not transferable)' }
+  }
+
   const riskDiscount = calcRiskDiscount(risks)
   // 播放折损：高粉低播账号 IP 价值应反映真实触达能力
   const playFanRatio = followers > 0 ? effectiveAvgPlays / followers : 0
@@ -373,7 +379,7 @@ export function calcBrandDealValue(input: BrandDealInput): BrandDealResult {
     perVideoMid *= playPenaltyMult
   }
 
-  perVideoMid = Math.max(perVideoMid, MIN_BRAND_DEAL_PRICE)
+  perVideoMid = Math.max(perVideoMid, getMinBrandDealPrice(tier))
 
   const limits = BRAND_DEAL_LIMITS_BY_TIER[tier] ?? { maxRatioOfMonthlyPosts: 0.3, maxPerMonth: 4 }
   const maxRatioPosts = postsPerMonth * limits.maxRatioOfMonthlyPosts
@@ -381,7 +387,7 @@ export function calcBrandDealValue(input: BrandDealInput): BrandDealResult {
   monthlyBrandPosts = Math.max(monthlyBrandPosts, 0.5)
 
   const { low: lowFactor, high: highFactor } = INCOME_LOW_HIGH_FACTORS
-  const perVideoLow = Math.max(perVideoMid * lowFactor, MIN_BRAND_DEAL_PRICE)
+  const perVideoLow = Math.max(perVideoMid * lowFactor, getMinBrandDealPrice(tier))
   const perVideoHigh = perVideoMid * highFactor
 
   return {
@@ -740,22 +746,30 @@ export function calcFollowerAssetValue(input: FollowerAssetInput): FollowerAsset
   }
 
   const brandingBonus = detectBrandingSignals(bio, posts, verified)
-  // 商业接近度调整：无商业信号 → 0.6（折损），有信号 → 1.0-1.5（加成）
-  const commercialProximityMult = brandingBonus <= 1.0 ? 0.6 : brandingBonus
+  // 商业接近度调整：无商业信号 → 0.2（强折损），有信号 → 1.0-1.5（加成）
+  // 旧值 0.6 保底过高：纯娱乐号粉丝不应有 60% 的"商业接近度"
+  const commercialProximityMult = brandingBonus <= 1.0 ? 0.2 : brandingBonus
 
   // 播放因子：高粉低播账号粉丝资产折损
-  // playFanFactor = clamp(playFanRatio / peerBenchmark, 0.3, 1.5)
+  // playFanFactor = clamp(playFanRatio / peerBenchmark, 0.1, 1.5)
   const playFanRatio = followers > 0 && effectiveAvgPlays !== undefined ? effectiveAvgPlays / followers : 0
   const peerBenchmark = getPeerBenchmarks(followers).avgPlaysRatio
   const playFanFactor = effectiveAvgPlays !== undefined ? calcPlayFanFactor(playFanRatio, peerBenchmark) : 1.0
 
   const baseRate = getFollowerBaseRate(tier)
   // 幂律定价：value = base × realFollowers^0.85 × mult × factor × discount × commercialProximity × playFanFactor
-  const value = baseRate * Math.pow(realFollowers, FOLLOWER_POWER_LAW_EXPONENT) * categoryMult * engagementFactor * riskDiscount * commercialProximityMult * playFanFactor
+  let value = baseRate * Math.pow(realFollowers, FOLLOWER_POWER_LAW_EXPONENT) * categoryMult * engagementFactor * riskDiscount * commercialProximityMult * playFanFactor
+
+  // 僵尸号硬阈值：高粉（≥10万）且粉播比 < 0.02 且互动率 < 1% → 粉丝资产 ×0.05
+  // 这类账号粉丝真实性接近归零，多重保底乘子仍会给它们虚高粉丝资产
+  const isZombieAccount = followers >= 100000 && playFanRatio < 0.02 && engagementRate < 1
+  if (isZombieAccount) {
+    value *= 0.05
+  }
 
   return {
     value: Math.round(value),
-    detail: `${Math.round(realFollowers).toLocaleString()} real followers × $${baseRate.toFixed(3)}/fan × ^${FOLLOWER_POWER_LAW_EXPONENT} power law × Category ${categoryMult.toFixed(1)}x × Engagement ${engagementFactor.toFixed(2)} × Risk ${riskDiscount.toFixed(2)} × Commercial Proximity ${commercialProximityMult.toFixed(2)}x × Play-Fan Factor ${playFanFactor.toFixed(2)}x`,
+    detail: `${Math.round(realFollowers).toLocaleString()} real followers × $${baseRate.toFixed(3)}/fan × ^${FOLLOWER_POWER_LAW_EXPONENT} power law × Category ${categoryMult.toFixed(1)}x × Engagement ${engagementFactor.toFixed(2)} × Risk ${riskDiscount.toFixed(2)} × Commercial Proximity ${commercialProximityMult.toFixed(2)}x × Play-Fan Factor ${playFanFactor.toFixed(2)}x${isZombieAccount ? ' × Zombie-Account 0.05x' : ''}`,
   }
 }
 
@@ -774,28 +788,35 @@ export interface MonetizationCapInput {
 
 /**
  * 变现能力价值
- * value = Σ(channelWeight × monthlyMid) × valuationPeriod × growthMultiplier × riskDiscount
- * 层级估值周期：nano 4 月、micro 6 月、mid 12 月、macro 18 月、mega 24 月
+ * value = monthlyIncomeMid × valuationPeriod × DISCOUNT_RATE × SURVIVAL_RATE × growthMultiplier × riskDiscount
+ * 层级估值周期：nano 3 月、micro 4 月、mid 6 月、macro 9 月、mega 12 月（已折半）
+ *
+ * 修复依据（审计）：
+ * 1. 旧版 channelFactor = Σ(CHANNEL_WEIGHTS) 是逻辑错误 —— 权重求和当"渠道数"再用它放大
+ *    已汇总的月收入，重复放大 2-3 倍。月收入在 buildIncomeEstimate 已逐渠道求和，此处不应再乘渠道因子。
+ * 2. 旧版把未来 24 个月收入一次性计入当前资产，零折现零存活率。高波动短生命周期现金流
+ *    必须折现 + 存活率假设。
  */
 export function calcMonetizationCapability(input: MonetizationCapInput): MonetizationCapResult {
-  const { channels, monthlyIncomeMid, followers, playGrowth, risks } = input
+  const { monthlyIncomeMid, followers, playGrowth, risks } = input
   const tier = getFollowerTier(followers)
   const valuationPeriod = getValuationPeriod(tier)
   const growthMultiplier = calcGrowthMultiplier(playGrowth, tier)
   const riskDiscount = calcRiskDiscount(risks)
 
-  // 按渠道权重加权求和（CHANNEL_WEIGHTS 已在 config 定义）
-  let weightedChannels = 0
-  for (const ch of channels) {
-    weightedChannels += CHANNEL_WEIGHTS[ch] ?? 0.3
+  // 年化折现率 50%（TikTok 收入高波动，风险溢价高）
+  const DISCOUNT_RATE = 0.5
+  // 存活率：12 个月内仍具变现能力的概率（mega/macro 0.5，其余 0.4）
+  const SURVIVAL_RATE_BY_TIER: Record<FollowerTier, number> = {
+    nano: 0.4, micro: 0.4, mid: 0.4, macro: 0.5, mega: 0.5,
   }
-  // weightedChannels 为加权渠道数，月收入按此分摊
-  const channelFactor = weightedChannels > 0 ? Math.min(weightedChannels, 3.0) : 0
-  const value = channelFactor * monthlyIncomeMid * valuationPeriod * growthMultiplier * riskDiscount
+  const survivalRate = SURVIVAL_RATE_BY_TIER[tier]
+
+  const value = monthlyIncomeMid * valuationPeriod * DISCOUNT_RATE * survivalRate * growthMultiplier * riskDiscount
 
   return {
     value: Math.round(value),
-    detail: `${channelFactor.toFixed(1)} weighted channels × Monthly Income $${Math.round(monthlyIncomeMid).toLocaleString()} × ${valuationPeriod} month valuation period × Growth Multiplier ${growthMultiplier.toFixed(2)} × Risk Discount ${riskDiscount.toFixed(2)}`,
+    detail: `Monthly Income $${Math.round(monthlyIncomeMid).toLocaleString()} × ${valuationPeriod} month period × ${(DISCOUNT_RATE * 100).toFixed(0)}% discount rate × ${(survivalRate * 100).toFixed(0)}% survival rate × Growth Multiplier ${growthMultiplier.toFixed(2)} × Risk Discount ${riskDiscount.toFixed(2)}`,
   }
 }
 
@@ -1028,13 +1049,13 @@ export function buildBusinessValue(input: BuildValueInput): BusinessValue {
   if (totalMid > 0) {
     for (const c of components) c.percentage = Math.round((c.amount.mid / totalMid) * 100)
   }
-  // 全局 cap：总估值不超过品牌年收入的 30 倍（防止任何组件失控）
+  // 全局 cap：总估值不超过品牌年收入的 8 倍（对齐"非稳定收入 × 6-8 个月"的行业倍数）
   // 高粉低播账号使用更严格的 cap（3 倍）— 真实触达能力远低于粉丝数暗示的价值
   const playFanRatio = profile.followerCount > 0 && metrics.effectiveAvgPlays > 0
     ? metrics.effectiveAvgPlays / profile.followerCount
     : 0
   const isLowPlayAccount = profile.followerCount >= 100000 && playFanRatio < 0.05
-  const GLOBAL_CAP_MULTIPLE = isLowPlayAccount ? 3 : 30
+  const GLOBAL_CAP_MULTIPLE = isLowPlayAccount ? 3 : 8
   if (brandDealValue > 0) {
     const globalCap = brandDealValue * GLOBAL_CAP_MULTIPLE
     if (totalMid > globalCap) {
@@ -1042,11 +1063,15 @@ export function buildBusinessValue(input: BuildValueInput): BusinessValue {
     }
   }
 
-  const totalLow = components.reduce((s, c) => s + c.amount.low, 0)
+  let totalLow = components.reduce((s, c) => s + c.amount.low, 0)
   let totalHigh = components.reduce((s, c) => s + c.amount.high, 0)
-  // 对称 cap：totalHigh 同样受全局上限约束（按 high 区间系数放大），
-  // 避免 mid 被 cap 而 high 端仍展示失控估值（报价锚点 clamp 后 brandDealValue 已回归合理基准）
+  // 对称 cap：totalLow/totalHigh 同样受全局上限约束，
+  // 避免 mid 被 cap 而 low/high 端仍展示失控估值
   if (brandDealValue > 0) {
+    const globalCapLow = brandDealValue * GLOBAL_CAP_MULTIPLE * INCOME_LOW_HIGH_FACTORS.low
+    if (totalLow > globalCapLow) {
+      totalLow = globalCapLow
+    }
     const globalCapHigh = brandDealValue * GLOBAL_CAP_MULTIPLE * INCOME_LOW_HIGH_FACTORS.high
     if (totalHigh > globalCapHigh) {
       totalHigh = globalCapHigh
