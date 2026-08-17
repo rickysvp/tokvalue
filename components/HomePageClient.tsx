@@ -17,6 +17,7 @@ import { CtaButton } from '@/components/CtaButton'
 import { PricingSection, FAQSection, CoreCapabilitiesSection } from '@/components/LandingSections'
 import { HowItWorks } from '@/components/HowItWorks'
 import { SocialProofBar } from '@/components/SocialProofBar'
+import { Testimonials } from '@/components/Testimonials'
 
 export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
 
@@ -375,6 +376,7 @@ export default function HomePage() {
       />
 
       {/* FAQ */}
+      <Testimonials dict={dict} />
       <FAQSection dict={dict} interactive={true} />
 
       {/* Footer */}

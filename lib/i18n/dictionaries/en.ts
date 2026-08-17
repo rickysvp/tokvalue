@@ -178,6 +178,20 @@ const en = {
         { id: 'pack30', name: 'Studio', desc: 'Thirty reports. Agency-scale analysis for teams and power users. Deepest per-report savings.', highlight: false },
       ],
     },
+    testimonials: {
+      badge: 'Creator Stories',
+      title: 'Real creators, real numbers',
+      subtitle: 'Creators and agencies who ran their first evaluation — and what they did with the number.',
+      quotes: [
+        'I took my valuation straight into a brand deal negotiation — walked in with a number, and the offer came back higher than my last campaign.',
+        'Three years of posting and I had no idea what the account was actually worth. The breakdown showed exactly which content drives value.',
+        'As an agency I now run every creator through TokValue before pitching. It has already saved us from partnerships that looked good on paper.',
+        'The revenue projection is scary accurate. It matched my real income within a few percent — I finally have a number to plan around.',
+        'I used the brand-deal pricing to quote my next sponsorship. The client accepted without negotiating.',
+        'What sold me was the 10-dimension breakdown. It explains not just the value, but why the value is what it is.',
+      ],
+    },
+
     faq: {
       title: 'Frequently Asked Questions',
       badge: 'FAQ',
