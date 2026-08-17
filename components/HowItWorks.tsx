@@ -41,13 +41,6 @@ const DEMO_VALUE = 2_100_000
 const DEMO_VALUE_LOW = 1_700_000
 const DEMO_VALUE_HIGH = 2_600_000
 const DEMO_TIER = 'A'
-const DEMO_PERCENTILE = 'Top 1%'
-
-const DEMO_METRICS = [
-  { label: 'Followers', value: '1.2M' },
-  { label: 'Engagement', value: '8.4%' },
-  { label: 'Avg. Views', value: '486K' },
-]
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v))
@@ -312,36 +305,34 @@ function SceneValue({ active }: { active: boolean }) {
 
   return (
     <div className="relative flex flex-col items-center justify-center h-full px-6">
-      <div className="w-full max-w-[340px] rounded-2xl border border-[#1F1D26] bg-[#0E0E14] px-7 py-6 text-center relative overflow-hidden">
+      <div className="w-full max-w-[340px] rounded-2xl border border-[#1F1D26] bg-[#0E0E14] px-7 py-5 text-center relative overflow-hidden">
         {/* top accent */}
         <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#FF0050] to-[#00F2EA]" />
 
-        {/* user identity — avatar + name + handle + verified */}
+        {/* identity + tier — side by side */}
         <div
-          className="flex items-center justify-center gap-3 mb-6"
-          style={{ opacity: play ? 1 : 0, transform: play ? 'translateY(0)' : 'translateY(6px)', transition: 'opacity 0.45s ease 0.08s, transform 0.5s ease 0.08s' }}
+          className="flex items-center justify-between mb-5"
+          style={{ opacity: play ? 1 : 0, transition: 'opacity 0.45s ease 0.08s' }}
         >
-          <div className="relative h-12 w-12 shrink-0">
-            <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 180deg, #FF0050, #00F2EA, #FF0050)' }} />
-            <div className="absolute inset-[2px] rounded-full bg-[#0E0E14] flex items-center justify-center text-base font-bold text-white">
-              {DEMO_PROFILE.avatarInitial}
+          {/* user identity */}
+          <div className="flex items-center gap-3">
+            <div className="relative h-12 w-12 shrink-0">
+              <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 180deg, #FF0050, #00F2EA, #FF0050)' }} />
+              <div className="absolute inset-[2px] rounded-full bg-[#0E0E14] flex items-center justify-center text-base font-bold text-white">
+                {DEMO_PROFILE.avatarInitial}
+              </div>
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-white">{DEMO_PROFILE.nickname}</span>
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#00F2EA]" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <div className="text-xs text-neutral-400">{DEMO_PROFILE.handle}</div>
             </div>
           </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-semibold text-white">{DEMO_PROFILE.nickname}</span>
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-[#00F2EA]" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-            </div>
-            <div className="text-xs text-neutral-400">{DEMO_PROFILE.handle}</div>
-          </div>
-        </div>
 
-        {/* tier — enlarged rating medallion */}
-        <div
-          className="flex flex-col items-center mb-5"
-          style={{ opacity: play ? 1 : 0, transform: play ? 'scale(1)' : 'scale(0.6)', transition: 'opacity 0.4s ease 0.55s, transform 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.55s' }}
-        >
-          <div className="relative flex h-16 w-16 items-center justify-center">
+          {/* tier — rating medallion, letter only */}
+          <div className="relative flex h-14 w-14 items-center justify-center">
             <svg viewBox="0 0 64 64" className="absolute inset-0 h-full w-full -rotate-90">
               <circle cx="32" cy="32" r="29" fill="none" stroke="rgba(255,0,80,0.15)" strokeWidth="2.5" />
               <circle
@@ -358,7 +349,7 @@ function SceneValue({ active }: { active: boolean }) {
               />
             </svg>
             <span
-              className="relative text-3xl font-extrabold text-white"
+              className="relative text-2xl font-extrabold text-white"
               style={{
                 opacity: tierSettled ? 1 : 0,
                 transform: tierSettled ? 'scale(1)' : 'scale(0.4)',
@@ -367,12 +358,6 @@ function SceneValue({ active }: { active: boolean }) {
             >
               {DEMO_TIER}
             </span>
-          </div>
-          <div
-            className="mt-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400"
-            style={{ opacity: tierSettled ? 1 : 0, transition: 'opacity 0.3s ease 0.1s' }}
-          >
-            {DEMO_PERCENTILE}
           </div>
         </div>
 
@@ -396,8 +381,8 @@ function SceneValue({ active }: { active: boolean }) {
         </div>
 
         {/* range */}
-        <div className="mt-6">
-          <div className="relative h-1 rounded-full bg-[#1A1A24] overflow-hidden">
+        <div className="mt-5">
+          <div className="relative h-1.5 rounded-full bg-[#1A1A24] overflow-hidden">
             <div
               className="absolute inset-y-0 rounded-full bg-gradient-to-r from-[#00F2EA] to-[#FF0050]"
               style={{ width: play ? '82%' : '0%', transition: 'width 1.2s cubic-bezier(0.22,1,0.36,1) 0.5s' }}
@@ -409,21 +394,8 @@ function SceneValue({ active }: { active: boolean }) {
           </div>
         </div>
 
-        {/* divider */}
-        <div className="my-5 h-px bg-[#1F1D26]" />
-
-        {/* metrics */}
-        <div className="grid grid-cols-3 gap-2">
-          {DEMO_METRICS.map((m, i) => (
-            <div key={m.label} className="text-center" style={{ opacity: play ? 1 : 0, transition: `opacity 0.4s ease ${0.72 + i * 0.1}s` }}>
-              <div className="text-sm font-bold text-white tabular-nums">{m.value}</div>
-              <div className="text-[9px] uppercase tracking-wide text-neutral-500 mt-0.5">{m.label}</div>
-            </div>
-          ))}
-        </div>
-
         {/* footer */}
-        <div className="mt-6 flex items-center justify-center gap-2 border-t border-[#1F1D26] pt-4" style={{ opacity: play ? 1 : 0, transition: 'opacity 0.4s ease 0.95s' }}>
+        <div className="mt-5 flex items-center justify-center gap-2 border-t border-[#1F1D26] pt-3" style={{ opacity: play ? 1 : 0, transition: 'opacity 0.4s ease 0.95s' }}>
           <span className="text-[10px] font-semibold tracking-wider text-neutral-500">TOKVALUE</span>
           <span className="text-[10px] text-neutral-600">·</span>
           <span className="text-[10px] text-neutral-600">Independent valuation</span>
@@ -515,7 +487,7 @@ export function HowItWorks({ dict }: HowItWorksProps) {
             </div>
 
             {/* stage */}
-            <div className="relative h-[360px] sm:h-[400px]">
+            <div className="relative h-[340px] sm:h-[380px]">
               <div key={step} className="absolute inset-0">
                 {step === 0 && <SceneScan active />}
                 {step === 1 && <SceneAnalyze active />}
