@@ -7,7 +7,7 @@ import {
   CalculationMetadata,
 } from '@/types'
 import {
-  THREE_LAYER_WEIGHTS, RISK_THRESHOLDS, MONETIZATION_THRESHOLDS,
+  THREE_LAYER_WEIGHTS, RISK_THRESHOLDS, MONETIZATION_THRESHOLDS, POSTING_ACTIVITY,
   getPeerBenchmarks, clamp,
 } from './scoring/config'
 import {
@@ -115,14 +115,21 @@ function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnTy
       risks.push({ level: 'high', label: 'Inflated Followers', detail: `Very low play-to-follower ratio (${(playFanRatio * 100).toFixed(1)}%) — followers are not engaging with content, indicating possible fake followers or algorithmic suppression` })
     }
   }
-  // 发帖频率骤降检测：历史发帖密集但近 30 天骤减 → 断更/衰退风险
-  // 独立于播放量检测，避免「archive 兜底抬高 effectiveAvgPlays 后粉播比不低」导致断更风险丢失
+  // 发帖频率骤降/断更检测：统一发布活跃度模型（POSTING_ACTIVITY）
+  // 近 30 天发帖数 < dormantMaxRecentPosts，且历史发帖 ≥ minArchiveForDormancy → 老号断更（high 风险）
+  // 新号（历史帖不足）冷启动不被误判为断更
   const recentPostCount = classified.mature.length + classified.growing.length + classified.immature.length
-  if (classified.archive.length >= 10 && recentPostCount <= 2) {
+  if (recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts && classified.archive.length >= POSTING_ACTIVITY.minArchiveForDormancy) {
+    risks.push({
+      level: 'high',
+      label: 'Posting Hiatus',
+      detail: `Only ${recentPostCount} video(s) in the last 30 days vs ${classified.archive.length} historical — posting has stalled, indicating reduced activity or abandonment. This materially lowers commercial value and reliability.`,
+    })
+  } else if (recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts) {
     risks.push({
       level: 'medium',
-      label: 'Recent Posting Decline',
-      detail: `Only ${recentPostCount} videos in the last 30 days vs ${classified.archive.length} historical — posting frequency dropped sharply, indicating reduced activity`,
+      label: 'Insufficient Recent Activity',
+      detail: `Only ${recentPostCount} video(s) in the last 30 days — recent activity is limited, making current reach and engagement less reliable.`,
     })
   }
   if (frRatio < RISK_THRESHOLDS.followerFollowingCritical) risks.push({ level: 'high', label: 'Suspected Follow-for-Follow', detail: 'Following count close to or exceeding follower count — possible bot/follow-train activity' })

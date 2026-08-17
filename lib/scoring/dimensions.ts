@@ -4,6 +4,7 @@ import {
   RISK_THRESHOLDS,
   COMMERCE_INTENT_KEYWORDS,
   MONETIZATION_THRESHOLDS,
+  POSTING_ACTIVITY,
   getPeerBenchmarks,
   clamp,
 } from './config'
@@ -264,10 +265,12 @@ export function scoreStability(
   if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) score -= 40
   else if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysWarning) score -= 20
 
-  // 发帖频率骤降：历史密集发帖（archive ≥ 10）但近 30 天几乎停更（≤ 2 条）
-  // 稳定性差 — 断更/衰退账号，即使历史播放健康，也应扣分
-  if (archiveCount >= 10 && recentPostCount <= 2) {
-    score -= 20
+  // 发帖频率骤降：历史发帖 ≥ minArchiveForDormancy 但近 30 天 < dormantMaxRecentPosts → 断更
+  // 稳定性差 — 老号停更/衰退，即使历史播放健康，也应扣分
+  if (archiveCount >= POSTING_ACTIVITY.minArchiveForDormancy && recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts) {
+    score -= 25
+  } else if (recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts) {
+    score -= 10
   }
 
   return Math.round(clamp(score, 0, 100))

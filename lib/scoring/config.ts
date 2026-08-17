@@ -423,6 +423,28 @@ export const RISK_THRESHOLDS = {
 } as const
 
 /**
+ * 发布活跃度模型（通用标准，非针对单个账号）
+ *
+ * 核心信号：近 30 天发帖数（recentPostCount = immature + growing + mature）
+ *
+ * 分层：
+ *  - Active 活跃：    近 30 天 ≥ 4 条（周均 ≥ 1 条）→ 无风险
+ *  - Dormant 断更：   近 30 天 < 4 条，且历史发帖（archive）≥ minArchiveForDormancy
+ *                      → high 风险（曾活跃现停更），触发 tier 降级 + 估值 0.4 折损
+ *  - New/Inactive 新号：近 30 天 < 4 条，但历史帖不足 → 视为数据不足，非断更（避免误伤冷启动新号）
+ *
+ * 该阈值贯穿三处：detectRisks（风险标注）、tierFromScore（降级）、scoreStability（维度扣分）
+ */
+export const POSTING_ACTIVITY = {
+  // 断更判定：近 30 天发帖数 < 此值 → 断更
+  dormantMaxRecentPosts: 4,
+  // 需历史发帖 ≥ 此值才判「断更」（区分老号停更 vs 新号冷启动）
+  minArchiveForDormancy: 4,
+  // 活跃基准：近 30 天 ≥ 此值 → 完全无断更风险
+  activeMinRecentPosts: 4,
+} as const
+
+/**
  * 粉丝资产价值（每千粉 USD）
  * 已弃用，保留向后兼容；新逻辑用 FOLLOWER_BASE_RATE 幂律公式
  * @deprecated 改用 FOLLOWER_BASE_RATE + FOLLOWER_POWER_LAW_EXPONENT
