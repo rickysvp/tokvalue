@@ -106,13 +106,24 @@ function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnTy
   const frRatio = profile.followerCount / Math.max(profile.followingCount, 1)
   if (engagementRate < RISK_THRESHOLDS.engagementRateCritical) risks.push({ level: 'high', label: 'Suspected Bot Followers', detail: 'Extremely low engagement rate — follower activity may be inauthentic' })
   else if (profile.followerCount > 100000 && engagementRate < 1) risks.push({ level: 'high', label: 'Inflated Followers', detail: 'Large follower count with abnormally low engagement — limited commercial value' })
-  // 高粉低播检测：粉丝 >= 10万 但 playFanRatio < 0.05 → 高风险（粉丝不活跃/僵尸粉/算法不推荐）
-  // ER 相对播放量可能不低（因播放基数小导致 ER 失真），需用 playFanRatio 识别真实触达能力
+  // 高粉低播检测：粉丝 >= 10万 但 playFanRatio < 0.05 → 高风险
+  // effectiveAvgPlays 已含 archive 历史兜底（断更号不会因冷启动低播误判），
+  // 此处只对真僵尸粉（历史播放也低、无健康历史基线）触发
   if (profile.followerCount >= 100000 && effectiveAvgPlays > 0) {
     const playFanRatio = effectiveAvgPlays / profile.followerCount
     if (playFanRatio < 0.05) {
       risks.push({ level: 'high', label: 'Inflated Followers', detail: `Very low play-to-follower ratio (${(playFanRatio * 100).toFixed(1)}%) — followers are not engaging with content, indicating possible fake followers or algorithmic suppression` })
     }
+  }
+  // 发帖频率骤降检测：历史发帖密集但近 30 天骤减 → 断更/衰退风险
+  // 独立于播放量检测，避免「archive 兜底抬高 effectiveAvgPlays 后粉播比不低」导致断更风险丢失
+  const recentPostCount = classified.mature.length + classified.growing.length + classified.immature.length
+  if (classified.archive.length >= 10 && recentPostCount <= 2) {
+    risks.push({
+      level: 'medium',
+      label: 'Recent Posting Decline',
+      detail: `Only ${recentPostCount} videos in the last 30 days vs ${classified.archive.length} historical — posting frequency dropped sharply, indicating reduced activity`,
+    })
   }
   if (frRatio < RISK_THRESHOLDS.followerFollowingCritical) risks.push({ level: 'high', label: 'Suspected Follow-for-Follow', detail: 'Following count close to or exceeding follower count — possible bot/follow-train activity' })
   if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) risks.push({ level: 'high', label: 'Extended Inactivity', detail: 'No new videos in over 60 days' })
@@ -127,7 +138,18 @@ function computeMetrics(profile: RawProfile, ep: ReturnType<typeof calcEffective
   const relevant = [...classified.mature, ...classified.growing]
   const totalPlays = relevant.reduce((s, p) => s + (p.post.playCount || 0), 0) || profile.posts.reduce((s, p) => s + (p.playCount || 0), 0)
   const totalInteractions = relevant.reduce((s, p) => s + (p.post.likeCount || 0) + (p.post.commentCount || 0) + (p.post.shareCount || 0), 0)
-  const engagementRate = totalPlays ? (totalInteractions / totalPlays) * 100 : calcOverallEngagement(profile, now)
+  // 互动率：mature+growing 帖不足 3 条时，小样本互动率失真（冷启动帖互动率波动剧烈），
+  // 用全量帖子的互动率兜底，避免断更号被几条冷启动帖的虚高互动率顶到高分
+  const allProfilePlays = profile.posts.reduce((s, p) => s + (p.playCount || 0), 0)
+  const allProfileInteractions = profile.posts.reduce((s, p) => s + (p.likeCount || 0) + (p.commentCount || 0) + (p.shareCount || 0), 0)
+  let engagementRate: number
+  if (relevant.length >= 3 && totalPlays > 0) {
+    engagementRate = (totalInteractions / totalPlays) * 100
+  } else if (allProfilePlays > 0) {
+    engagementRate = (allProfileInteractions / allProfilePlays) * 100
+  } else {
+    engagementRate = calcOverallEngagement(profile, now)
+  }
   const allPlays = profile.posts.map(p => p.playCount || 0)
   const avgPlays = allPlays.length ? allPlays.reduce((a, b) => a + b, 0) / allPlays.length : ep.effectiveAvgPlays
   const avgLikes = profile.posts.length ? profile.posts.reduce((s, p) => s + (p.likeCount || 0), 0) / profile.posts.length : 0
@@ -394,7 +416,7 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
   const cadence = buildContentCadence(profile.posts, now)
   const postsPerMonth = cadence.avgPostsPerWeek * 4.33
   const risks = detectRisks(profile, metrics, classified)
-  const dims = computeDimensions({ profile, metrics, classified: { mature: classified.mature, growing: classified.growing }, postsPerMonth, categories })
+  const dims = computeDimensions({ profile, metrics, classified: { mature: classified.mature, growing: classified.growing, archive: classified.archive }, postsPerMonth, categories })
   const { score } = totalScore(dims, profile.followerCount)
   const health = buildAccountHealth(metrics, risks, dims)
   const income = buildIncomeEstimate({ profile, metrics, dims, categories, cadence, risks })

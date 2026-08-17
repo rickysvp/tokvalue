@@ -10,6 +10,12 @@ export interface ClassifiedPost {
   ageDays: number
 }
 
+function medianOf(nums: number[]): number {
+  if (!nums.length) return 0
+  const s = [...nums].sort((a, b) => a - b)
+  return s[Math.floor(s.length / 2)]
+}
+
 function getAgeHours(createTime: number, now: number = Date.now() / 1000): number {
   return (now - createTime) / 3600
 }
@@ -140,6 +146,11 @@ export function calcEffectivePlays(profile: RawProfile, now: number = Date.now()
   const allPlays = profile.posts.map(p => p.playCount).filter(p => p > 0)
   const effectivePeakPlays = allPlays.length ? Math.max(...allPlays) : 0
 
+  // 历史 archive 帖中位数：30 天前帖子证明的真实稳定触达水平
+  // 用于「断更/低频」号兜底——成熟帖不足或仍处冷启动时，不能拿冷启动低播当真实水平
+  const archivePlays = archive.map(c => c.post.playCount).filter(p => p > 0)
+  const archiveMedian = medianOf(archivePlays)
+
   let effectiveAvgPlays = 0
   let source: EffectivePlaysResult['source'] = 'fallback'
   let excludedReason: string | undefined
@@ -170,6 +181,12 @@ export function calcEffectivePlays(profile: RawProfile, now: number = Date.now()
       effectiveAvgPlays = median
       source = 'mature-only'
       excludedReason = 'Insufficient historical data — score based on mature videos only'
+    }
+    // 成熟帖不足时，若 archive 历史中位数显著高于当前成熟帖（断更/低频导致的冷启动低播），
+    // 用 archive 中位数兜底（×0.55 反映历史数据的时效折损），避免「真实 30 万触达被 2 条冷启动帖拉到 4.5 万」
+    if (archiveMedian > median) {
+      effectiveAvgPlays = Math.max(effectiveAvgPlays, archiveMedian * 0.55)
+      excludedReason = `Only ${matureCount} mature videos but ${archive.length} archived videos show healthy historical reach (median ${Math.round(archiveMedian).toLocaleString()}) — using historical baseline`
     }
   } else if (immatureCount + growingCount > 0 && historicalImplied > 0) {
     effectiveAvgPlays = historicalImplied

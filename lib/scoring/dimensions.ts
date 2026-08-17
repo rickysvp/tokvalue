@@ -103,7 +103,8 @@ export function scoreReach(
 export function scoreEngagement(
   maturePosts: ClassifiedPost[],
   growingPosts: ClassifiedPost[],
-  followerCount: number
+  followerCount: number,
+  engagementRateOverride?: number
 ): number {
   const relevant = [...maturePosts, ...growingPosts]
   if (!relevant.length) return 0
@@ -118,7 +119,10 @@ export function scoreEngagement(
     }
   }
   if (totalPlays <= 0) return 0
-  const er = (totalInteractions / totalPlays) * 100
+  // 统一口径：小样本（<3 条 mature+growing）时用外部传入的全量互动率，避免冷启动帖互动率失真
+  const er = engagementRateOverride !== undefined && relevant.length < 3
+    ? engagementRateOverride
+    : (totalInteractions / totalPlays) * 100
 
   const tier = getFollowerTier(followerCount)
   const benchmark = TIER_ER_BENCHMARK[tier]
@@ -232,7 +236,9 @@ export function scoreStability(
   maturePosts: ClassifiedPost[],
   daysSinceLastPost: number,
   followerCount: number,
-  effectiveAvgPlays: number
+  effectiveAvgPlays: number,
+  archiveCount: number = 0,
+  recentPostCount: number = 0
 ): number {
   const tier = getFollowerTier(followerCount)
   const cvBenchmark = TIER_CV_BENCHMARK[tier]
@@ -257,6 +263,12 @@ export function scoreStability(
 
   if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) score -= 40
   else if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysWarning) score -= 20
+
+  // 发帖频率骤降：历史密集发帖（archive ≥ 10）但近 30 天几乎停更（≤ 2 条）
+  // 稳定性差 — 断更/衰退账号，即使历史播放健康，也应扣分
+  if (archiveCount >= 10 && recentPostCount <= 2) {
+    score -= 20
+  }
 
   return Math.round(clamp(score, 0, 100))
 }
@@ -396,6 +408,7 @@ export interface ComputeDimsInput {
   classified: {
     mature: ClassifiedPost[]
     growing: ClassifiedPost[]
+    archive: ClassifiedPost[]
   }
   postsPerMonth: number
   categories: string[]
@@ -407,11 +420,11 @@ export function computeDimensions(input: ComputeDimsInput): DimensionScores {
 
   return {
     reach: scoreReach(followerCount, metrics.effectiveAvgPlays),
-    engagement: scoreEngagement(classified.mature, classified.growing, followerCount),
+    engagement: scoreEngagement(classified.mature, classified.growing, followerCount, metrics.engagementRate),
     content: scoreContent(profile, metrics),
     authenticity: scoreAuthenticity(followerCount, profile.followingCount, metrics.engagementRate, classified.mature),
     momentum: scoreMomentum(metrics.playGrowth / 100, followerCount),
-    stability: scoreStability(classified.mature, metrics.daysSinceLastPost, followerCount, metrics.effectiveAvgPlays),
+    stability: scoreStability(classified.mature, metrics.daysSinceLastPost, followerCount, metrics.effectiveAvgPlays, classified.archive.length, classified.mature.length + classified.growing.length),
     commerce: scoreCommerce(profile.posts, categories, followerCount, metrics.effectiveAvgPlays),
     monetization: scoreMonetization(followerCount, profile.videoCount, metrics.effectiveAvgPlays, postsPerMonth, metrics.engagementRate),
     health: scoreHealth(followerCount, profile.followingCount, metrics),
