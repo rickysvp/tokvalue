@@ -27,6 +27,28 @@ function fmtUsd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`
 }
 
+/** 地区 → 评价语言：CN/TW 用中文，JP 用日文，其余英文 */
+function langForRegion(region: string | null): 'en' | 'zh' | 'ja' {
+  const r = (region || '').toUpperCase()
+  if (r === 'CN' || r === 'TW' || r === 'HK' || r === 'MO' || r === 'SG') return 'zh'
+  if (r === 'JP') return 'ja'
+  return 'en'
+}
+
+/** 稳定字符串 hash（同一账号永远同一文案） */
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h
+}
+
+/** 从池中取文案：hash 分配 + 与上一条不同（去重） */
+function pickQuote(pool: readonly string[], username: string, prev: string | null): string {
+  let q = pool[hashStr(username) % pool.length]
+  if (prev && q === prev) q = pool[(hashStr(username) + 1) % pool.length]
+  return q
+}
+
 /** 真实评估账号 + 轮换评价文案的评价卡 */
 function TestimonialCard({ acc, quote }: { acc: RecentEvaluation; quote: string }) {
   const color = TIER_COLORS[acc.tier] || '#E8A840'
@@ -105,7 +127,18 @@ export function Testimonials({ dict }: { dict: EnDict }) {
   if (!loading && items.length === 0) return null
 
   const quotes = t.quotes
-  const quoteFor = (i: number) => quotes[i % quotes.length]
+  /** 为一行账号顺序分配文案：按 region 选语言池 + 相邻去重 */
+  const assignQuotes = (row: RecentEvaluation[]): Map<string, string> => {
+    const map = new Map<string, string>()
+    let prev: string | null = null
+    for (const acc of row) {
+      const pool = quotes[langForRegion(acc.region)]
+      const q = pickQuote(pool, acc.username, prev)
+      map.set(acc.username, q)
+      prev = q
+    }
+    return map
+  }
 
   const mid = Math.ceil((loading ? 12 : items.length) / 2)
   const all = loading
@@ -113,6 +146,9 @@ export function Testimonials({ dict }: { dict: EnDict }) {
     : items
   const row1 = all.slice(0, mid)
   const row2 = all.slice(mid)
+
+  const quotes1 = loading ? new Map<string, string>() : assignQuotes(row1)
+  const quotes2 = loading ? new Map<string, string>() : assignQuotes(row2)
 
   const tripledRow1 = [...row1, ...row1, ...row1]
   const tripledRow2 = [...row2, ...row2, ...row2]
@@ -138,7 +174,7 @@ export function Testimonials({ dict }: { dict: EnDict }) {
             loading ? (
               <div key={`s1-${i}`} className="mx-2.5 h-40 w-[330px] shrink-0 animate-pulse rounded-2xl bg-neutral-800/60" />
             ) : (
-              <TestimonialCard key={`${acc.username}-${i}`} acc={acc} quote={quoteFor(i)} />
+              <TestimonialCard key={`${acc.username}-${i}`} acc={acc} quote={quotes1.get(acc.username) || ''} />
             )
           )}
         </div>
@@ -150,7 +186,7 @@ export function Testimonials({ dict }: { dict: EnDict }) {
             loading ? (
               <div key={`s2-${i}`} className="mx-2.5 h-40 w-[330px] shrink-0 animate-pulse rounded-2xl bg-neutral-800/60" />
             ) : (
-              <TestimonialCard key={`${acc.username}-${i}`} acc={acc} quote={quoteFor(mid + i)} />
+              <TestimonialCard key={`${acc.username}-${i}`} acc={acc} quote={quotes2.get(acc.username) || ''} />
             )
           )}
         </div>
