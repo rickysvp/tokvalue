@@ -122,21 +122,21 @@ const en = {
       steps: [
         {
           number: '1',
-          title: 'Enter Username',
-          desc: "Type any public TikTok @username. Your own, a competitor's, or someone you're thinking of hiring.",
+          title: 'Scan the Account',
+          desc: "Type any public TikTok handle. We pull the profile, audience, and content history — your own, a competitor's, or someone you're thinking of hiring.",
         },
         {
           number: '2',
           title: 'AI Analysis',
-          desc: 'We scan 10 factors in real time: engagement quality, follower authenticity, content consistency, and more.',
+          desc: 'We score 10 dimensions in real time: engagement quality, follower authenticity, content consistency, momentum, and more.',
         },
         {
           number: '3',
-          title: 'Get Your Report',
-          desc: 'Instantly see your overall assessment, value range, and risk summary. Upgrade to unlock the full analysis.',
+          title: 'Get Your Valuation',
+          desc: 'Instantly see your tier, estimated value range, and risk summary. Upgrade to unlock the full report.',
         },
       ],
-      cta: 'Get your overall assessment, value range, and risk summary. No credit card required.',
+      cta: 'See it in action — evaluate your own account for free.',
     },
     capabilities: {
       badge: 'Why TokValue',

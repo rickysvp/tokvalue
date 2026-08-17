@@ -620,11 +620,11 @@ function normalizeEvaluation(evaluation: Partial<Evaluation>): Evaluation {
       pillars: evaluation.contentStrategy.pillars || [],
       recommendedHashtags: evaluation.contentStrategy.recommendedHashtags || [],
       optimalSchedule: evaluation.contentStrategy.optimalSchedule || [],
-      videoDuration: evaluation.contentStrategy.videoDuration || { min: 15, max: 60, label: '15-60秒（通用短视频最佳时长）' },
+      videoDuration: evaluation.contentStrategy.videoDuration || { min: 15, max: 60, label: '15-60s (general short-form sweet spot)' },
       collaborationIdeas: evaluation.contentStrategy.collaborationIdeas || [],
       summary: evaluation.contentStrategy.summary || '',
     } : {
-      pillars: [], recommendedHashtags: [], optimalSchedule: [], videoDuration: { min: 15, max: 60, label: '15-60秒（通用短视频最佳时长）' }, collaborationIdeas: [], summary: '',
+      pillars: [], recommendedHashtags: [], optimalSchedule: [], videoDuration: { min: 15, max: 60, label: '15-60s (general short-form sweet spot)' }, collaborationIdeas: [], summary: '',
     },
     peerRanking: evaluation.peerRanking || {
       overallPercentile: 0, tierLabel: '', peerGroupDescription: '', rankingBreakdown: [], insight: '',
