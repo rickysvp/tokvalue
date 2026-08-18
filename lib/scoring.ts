@@ -22,6 +22,7 @@ import {
 } from './scoring/valuation'
 import { tierFromScore, buildPriceAdvice, buildVerdict, buildSummary } from './scoring/verdict'
 import { buildContentStrategy } from './scoring/content-strategy'
+import { buildCommercialSnapshot, buildDealPricing, buildThirtyDayPlan } from './scoring/commercial'
 
 export { clamp, tierFromScore, inferCategories, peerGroupFromFollowers, aggregateByHour, aggregateByWeekday, average, median, stdDev }
 
@@ -100,7 +101,7 @@ function inferCategories(profile: RawProfile): string[] {
 function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnType<typeof classifyAllPosts>): RiskFlag[] {
   const risks: RiskFlag[] = []
   if (!profile.posts.length) {
-    risks.push({ level: 'medium', label: 'Insufficient Data', detail: 'No recent videos available — score reliability is limited' })
+    risks.push({ level: 'medium', label: 'Too few videos to score', detail: 'No recent videos available to analyze. Upload at least 5 videos to get a reliable result.' })
     return risks
   }
   const { engagementRate, cvPlays, daysSinceLastPost, effectiveAvgPlays } = metrics
@@ -111,43 +112,39 @@ function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnTy
 
   // 互动率风险：层级化（与 scoreHealth 同源），保证「健康分低 ⟺ 必有风险信号」
   if (engagementRate < erBenchmark * 0.3) {
-    risks.push({ level: 'high', label: 'Suspected Bot Followers', detail: `Engagement rate ${engagementRate.toFixed(1)}% is far below the ${erBenchmark}% norm for this tier — follower activity may be inauthentic` })
+    risks.push({ level: 'high', label: 'Most of your followers are silent', detail: `Only ${engagementRate.toFixed(1)}% interact with your videos — healthy for this size is ~${erBenchmark}%. Brands suspect purchased followers when engagement is this low, and rate offers drop 30–50%.` })
   } else if (engagementRate < erBenchmark * 0.5) {
-    risks.push({ level: 'medium', label: 'Low Engagement', detail: `Engagement rate ${engagementRate.toFixed(1)}% is below the ${erBenchmark}% norm for this tier — audience interaction is weak` })
+    risks.push({ level: 'medium', label: 'Audiences don\'t react enough', detail: `${engagementRate.toFixed(1)}% engage — normal for this size is ${erBenchmark}%. Weak engagement tells brands your viewers aren't converted into customers or fans, so you'll hear lower opening offers.` })
   }
   // 高粉低播检测：粉丝 >= 10万 但 playFanRatio < 0.05 → 高风险
-  // effectiveAvgPlays 已含 archive 历史兜底（断更号不会因冷启动低播误判），
-  // 此处只对真僵尸粉（历史播放也低、无健康历史基线）触发
   if (profile.followerCount >= 100000 && effectiveAvgPlays > 0) {
     const playFanRatio = effectiveAvgPlays / profile.followerCount
     if (playFanRatio < 0.05) {
-      risks.push({ level: 'high', label: 'Inflated Followers', detail: `Very low play-to-follower ratio (${(playFanRatio * 100).toFixed(1)}%) — followers are not engaging with content, indicating possible fake followers or algorithmic suppression` })
+      risks.push({ level: 'high', label: 'Followers don\'t see your videos', detail: `Only ${(playFanRatio * 100).toFixed(1)}% of your followers are reached per video. A healthy ratio is 20%+. This means most listed followers never see your content — brands won't pay follower-count prices for that.` })
     }
   }
-  // 发帖频率骤降/断更检测：统一发布活跃度模型（POSTING_ACTIVITY）
-  // 近 30 天发帖数 < dormantMaxRecentPosts，且历史发帖 ≥ minArchiveForDormancy → 老号断更（high 风险）
-  // 新号（历史帖不足）冷启动不被误判为断更
+  // 发帖频率骤降/断更检测
   const recentPostCount = classified.mature.length + classified.growing.length + classified.immature.length
   if (recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts && classified.archive.length >= POSTING_ACTIVITY.minArchiveForDormancy) {
     risks.push({
       level: 'high',
-      label: 'Posting Hiatus',
-      detail: `Only ${recentPostCount} video(s) in the last 30 days vs ${classified.archive.length} historical — posting has stalled, indicating reduced activity or abandonment. This materially lowers commercial value and reliability.`,
+      label: 'You stopped posting',
+      detail: `Only ${recentPostCount} video(s) in the last 30 days against ${classified.archive.length} historical. Stalled posting signals to brands that your account is inactive or abandoned — expect proposals 30–50% lower until posting resumes and stabilizes.`,
     })
   } else if (recentPostCount < POSTING_ACTIVITY.dormantMaxRecentPosts) {
     risks.push({
       level: 'medium',
-      label: 'Insufficient Recent Activity',
-      detail: `Only ${recentPostCount} video(s) in the last 30 days — recent activity is limited, making current reach and engagement less reliable.`,
+      label: 'Not posting consistently lately',
+      detail: `Only ${recentPostCount} video(s) in the last 30 days. Too little recent data to trust current reach — brands push for trial or discounted first posts.`,
     })
   }
-  if (frRatio < RISK_THRESHOLDS.followerFollowingCritical) risks.push({ level: 'high', label: 'Suspected Follow-for-Follow', detail: 'Following count close to or exceeding follower count — possible bot/follow-train activity' })
-  if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) risks.push({ level: 'high', label: 'Extended Inactivity', detail: 'No new videos in over 60 days' })
-  else if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysWarning) risks.push({ level: 'medium', label: 'Low Posting Frequency', detail: 'No new videos in over 30 days' })
-  // 播放波动 CV：metrics.cvPlays 已是成熟帖 CV（与 scoreHealth 同源），直接引用
-  if (cvPlays > cvBenchmark * 2.0) risks.push({ level: 'medium', label: 'Erratic Traffic', detail: `Play volatility (CV ${cvPlays.toFixed(2)}) is 2× the ${cvBenchmark} norm for this tier — possible shadowban or inconsistent content` })
-  else if (cvPlays > cvBenchmark * 1.5) risks.push({ level: 'low', label: 'Play Volatility', detail: `Play volatility (CV ${cvPlays.toFixed(2)}) is above the ${cvBenchmark} norm for this tier` })
-  if (profile.videoCount < 5) risks.push({ level: 'medium', label: 'Insufficient Data', detail: 'Very low video count — score may be unstable' })
+  if (frRatio < RISK_THRESHOLDS.followerFollowingCritical) risks.push({ level: 'high', label: 'Follow/for-follow pattern detected', detail: `You follow back almost as many accounts as follow you. This is the #1 bot/bought-follower fingerprint. Brands and agencies auto-scan this, and accounts in this bucket are excluded from most deal lists.` })
+  if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) risks.push({ level: 'high', label: 'No new videos in 2+ months', detail: 'Over 60 days without a post. This is effectively cold-start traffic — new rates will be negotiated from scratch, not your historical baseline.' })
+  else if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysWarning) risks.push({ level: 'medium', label: 'A month since your last post', detail: 'Over 30 days without a new video. The algorithm penalizes dormant profiles — views will come back, but until they do quotes can be 10–20% lower.' })
+  // 播放波动 CV：改人话
+  if (cvPlays > cvBenchmark * 2.0) risks.push({ level: 'medium', label: 'Videos go viral… or get almost no views', detail: `Your hit-or-miss ratio (CV ${cvPlays.toFixed(2)}) is double the normal ${cvBenchmark} for this size. Sometimes 100K, sometimes 2K — for brands that means unreliable campaign performance. They'll propose backup posts or capped fees until you level this out.` })
+  else if (cvPlays > cvBenchmark * 1.5) risks.push({ level: 'low', label: 'View counts vary a lot', detail: `Performance swing (CV ${cvPlays.toFixed(2)}) is wider than the ${cvBenchmark} typical for this size. Nothing deal-killing, but worth pinning down before pitching brands that care about predictable reach.` })
+  if (profile.videoCount < 5) risks.push({ level: 'medium', label: 'Need more videos for a confident score', detail: 'Less than 5 total videos on this account — the score and estimate are a rough direction. Come back after a few more posts for a reliable reading.' })
   return risks
 }
 
@@ -461,10 +458,29 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     categories,
   })
   const brandPotential = buildBrandPotential(metrics, categories, health, dims)
+  const followerTier = getFollowerTier(profile.followerCount)
+  const growthPlan = buildGrowthPlan(risks, metrics, cadence, dims, profile.followerCount)
+  const contentStrategy = buildContentStrategy({ categories, cadence, followerTier })
+  const brandMatching = buildBrandMatching(categories, categoryCpm, metrics.effectiveAvgPlays, engagementMult, regionMult)
+  // ── Commercial Growth PMF 派生（服务端-only，客户端不得重算）──
+  const commercialSnapshot = buildCommercialSnapshot({
+    score, dims, metrics, risks, brand, categories,
+    followerCount: profile.followerCount,
+    growthPlan,
+    dataQuality: profile.dataQuality,
+    playsSource: metrics.effectivePlaysSource,
+  })
+  const dealPricing = buildDealPricing({
+    brand, followerCount: profile.followerCount, videoCount: profile.videoCount,
+    metrics, risks, categoryLabel, regionLabel,
+  })
+  const thirtyDayPlan = buildThirtyDayPlan({
+    snapshot: commercialSnapshot, metrics, cadence, contentStrategy, brandMatching,
+    followerCount: profile.followerCount, risks,
+  })
   const { verdict, advice } = buildVerdict({ score, tier, tierReason, nickname: profile.nickname || profile.username, metrics, health, dims, risks, categories, businessValueMid: business.totalValue.mid })
   const priceAdvice = buildPriceAdvice({ perVideoLow: brand.perVideoLow, perVideoMid: brand.perVideoMid, perVideoHigh: brand.perVideoHigh, effectiveAvgPlays: metrics.effectiveAvgPlays, categoryLabel, cpm: categoryCpm, engagementMult, regionLabel, regionMult, risks })
   const peerBench = buildPeerBenchmark(profile, metrics)
-  const followerTier = getFollowerTier(profile.followerCount)
   const calculationMetadata: CalculationMetadata = {
     effectiveAvgPlays: metrics.effectiveAvgPlays, effectivePeakPlays: metrics.effectivePeakPlays,
     matureVideoCount: ep.matureVideoCount, excludedImmatureCount: ep.immatureCount, excludedGrowingCount: ep.growingCount,
@@ -478,7 +494,7 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     dimensions: dims, metrics, riskFlags: risks, verdict, advice, priceAdvice,
     accountHealth: health, contentCadence: cadence, engagementQuality: buildEngagementQuality(metrics, profile, classified),
     peerBenchmark: peerBench, brandPotential, monetizationPath: buildMonetizationPath(profile, metrics, income),
-    growthPlan: buildGrowthPlan(risks, metrics, cadence, dims, profile.followerCount),
+    growthPlan,
     incomeEstimate: income, businessValue: business,
     brandDealPerVideo: {
       low: brand.perVideoLow,
@@ -488,9 +504,9 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     },
     accountProfile: buildAccountProfile(profile, metrics, categories, cadence),
     revenueRoadmap: roadmap,
-    contentStrategy: buildContentStrategy({ categories, cadence, followerTier }),
+    contentStrategy,
     peerRanking: buildPeerRanking(metrics, peerBench, profile.followerCount),
-    brandMatching: buildBrandMatching(categories, categoryCpm, metrics.effectiveAvgPlays, engagementMult, regionMult),
+    brandMatching,
     trendAnalysis: buildTrendAnalysis(metrics, cadence),
     commercializationAdvice: buildCommercializationAdvice(categories, dims, income, profile.followerCount),
     commerceReadiness: buildCommerceReadiness({ profile, metrics, categories, income, cadence, dims }),
@@ -500,5 +516,6 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     formulaVersion: 'v2', calculationMetadata,
     dataQuality: (profile.dataQuality as 'full' | 'partial' | undefined),
     postsFetchError: profile.postsFetchError,
+    commercialSnapshot, dealPricing, thirtyDayPlan,
   }
 }

@@ -1,7 +1,8 @@
 import { Evaluation } from '@/types'
+import { hydrateCommercial } from './scoring/commercial'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const DEMO_RESULT = {
+const DEMO_RAW = {
   username: 'demo',
   nickname: 'Demo Creator (sample data)',
   score: 72,
@@ -192,3 +193,6 @@ export const DEMO_RESULT = {
     perVideoBrandDealMid: 700, monthlyBrandPosts: 4, likePlayRatio: 0.12, playsSource: '[DEMO] sample',
   },
 } as Evaluation
+
+// Demo 与线上同构：PMF 派生字段（commercialSnapshot/dealPricing/thirtyDayPlan）走真实引擎
+export const DEMO_RESULT = hydrateCommercial(DEMO_RAW)

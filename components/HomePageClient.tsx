@@ -22,8 +22,6 @@ import { HowItWorks } from '@/components/HowItWorks'
 import { SocialProofBar } from '@/components/SocialProofBar'
 import { Testimonials } from '@/components/Testimonials'
 
-export type TabId = 'overview' | 'growth' | 'revenue' | 'commerce'
-
 
 export default function HomePage() {
   const { dict } = useI18n()

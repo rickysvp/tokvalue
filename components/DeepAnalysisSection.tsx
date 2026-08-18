@@ -7,7 +7,6 @@ import { AccountHealthSection } from '@/components/sections/AccountHealthSection
 import { ContentCadenceSection } from '@/components/sections/ContentCadenceSection'
 import { EngagementQualitySection } from '@/components/sections/EngagementQualitySection'
 import { PeerBenchmarkSection } from '@/components/sections/PeerBenchmarkSection'
-import { SectionHeader } from '@/components/SectionHeader'
 import { formatNumber } from '@/lib/format'
 import { useI18n } from '@/lib/i18n/context'
 
@@ -28,8 +27,7 @@ export function DeepAnalysisSection({ result }: DeepAnalysisSectionProps) {
   }, [showDeepAnalysis, result])
 
   return (
-    <div className="mb-10">
-      <SectionHeader step="10" title="Deep Analysis" icon={<Activity className="h-4 w-4" />} />
+    <div>
       <button
         onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
         className="w-full flex items-center justify-between rounded-2xl border border-neutral-800 bg-[#0f0f0f] p-4 hover:border-neutral-700 transition-colors"

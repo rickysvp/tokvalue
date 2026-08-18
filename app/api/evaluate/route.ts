@@ -3,6 +3,7 @@ import { fetchProfile } from '@/lib/tiktok'
 import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { scoreProfile } from '@/lib/scoring'
 import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit, hasOwnership, upsertOwnership, isEvaluationPaid } from '@/lib/db'
+import { hydrateCommercial } from '@/lib/scoring/commercial'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits-server'
@@ -83,13 +84,18 @@ async function enrichWithAI(evaluation: Evaluation, lang = 'en'): Promise<Evalua
 type ApiCode = ApiErrorResponse['code']
 
 /**
- * 免费模式字段白名单裁剪（付费墙核心修复）：
- * 只下发免费用户界面实际渲染的字段（账号头部卡 + Overview tab + 评分卡/雷达图/风险列表）。
- * 付费模块数据（增长计划/内容策略/趋势分析/收入预估/变现路线/品牌匹配/带货分析/深度分析/同业排名等）
- * 一律不下发，防止通过 devtools Network 响应绕过付费墙白嫖。
+ * 免费模式字段白名单裁剪（付费墙核心修复 + Commercial Growth PMF 免费边界）：
+ * 免费层 = Commercial Snapshot（商业快照）：readiness、宽报价区间、定位、
+ * 最强杠杆、一个 primary rate blocker、next move、结论摘要。
+ * 精确谈判数据（brandDealPerVideo / priceAdvice / dealPricing / 全部 blockers）
+ * 与付费模块（增长计划/内容策略/趋势/收入/品牌匹配等）一律不下发，
+ * 防止通过 devtools Network 响应绕过付费墙白嫖。
  * 注意：数据库仍存全量（saveEvaluation 不变），用户付费升级后由 upgrade 路由从缓存补发完整报告。
  */
 function stripForFreeMode(evaluation: Evaluation): Partial<Evaluation> & { isFree: true } {
+  // 免费仅展示一个 primary rate blocker（与 commercialSnapshot.primaryRateBlocker 对应）
+  const rank = { high: 0, medium: 1, low: 2 }
+  const primaryBlocker = [...(evaluation.riskFlags || [])].sort((a, b) => rank[a.level] - rank[b.level])[0]
   return {
     isFree: true,
     // ── 账号基础信息（头部卡片 + 基础统计）──
@@ -106,22 +112,18 @@ function stripForFreeMode(evaluation: Evaluation): Partial<Evaluation> & { isFre
     totalLikes: evaluation.totalLikes,
     videoCount: evaluation.videoCount,
     accountProfile: evaluation.accountProfile,
-    // ── 评分与 Overview 免费区 ──
+    // ── Commercial Snapshot 免费区（PMF 新边界）──
+    commercialSnapshot: evaluation.commercialSnapshot,
     score: evaluation.score,
     tier: evaluation.tier,
     summary: evaluation.summary,
     verdict: evaluation.verdict,
     advice: evaluation.advice,
-    priceAdvice: evaluation.priceAdvice,
     dimensions: evaluation.dimensions,
     metrics: evaluation.metrics,
-    riskFlags: evaluation.riskFlags,
+    riskFlags: primaryBlocker ? [primaryBlocker] : [],
     businessValue: evaluation.businessValue,
-    brandDealPerVideo: evaluation.brandDealPerVideo,
-    brandPotential: evaluation.brandPotential,
     peerBenchmark: evaluation.peerBenchmark,
-    // peerRanking 在免费 Overview step 04 实际渲染（PeerRankingSection），必须下发
-    peerRanking: evaluation.peerRanking,
     computedAt: evaluation.computedAt,
   }
 }
@@ -197,7 +199,8 @@ export async function POST(req: NextRequest) {
             username: normalized,
             metadata: { score: cached.score, tier: cached.tier, cached: true },
           }).catch(err => console.warn('[evaluate] recordEvent(cached) failed:', err))
-          return NextResponse.json({ ...cached, cached: true, isFree: false })
+          // 旧缓存缺 PMF 字段时服务端补建（客户端不得重算报价）
+          return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false })
         }
       }
 
@@ -269,7 +272,7 @@ export async function POST(req: NextRequest) {
         metadata: { score: freeCached.score, tier: freeCached.tier, cached: true, free: true },
       }).catch(err => console.warn('[evaluate] recordEvent(free-cached) failed:', err))
       // 免费缓存命中同样只下发白名单字段（缓存中是全量数据，必须裁剪）
-      return NextResponse.json({ ...stripForFreeMode(freeCached), cached: true })
+      return NextResponse.json({ ...stripForFreeMode(hydrateCommercial(freeCached)), cached: true })
     }
 
     // IP-based daily rate limit

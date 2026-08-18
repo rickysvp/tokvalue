@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findEvaluation, saveEvaluation, upsertOwnership } from '@/lib/db'
+import { hydrateCommercial } from '@/lib/scoring/commercial'
 import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
@@ -108,6 +109,8 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       )
     }
+    // 旧缓存缺 PMF 字段时服务端补建（客户端不得重算报价）
+    const hydrated = hydrateCommercial(evaluation)
 
     const consumeResult = await consumeCredit(userEmail, normalized)
     if (!consumeResult.ok) {
@@ -123,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     const lang = 'en' // Fixed to English until multi-language dictionaries are ready
     // 扣积分后补跑 AI 富化：这是付费解锁的真实价值（免费阶段不跑 AI）
-    const enriched = await enrichWithAI(evaluation, lang)
+    const enriched = await enrichWithAI(hydrated, lang)
     // 兜底：免费阶段若头像编码失败，付费升级时补抓
     if (!enriched.avatarData) {
       enriched.avatarData = (await fetchAndEncodeAvatar(enriched.avatar)) ?? undefined

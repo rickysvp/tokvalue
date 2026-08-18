@@ -28,6 +28,10 @@ const TRACK_EVENT_TYPES: readonly string[] = [
   'paywall_view',
   'paywall_click',
   'upgrade_click',
+  // Commercial Growth PMF 事件（区分新定位与旧估值定位的转化差异）
+  'commercial_snapshot_ready',
+  'deal_toolkit_paywall_viewed',
+  'deal_toolkit_unlock_clicked',
 ]
 
 /**

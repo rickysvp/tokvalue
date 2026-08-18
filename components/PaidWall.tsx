@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Lock, DollarSign, TrendingUp, Target, Shield, BarChart3,
-  Building2, Lightbulb, Flame, Rocket, FileDown, Check, Mail,
+  Lock, DollarSign, TrendingUp, Shield, FileDown, Check, Mail,
   ArrowRight, Loader2, Sparkles, Users, CheckCircle2,
   Zap, Star, RefreshCw, CreditCard, KeyRound,
 } from 'lucide-react'
@@ -35,16 +34,11 @@ interface PaidWallProps {
 // 或直接再买（粉）——购买与恢复是独立入口，不强制验证码堵死复购。
 type Step = 'choose' | 'email' | 'returning-choice' | 'returning-code' | 'success'
 
+// Brand Deal Toolkit 四个核心价值卡（PMF：付费理由一句话说清，禁用"12+ 模块"清单）
 const UNLOCK_MODULES = [
   { icon: DollarSign,   color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
-  { icon: TrendingUp,   color: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10' },
-  { icon: Target,       color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
   { icon: Shield,       color: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10' },
-  { icon: BarChart3,    color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
-  { icon: Building2,    color: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10' },
-  { icon: Lightbulb,    color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
-  { icon: Flame,        color: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10' },
-  { icon: Rocket,       color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
+  { icon: TrendingUp,   color: 'text-[#FF0050]', bg: 'bg-[#FF0050]/10' },
   { icon: FileDown,     color: 'text-[#00F2EA]', bg: 'bg-[#00F2EA]/10' },
 ]
 

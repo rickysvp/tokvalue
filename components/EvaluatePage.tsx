@@ -7,28 +7,18 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
 import { getUtm } from '@/lib/utm'
 import { ScoreGauge } from '@/components/ScoreGauge'
-import { RadarChart } from '@/components/RadarChart'
-import { RiskList } from '@/components/RiskList'
-import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, ThumbsUp, AlertTriangle, Lightbulb, Target, BadgeCheck, MapPin, Star, Tag, Clock, UserCheck, Building2, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, Activity, Play, Gift, ShoppingBag, CheckCircle2, Users, Mail, Zap, Flame, Share2, Briefcase, Film, User } from 'lucide-react'
+import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, BadgeCheck, MapPin, Tag, Clock, UserCheck, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, BarChart3 } from 'lucide-react'
 import html2canvas from 'html2canvas'
-import { GrowthPlanSection } from '@/components/sections/GrowthPlanSection'
-import { IncomeBreakdownSection } from '@/components/sections/IncomeBreakdownSection'
-import { RevenueRoadmapSection } from '@/components/sections/RevenueRoadmapSection'
-import { ContentStrategySection } from '@/components/sections/ContentStrategySection'
-import { PeerRankingSection } from '@/components/sections/PeerRankingSection'
-import { BrandMatchingSection } from '@/components/sections/BrandMatchingSection'
 import { MonetizationChecklist } from '@/components/sections/MonetizationChecklist'
-import { TrendAnalysisSection } from '@/components/sections/TrendAnalysisSection'
-import { CommercializationSection } from '@/components/sections/CommercializationSection'
-import { CommerceReadinessSection } from '@/components/sections/CommerceReadinessSection'
-import { ValuationMethodology } from '@/components/ValuationMethodology'
 import { PaidWallModal } from '@/components/PaidWallModal'
 import { EvaluatingModal, type EvaluatingStatus } from '@/components/EvaluatingModal'
-import { DeepAnalysisSection } from '@/components/DeepAnalysisSection'
-import { SectionHeader } from '@/components/SectionHeader'
+import { CommercialSnapshotTab } from '@/components/report/CommercialSnapshotTab'
+import { DealPricingTab } from '@/components/report/DealPricingTab'
+import { ThirtyDayPlanTab } from '@/components/report/ThirtyDayPlanTab'
+import { DetailedAnalysisTab } from '@/components/report/DetailedAnalysisTab'
+import { LockedTabPreview } from '@/components/report/LockedTabPreview'
 import { SiteFooter } from '@/components/SiteFooter'
 import { ReportTabs } from '@/components/ReportTabs'
-import { LockedSection } from '@/components/LockedSection'
 import { FreeBanner } from '@/components/FreeBanner'
 import { UnlockFooter } from '@/components/UnlockFooter'
 import { DemoConversionBar } from '@/components/DemoConversionBar'
@@ -47,20 +37,7 @@ import { ReferralCta } from '@/components/ReferralCta'
 import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
-import type { TabId } from '@/components/HomePageClient'
-
-function valueIcon(name: string) {
-  const icons: Record<string, React.ReactNode> = {
-    Briefcase: <Briefcase className="h-3.5 w-3.5 text-neutral-500" />,
-    Film: <Film className="h-3.5 w-3.5 text-neutral-500" />,
-    Users: <Users className="h-3.5 w-3.5 text-neutral-500" />,
-    Zap: <Zap className="h-3.5 w-3.5 text-neutral-500" />,
-    Play: <Play className="h-3.5 w-3.5 text-neutral-500" />,
-    Gift: <Gift className="h-3.5 w-3.5 text-neutral-500" />,
-    ShoppingBag: <ShoppingBag className="h-3.5 w-3.5 text-neutral-500" />,
-  }
-  return icons[name] || <Activity className="h-3.5 w-3.5 text-neutral-500" />
-}
+import type { TabId } from '@/components/ReportTabs'
 
 function trackEvent(event_type: string, metadata?: Record<string, unknown>) {
   const utm = getUtm()
@@ -129,7 +106,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const mountedRef = useRef(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  const [activeTab, setActiveTab] = useState<TabId>('snapshot')
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -189,6 +166,35 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       trackEvent('paywall_view', { username: pendingUsername.current || username })
     }
   }, [needPurchase, username])
+
+  // PMF 埋点：Brand Deal Toolkit 付费墙曝光（区分新定位转化）
+  const paywallViewTrackedRef = useRef(false)
+  useEffect(() => {
+    if (showPaidWallModal && !paywallViewTrackedRef.current) {
+      paywallViewTrackedRef.current = true
+      trackEvent('deal_toolkit_paywall_viewed', {
+        username: result?.username || pendingUsername.current || username,
+        mode: paidWallMode,
+      })
+    }
+    if (!showPaidWallModal) paywallViewTrackedRef.current = false
+  }, [showPaidWallModal, paidWallMode, result, username])
+
+  // PMF 埋点：免费 Commercial Snapshot 就绪（含宽报价区间曝光）
+  const snapshotTrackedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!result?.commercialSnapshot || snapshotTrackedRef.current === result.username) return
+    snapshotTrackedRef.current = result.username
+    trackEvent('commercial_snapshot_ready', {
+      username: result.username,
+      readinessBand: result.commercialSnapshot.readinessBand,
+      readinessScore: result.commercialSnapshot.readinessScore,
+      tier: result.tier,
+      isPremium,
+      // suggested_rate_viewed：快照首屏即含宽报价区间，合并记录避免重复请求
+      suggestedRate: [result.commercialSnapshot.suggestedRateRange.low, result.commercialSnapshot.suggestedRateRange.high],
+    })
+  }, [result, isPremium])
 
   // Handle unlock
   async function handleUnlock() {
@@ -652,329 +658,50 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
               <div data-pdf="score-gauge"><ScoreGauge score={result.score} tier={result.tier} size={100} showLabel /></div>
             </div>
 
-            {/* Tab Navigation */}
-            <ReportTabs active={activeTab} onChange={setActiveTab} />
+            {/* Tab Navigation — PMF 决策页顺序 */}
+            <ReportTabs active={activeTab} onChange={setActiveTab} isPremium={isPremium} />
 
             {/* Free tier badge */}
             {!isPremium && result && (
               <FreeBanner tier={result.tier} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
             )}
 
-            {/* ═══ OVERVIEW TAB ═══ */}
-            {activeTab === 'overview' && (<>
-              <SectionHeader step="01" title={dict.evaluation.sections.businessValuation} icon={<Star className="h-4 w-4" />} />
-              <div className="mb-10 rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 sm:p-8">
-                <div className="flex flex-col lg:flex-row items-start gap-6">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Star className="h-4 w-4 text-[#FF0050]" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{dict.evaluation.valuation.label}</span>
-                    </div>
-                    <span className="text-5xl sm:text-6xl font-black tracking-tight text-[#00F2EA]">
-                      ${formatNumber(result.businessValue.totalValue.low)} - ${formatNumber(result.businessValue.totalValue.high)}
-                    </span>
-                    {result.brandDealPerVideo && (
-                      <div className="mt-4 mb-2 rounded-xl border border-[#FF0050]/20 bg-[#FF0050]/[0.04] px-5 py-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <DollarSign className="h-4 w-4 text-[#FF0050]" />
-                          <span className="text-xs font-semibold uppercase tracking-wider text-[#FF0050]">{dict.evaluation.valuation.perVideoRate}</span>
-                        </div>
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="text-3xl font-black text-white tabular-nums">${formatNumber(result.brandDealPerVideo.mid)}</span>
-                          <span className="text-sm text-neutral-500">{dict.evaluation.valuation.perVideoRange} ${formatNumber(result.brandDealPerVideo.low)} – ${formatNumber(result.brandDealPerVideo.high)}</span>
-                        </div>
-                        <div className="text-xs text-neutral-500 mt-1">
-                          {dict.evaluation.valuation.perVideoMonthlyPosts.replace('{n}', String(result.brandDealPerVideo.monthlyBrandPosts))}
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
-                      {result.businessValue.components.map((comp, idx) => (
-                        <div key={idx} className={`rounded-xl border p-3 ${idx === 4 ? 'border-purple-500/30 bg-gradient-to-br from-purple-950/30 to-neutral-900/50' : 'border-neutral-800 bg-neutral-900/50'}`}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            {valueIcon(comp.icon)}
-                            <span className="text-xs text-neutral-400">{comp.label}</span>
-                          </div>
-                          <div className="text-sm font-bold tabular-nums">${formatNumber(comp.amount.low)}-${formatNumber(comp.amount.high)}</div>
-                          <div className="mt-1.5 h-1 w-full rounded-full bg-neutral-800 overflow-hidden">
-                            <div className="h-full rounded-full transition-all" style={{ width: `${comp.percentage}%`, background: idx === 0 ? 'linear-gradient(to right, #FF0050, #ff6b8a)' : idx === 1 ? 'linear-gradient(to right, #00F2EA, #66f7f3)' : idx === 2 ? 'linear-gradient(to right, #f59e0b, #fbbf24)' : idx === 3 ? 'linear-gradient(to right, #22c55e, #86efac)' : 'linear-gradient(to right, #a855f7, #c084fc)' }} />
-                          </div>
-                          <div className="text-[10px] text-neutral-500 mt-1 leading-tight">{comp.detail}</div>
-                          {idx === 0 && result.brandPotential && (
-                            <div className="mt-2 pt-2 border-t border-neutral-800">
-                              <div className="text-[10px] text-neutral-500 mb-1">CPM ${result.brandPotential.estimatedCPM}</div>
-                              <div className="flex flex-wrap gap-1">
-                                {result.brandPotential.suitableCategories.map((cat, ci) => (
-                                  <span key={ci} className="rounded-full border border-[#00F2EA]/30 bg-[#00F2EA]/10 px-1.5 py-0.5 text-[10px] text-[#00F2EA]">{cat}</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 估值方法透明化（免费可见）：公式概览 + 实际因子 + 免责声明 */}
-              <ValuationMethodology result={result} />
-
-              <SectionHeader step="02" title={dict.evaluation.sections.assessmentConclusion} icon={<Target className="h-4 w-4" />} />
-              <div className="mb-10 space-y-4">
-
-                {/* ── Layer 1 · Verdict Hero — 最重要，一眼看到 ── */}
-                <div className="rounded-2xl border border-[#FF0050]/30 bg-gradient-to-br from-[#FF0050]/10 via-[#0f0f0f] to-[#0f0f0f] p-6">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF0050]/20">
-                      <Star className="h-4 w-4 text-[#FF0050]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xl font-bold text-white mb-2">{result.verdict}</div>
-                      <p className="text-sm text-neutral-300 leading-relaxed mb-4">{result.advice}</p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {/* Price Reference */}
-                        <div className="flex items-start gap-2 rounded-xl border border-[#00F2EA]/15 bg-[#00F2EA]/5 px-4 py-3">
-                          <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-[#00F2EA]" />
-                          <div>
-                            <div className="text-xs font-medium text-[#00F2EA] mb-0.5">{dict.evaluation.conclusion.priceReference}</div>
-                            <div className="text-sm text-neutral-300">{result.priceAdvice}</div>
-                          </div>
-                        </div>
-                        {/* Peer pills — 内嵌，不再单独占一行 */}
-                        <div className="flex items-center gap-2 rounded-xl border border-[#00F2EA]/15 bg-[#00F2EA]/5 px-3 py-3">
-                          <TrendingUp className="h-3.5 w-3.5 shrink-0 text-[#00F2EA]" />
-                          <span className="text-xs text-neutral-300">
-                            {t(dict.resultLabels.peerComparison, { pct: result.metrics.engagementRate.toFixed(2), pct2: result.peerBenchmark ? Math.round((1 - result.peerBenchmark.percentile / 100) * 100) : '--' })}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 rounded-xl border border-[#FF0050]/15 bg-[#FF0050]/5 px-3 py-3">
-                          <Star className="h-3.5 w-3.5 shrink-0 text-[#FF0050]" />
-                          <span className="text-xs text-neutral-300">
-                            {t(dict.resultLabels.brandRank, { tier: result.peerRanking?.tierLabel || '--' })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Layer 2 · 四宫格 2×2：Strengths / Weaknesses / Audience / Action ── */}
-                <div className="grid gap-4 lg:grid-cols-2">
-
-                  {/* Strengths */}
-                  <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ThumbsUp className="h-4 w-4 text-green-400" />
-                      <span className="text-sm font-semibold text-green-400">{dict.evaluation.conclusion.strengths}</span>
-                    </div>
-                    <ul className="space-y-2">
-                      {result.summary.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-sm text-neutral-300">
-                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold text-green-400 ring-1 ring-green-500/30">+</span>
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Weaknesses */}
-                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <AlertTriangle className="h-4 w-4 text-amber-400" />
-                      <span className="text-sm font-semibold text-amber-400">{dict.evaluation.conclusion.weaknesses}</span>
-                    </div>
-                    <ul className="space-y-2">
-                      {result.summary.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-sm text-neutral-300">
-                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/30">−</span>
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Target Audience */}
-                  <div className="flex items-start gap-3 rounded-2xl border border-neutral-800 bg-[#0f0f0f] p-5">
-                    <User className="mt-0.5 h-5 w-5 shrink-0 text-[#00F2EA]" />
-                    <div>
-                      <div className="text-xs text-neutral-500 mb-2 uppercase tracking-wider font-medium">{dict.evaluation.conclusion.targetAudience}</div>
-                      <div className="text-sm text-neutral-200 leading-relaxed">{result.summary.targetAudience}</div>
-                    </div>
-                  </div>
-
-                  {/* Best Action */}
-                  <div className="flex items-start gap-3 rounded-2xl border border-neutral-800 bg-[#0f0f0f] p-5">
-                    <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[#FF0050]" />
-                    <div>
-                      <div className="text-xs text-neutral-500 mb-2 uppercase tracking-wider font-medium">{dict.evaluation.conclusion.bestAction}</div>
-                      <div className="text-sm text-neutral-200 leading-relaxed">{result.summary.bestAction}</div>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* ── Layer 3 · Monetization Checklist ── */}
-                <MonetizationChecklist
-                  followerCount={result.followerCount}
-                  videoCount={result.videoCount}
-                  region={result.region}
-                  isUnlocked={true}
-                  hasHighRisk={result.riskFlags?.some(r => r.level === 'high')}
-                />
-
-              </div>
-
-              <SectionHeader step="03" title={dict.evaluation.sections.radarAndRisk} icon={<Shield className="h-4 w-4" />} />
-              <div className="mb-10 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 flex items-center justify-center">
-                  <RadarChart dimensions={result.dimensions} />
-                </div>
-                <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6">
-                  <h3 className="text-sm font-semibold text-white mb-4">{dict.evaluation.risk.title}</h3>
-                  <RiskList risks={result.riskFlags || []} />
-                </div>
-              </div>
-
-              <SectionHeader step="04" title={dict.evaluation.sections.peerRanking} icon={<TrendingUp className="h-4 w-4" />} />
-              <div className="mb-10">
-                <PeerRankingSection ranking={result.peerRanking} />
-              </div>
+            {/* ═══ SNAPSHOT TAB（免费首屏决策页 — PMF 核心）═══ */}
+            {activeTab === 'snapshot' && (<>
+              <CommercialSnapshotTab
+                result={result}
+                isPremium={isPremium}
+                onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
+              />
+              {/* 变现门槛检查（平台资格事实，免费可见） */}
+              <MonetizationChecklist
+                followerCount={result.followerCount}
+                videoCount={result.videoCount}
+                region={result.region}
+                isUnlocked={true}
+                hasHighRisk={result.riskFlags?.some(r => r.level === 'high')}
+              />
             </>)}
 
-            {/* ═══ GROWTH TAB ═══ */}
-            {activeTab === 'growth' && (
-              isPremium ? (<>
-                <SectionHeader step="05" title={dict.evaluation.sections.contentStrategy} icon={<Lightbulb className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <ContentStrategySection strategy={result.contentStrategy} />
-                </div>
-                <SectionHeader step="06" title={dict.evaluation.sections.trendAnalysis} icon={<Flame className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <TrendAnalysisSection trendAnalysis={result.trendAnalysis} />
-                </div>
-                <SectionHeader step="07" title={dict.evaluation.sections.contentStrategy} icon={<TrendingUp className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <GrowthPlanSection plan={result.growthPlan} />
-                </div>
-                <DeepAnalysisSection result={result} />
-              </>) : (<>
-                <LockedSection
-                  step="05"
-                  title={dict.evaluation.sections.contentStrategy}
-                  icon={<Lightbulb className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">AI-powered content strategy analysis, trending formats, and posting schedule recommendations tailored to your niche.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <ContentStrategySection strategy={result.contentStrategy} />
-                </LockedSection>
-                <LockedSection
-                  step="06"
-                  title={dict.evaluation.sections.trendAnalysis}
-                  icon={<Flame className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Trend detection, hashtag optimization, and viral sound recommendations based on your content history.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <TrendAnalysisSection trendAnalysis={result.trendAnalysis} />
-                </LockedSection>
-                <LockedSection
-                  step="07"
-                  title="Growth Plan"
-                  icon={<TrendingUp className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Personalized 30/60/90 day growth roadmap with milestone targets and content pillars.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <GrowthPlanSection plan={result.growthPlan} />
-                </LockedSection>
-                <LockedSection
-                  step=""
-                  title="Deep Analysis"
-                  icon={<Activity className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Account health, content cadence, and engagement quality deep dive with benchmark comparisons.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <DeepAnalysisSection result={result} />
-                </LockedSection>
-              </>)
+            {/* ═══ PRICE YOUR NEXT DEAL TAB（付费）═══ */}
+            {activeTab === 'deal' && (
+              isPremium
+                ? <DealPricingTab result={result} />
+                : <LockedTabPreview kind="pricing" icon={DollarSign} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
             )}
 
-            {/* ═══ REVENUE TAB ═══ */}
-            {activeTab === 'revenue' && (
-              isPremium ? (<>
-                <SectionHeader step="08" title={dict.evaluation.sections.incomeAndGrowth} icon={<DollarSign className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <IncomeBreakdownSection estimate={result.incomeEstimate} />
-                </div>
-                <SectionHeader step="09" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <RevenueRoadmapSection roadmap={result.revenueRoadmap} />
-                </div>
-              </>) : (<>
-                <LockedSection
-                  step="08"
-                  title={dict.evaluation.sections.incomeAndGrowth}
-                  icon={<DollarSign className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Estimated annual revenue by channel: brand sponsorships, creator fund, subscriptions, TikTok Shop, affiliate, Shopify DTC, LIVE gifts, and commerce.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <IncomeBreakdownSection estimate={result.incomeEstimate} />
-                </LockedSection>
-                <LockedSection
-                  step="09"
-                  title={dict.evaluation.sections.monetizationAdvice}
-                  icon={<DollarSign className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">12-month revenue roadmap with high-impact monetization strategies personalized to your account.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <RevenueRoadmapSection roadmap={result.revenueRoadmap} />
-                </LockedSection>
-              </>)
+            {/* ═══ 30-DAY PLAN TAB（付费）═══ */}
+            {activeTab === 'plan' && (
+              isPremium
+                ? <ThirtyDayPlanTab result={result} />
+                : <LockedTabPreview kind="plan" icon={TrendingUp} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
             )}
 
-            {/* ═══ COMMERCE TAB ═══ */}
-            {activeTab === 'commerce' && (
-              isPremium ? (<>
-                <SectionHeader step="10" title={dict.evaluation.sections.brandMatching} icon={<Building2 className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <BrandMatchingSection matching={result.brandMatching} />
-                </div>
-                <SectionHeader step="11" title={dict.evaluation.sections.monetizationAdvice} icon={<DollarSign className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <CommercializationSection advice={result.commercializationAdvice} />
-                </div>
-                <SectionHeader step="12" title={dict.evaluation.sections.commerceReadiness} icon={<ShoppingBag className="h-4 w-4" />} />
-                <div className="mb-10">
-                  <CommerceReadinessSection readiness={result.commerceReadiness} />
-                </div>
-              </>) : (<>
-                <LockedSection
-                  step="10"
-                  title={dict.evaluation.sections.brandMatching}
-                  icon={<Building2 className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">AI-matched brand partnership opportunities based on your audience demographics and content niche.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <BrandMatchingSection matching={result.brandMatching} />
-                </LockedSection>
-                <LockedSection
-                  step="11"
-                  title={dict.evaluation.sections.monetizationAdvice}
-                  icon={<DollarSign className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Custom commercialization strategy: which monetization paths to prioritize for your account profile.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <CommercializationSection advice={result.commercializationAdvice} />
-                </LockedSection>
-                <LockedSection
-                  step="12"
-                  title={dict.evaluation.sections.commerceReadiness}
-                  icon={<ShoppingBag className="h-4 w-4" />}
-                  teaser={<p className="text-sm text-neutral-400">Commerce readiness score: whether your audience is ready for merch, DTC products, or shop launches.</p>}
-                  onUnlock={handleUnlock}
-                >
-                  <CommerceReadinessSection readiness={result.commerceReadiness} />
-                </LockedSection>
-              </>)
+            {/* ═══ DETAILED ANALYSIS TAB（付费二级内容）═══ */}
+            {activeTab === 'analysis' && (
+              isPremium
+                ? <DetailedAnalysisTab result={result} />
+                : <LockedTabPreview kind="analysis" icon={BarChart3} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
             )}
 
             {/* Footer */}

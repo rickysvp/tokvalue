@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.17.0'
+export const APP_VERSION = '1.11.0'
 
 export function getVersionInfo() {
   return {

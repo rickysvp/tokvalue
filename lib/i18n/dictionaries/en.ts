@@ -5,9 +5,9 @@ const en = {
 
   // ── SEO / Metadata ──
   seo: {
-    title: 'Free TikTok Account Value Calculator — TokValue',
-    description: 'Get a data-driven estimate of any TikTok account\'s worth — real brand deal rates, revenue potential, and audience quality. Free to try — just verify your email. No credit card.',
-    shortDescription: 'Free TikTok account value calculator. Data-driven estimate of any account\'s worth — verify your email to start, no credit card.',
+    title: "What's Your TikTok Really Worth? — TokValue",
+    description: 'Most creators quietly underprice themselves. See your true commercial value, what\'s holding it back, and a 30-day plan to raise it. Free — just verify your email.',
+    shortDescription: 'See what your TikTok is really worth — and how to raise it. Free value snapshot, no credit card.',
   },
 
   // ── Common / Shared ──
@@ -101,19 +101,19 @@ const en = {
   // ── Home Page / Landing ──
   home: {
     hero: {
-      title: "What's your TikTok account really worth?",
-      subtitle: 'A data-driven estimate of your TikTok account\'s market value — real brand deal rates, revenue potential, and audience quality across 10 dimensions.',
-      forWhom: 'For TikTok creators, brand marketers & influencer agencies',
+      title: 'Your TikTok is worth more than you think',
+      subtitle: "In seconds, see what your account is really worth — what's driving it, what's quietly holding it back, and the 30-day plan to raise it. So when a brand asks your rate, you'll have a number.",
+      forWhom: 'Built for TikTok creators — no agent, no MCN, no guesswork',
       placeholder: 'tiktok handle',
       ariaLabel: 'TikTok handle',
-      cta: 'Evaluate for Free',
+      cta: "See What I'm Worth",
       demoLink: 'See a full sample report — free',
       demoLinkHint: 'See exactly what a full report looks like',
     },
 
     demo: {
       badge: 'This is a sample report',
-      prompt: 'Find out what {your} TikTok account is really worth — free first look.',
+      prompt: 'This could be {your} account — see what it\'s really worth.',
       your: 'your',
       cta: 'Evaluate My Account',
       reassurance: 'Your first evaluation is free · Just verify your email · No credit card required',
@@ -121,12 +121,12 @@ const en = {
 
     howItWorks: {
       badge: 'How It Works',
-      title: 'From username to a data-backed valuation',
+      title: 'From a handle to your true value',
       steps: [
         {
           number: '1',
           title: 'Scan the Account',
-          desc: "Type any public TikTok handle. We pull the profile, audience, and content history — your own, a competitor's, or someone you're thinking of hiring.",
+          desc: "Type any public TikTok handle. We pull the profile, audience, and content history — your own, or an account you're checking on.",
         },
         {
           number: '2',
@@ -135,33 +135,33 @@ const en = {
         },
         {
           number: '3',
-          title: 'Get Your Valuation',
-          desc: 'Instantly see your tier, estimated value range, and risk summary. Upgrade to unlock the full report.',
+          title: 'Get Your Value Snapshot',
+          desc: 'Instantly see your value score, what it\'s built on, and the one thing holding it back most. Your exact numbers and 30-day plan when you\'re ready.',
         },
       ],
-      cta: 'See it in action — evaluate your own account for free.',
+      cta: 'See what your account is worth — just enter a handle.',
     },
     capabilities: {
       badge: 'Why TokValue',
-      title: 'Know what any account is really worth',
-      subtitle: 'Free tools show you follower counts. TokValue shows you what the account can actually earn, and whether its audience is real.',
-      cta: 'Evaluate Your Account for Free',
-      ctaHint: 'See your value, rate, and risk — data-backed, free.',
+      title: 'Know your worth. Then grow it.',
+      subtitle: 'Follower counts don\'t pay you. TokValue shows what your account is actually worth, what\'s quietly dragging it down, and what to fix first to raise it.',
+      cta: "See What I'm Worth",
+      ctaHint: 'Your value score and top blocker — data-backed, free.',
       story: [
         {
-          title: 'Know what to charge',
-          desc: 'Your per-video brand deal rate, based on real engagement and audience quality. No guessing.',
-          tags: ['Per-video brand rate', 'Annual revenue estimate', 'Negotiation range'],
+          title: 'See your true value',
+          desc: 'A commercial value score built from real engagement and audience data — not vanity metrics. Know what your account is worth before anyone names a number.',
+          tags: ['Value score', 'Suggested rate range', 'What it\'s built on'],
         },
         {
-          title: 'Don\'t pay for a bought audience',
-          desc: 'We flag fake followers and abnormal engagement before you hire, partner, or buy. So you don\'t overpay for an audience that isn\'t real.',
-          tags: ['Fake follower %', 'Engagement quality', 'Risk flags'],
+          title: 'Find what\'s holding it back',
+          desc: 'Every account has blockers quietly dragging its value down. See yours ranked by impact — and what clearing each one is worth.',
+          tags: ['Value blockers', 'Ranked by impact', 'Fix-first order'],
         },
         {
-          title: 'Check any account, in seconds',
-          desc: 'Your own, a competitor\'s, or someone you\'re about to hire. One username is all you need. No login, no password.',
-          tags: ['Any public account', '10-dimension AI score', 'Peer ranking'],
+          title: 'Raise your value in 30 days',
+          desc: 'A focused four-week plan: fix your biggest blocker, build proof of performance, and walk into your next negotiation with confidence.',
+          tags: ['Weekly actions', 'Performance proof', 'Negotiation confidence'],
         },
       ],
     },
@@ -169,16 +169,16 @@ const en = {
       title: 'Start free. Upgrade when you need more.',
       subtitle: 'One-time payment. No subscription. No auto-renewal.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
-      freePlan: { name: 'Free', desc: 'Instant overview. Overall assessment, value range, and risk scan.', cta: 'Try Free' },
+      freePlan: { name: 'Free', desc: 'Instant commercial snapshot — readiness score, suggested rate range, and your top rate blocker.', cta: 'Try Free' },
       getCta: 'Get Started',
       saveBadge: 'Save {pct}%',
       perEvaluation: 'per evaluation',
       oneTime: 'One-time · No subscription',
       moneyBack: '7-day money-back guarantee',
       plans: [
-        { id: 'pack1', name: 'Single', desc: 'One full report. Income breakdown, brand matching, growth forecast, PDF export.', highlight: false },
-        { id: 'pack6', name: 'Growth', desc: 'Six reports. Audit your roster, compare creators, track growth. Best value per report.', highlight: true, badge: 'Best Value' },
-        { id: 'pack30', name: 'Studio', desc: 'Thirty reports. Agency-scale analysis for teams and power users. Deepest per-report savings.', highlight: false },
+        { id: 'pack1', name: 'Single', desc: 'One Brand Deal Toolkit: exact deal price, all rate blockers, 30-day plan, full analysis + PDF.', highlight: false },
+        { id: 'pack6', name: 'Growth', desc: 'Six toolkits. Re-check your rate as your account grows and blockers clear. Best value per report.', highlight: true, badge: 'Best Value' },
+        { id: 'pack30', name: 'Studio', desc: 'Thirty toolkits. For managers and teams advising multiple creator accounts.', highlight: false },
       ],
     },
     testimonials: {
@@ -233,7 +233,7 @@ const en = {
         },
         q3: {
           q: 'What does paying actually get me?',
-          a: 'The free version shows the overview: an overall assessment, value range, and risk scan. Paying unlocks the full report: dollar valuation, brand deal pricing, 12-month revenue projection, growth plan, brand matching, and PDF/PNG export.',
+          a: 'The free snapshot shows your commercial readiness, a suggested rate range, your strongest lever, and your biggest rate blocker. Unlocking adds your exact deal numbers (opening rate, private minimum), every rate blocker with its price impact, a 30-day value plan, and the full analysis with PDF export — one-time $9.',
         },
         q4: {
           q: 'Is the number real? Can I trust it?',
@@ -254,7 +254,7 @@ const en = {
       },
     },
     footer: {
-      tagline: 'TikTok account value calculator. Check any account\'s worth, brand deal pricing, and revenue potential. Built for creators, brands, and agencies.',
+      tagline: 'See what your TikTok is really worth — and how to raise it. Commercial value snapshot, blockers, and a 30-day plan. Built for creators.',
       product: 'Product',
       capabilities: 'Features',
       blog: 'Blog',
@@ -284,18 +284,18 @@ const en = {
 
   // ── Paid Wall ──
   paidWall: {
-    badge: 'Deep Analysis Locked',
-    title: 'Unlock {username}\'s Complete TikTok Account Report',
-    subtitle: 'Get the full 10-dimension analysis, instant results, and an export-ready PDF.',
+    badge: 'Brand Deal Toolkit',
+    title: 'Unlock {username}\'s Deal Price & 30-Day Plan',
+    subtitle: 'Exact opening rate, private minimum, all rate blockers, and a 30-day value plan — one-time $9.',
     // Unlock mode (for previously evaluated accounts)
-    unlockTitle: 'Unlock {username}\'s Saved TikTok Account Report',
-    unlockSubtitle: 'Access your previously generated report with all 10 analysis modules, PDF export, and more.',
+    unlockTitle: 'Unlock {username}\'s Brand Deal Toolkit',
+    unlockSubtitle: 'Your saved deal price, rate blockers, and 30-day plan are ready.',
     unlockHeaderHint: 'View @{username}\'s saved evaluation',
     // Evaluate mode (for new account evaluation)
-    evaluateHeaderHint: 'Unlock @{username}\'s full evaluation',
+    evaluateHeaderHint: 'Unlock @{username}\'s deal price & plan',
     loadingCredits: 'Loading evaluations...',
     creditsRemaining: '{count} evaluations remaining ({email})',
-    trustCreators: 'Join the creators using TokValue to value their accounts',
+    trustCreators: 'Join the creators negotiating brand deals with TokValue',
     trustInstant: 'Instant · No waiting',
     trustCredits: 'Evaluations never expire · Accessible across devices via email',
     stepEmail: 'Link your evaluations via email',
@@ -333,22 +333,16 @@ const en = {
     ],
     // Package features
     packageFeatures: {
-      pack1: ['1 complete evaluation', 'All 10 analysis modules', 'PDF export'],
-      pack6: ['6 complete evaluations', 'Cross-device recovery', 'PDF export', 'Priority support'],
-      pack30: ['30 complete evaluations', 'Cross-device sync', 'PDF export', 'Early access + VIP support'],
+      pack1: ['1 Brand Deal Toolkit', 'Deal price + all blockers + 30-day plan', 'PDF export'],
+      pack6: ['6 Brand Deal Toolkits', 'Cross-device recovery', 'PDF export', 'Priority support'],
+      pack30: ['30 Brand Deal Toolkits', 'Cross-device sync', 'PDF export', 'Early access + VIP support'],
     },
-    // Unlock module cards (10 cards shown in the paywall)
+    // Brand Deal Toolkit 价值卡（PMF：付费价值一句话说清，不用 12+ 模块清单）
     unlockModules: [
-      { title: '5-Channel Income', desc: 'Brand deals, LIVE, Creator Fund, affiliate, merch' },
-      { title: '12-Month Revenue Roadmap', desc: 'Quarterly follower/views/revenue projections' },
-      { title: 'Growth Action Plan', desc: 'Follower/views/engagement recommendations with expected impact' },
-      { title: '10-Dimension Risk Scan', desc: 'Bot detection, fake engagement, reach suppression alerts' },
-      { title: 'Peer Percentile Ranking', desc: 'Percentile rank vs. same-tier accounts' },
-      { title: 'Brand Matching', desc: 'Suitable brand types + collaboration advice' },
-      { title: 'Content Strategy Guide', desc: 'Content pillars, hashtags, best posting times' },
-      { title: 'Trend Analysis', desc: 'Related topic trends + account fit score' },
-      { title: 'Monetization Paths', desc: '3 revenue paths + priority ranking' },
-      { title: 'HD PDF Export', desc: 'Full shareable business analysis report' },
+      { title: 'Your Exact Deal Price', desc: 'Opening rate, acceptable range, and private minimum — with every assumption spelled out' },
+      { title: 'All Rate Blockers', desc: 'Every signal pulling your rate down, ranked by price impact' },
+      { title: '30-Day Value Plan', desc: 'Four weeks of actions: fix blockers, build proof, prepare your rate card, start pitching' },
+      { title: 'Full Analysis + Export', desc: 'Deep analysis, market position, and PDF/PNG export for negotiations' },
     ],
     // Inline error messages
     invalidEmail: 'Please enter a valid email address',
@@ -437,6 +431,68 @@ const en = {
       monetizationAdvice: 'Monetization Advice',
       commerceReadiness: 'Commerce Readiness',
       deepAnalysis: 'Deep Analysis',
+      commercialSnapshot: 'Commercial Snapshot',
+      priceYourDeal: 'Price Your Next Deal',
+      thirtyDayPlan: 'Raise Your Value in 30 Days',
+      detailedAnalysis: 'Detailed Analysis',
+      rateBlockers: 'Rate Blockers',
+      marketPosition: 'Market Position',
+    },
+    // ── Commercial Growth PMF（创作者商业成长叙事）──
+    commercial: {
+      readinessLabel: 'Commercial Readiness',
+      readinessHint: 'How ready your account is to close brand deals at strong rates',
+      suggestedRate: 'Suggested TikTok video rate',
+      suggestedRateNote: 'Wide estimate — your exact negotiating numbers are inside Price Your Next Deal',
+      estimateDisclaimer: 'Estimate, not a guaranteed deal price',
+      strongestLever: 'Strongest commercial lever',
+      primaryBlocker: 'Primary rate blocker',
+      allBlockersLocked: 'All rate blockers unlock with your report',
+      nextMove: 'Next move',
+      effortHours: '~{n}h',
+      accountValueEstimate: 'Account value estimate',
+      accountValueHint: 'What the account is worth today across brand deals, content value, creator fund upside, and audience asset — a 12-month commercial range. Not a sale price.',
+      dataAsOf: 'Data as of',
+      dataScope: 'Based on recent posts & lifetime stats',
+      confidenceLabel: 'Data confidence',
+      // Price Your Next Deal
+      openingRate: 'Recommended opening rate',
+      openingRateHint: 'Open here — leave room to negotiate down',
+      acceptableRange: 'Typical acceptable range',
+      privateMinimum: 'Private minimum',
+      privateMinimumHint: 'Your walk-away floor — never quote below this',
+      assumesLabel: 'Assumes',
+      notIncludedTitle: 'Not included in this rate',
+      factorsTitle: 'What moves your rate',
+      incomeOpportunities: 'Income Opportunities',
+      incomeOpportunitiesNote: 'Beyond brand deals — other channels your account can earn from',
+      // 30-Day Plan
+      weekLabel: 'Week {n}',
+      goalLabel: 'Goal',
+      doneWhenLabel: 'Done when',
+      impactsLabel: 'Why it matters',
+      planSummaryLabel: 'How this plan was built',
+      // Locked tab previews
+      lockedPricingTitle: 'Your Deal Price',
+      lockedPricingDesc: 'Stop guessing what to charge. Get your exact opening rate, walk-away minimum, and acceptable range for this account.',
+      lockedPricingF1: 'Recommended opening rate for your next deal',
+      lockedPricingF2: 'Private minimum — the number you never go below',
+      lockedPricingF3: 'Acceptable range and what moves your rate up or down',
+      lockedPlanTitle: 'Your 30-Day Value Plan',
+      lockedPlanDesc: 'A focused four-week plan to fix your biggest rate blocker and build the proof brands pay for.',
+      lockedPlanF1: 'Week-by-week actions tailored to this account',
+      lockedPlanF2: 'Performance-proof tasks that justify higher rates',
+      lockedPlanF3: 'Pitch checklist to start landing brand deals',
+      rateImpactLabel: 'Rate impact',
+      noBlockersTitle: 'No rate blockers detected',
+      noBlockersDesc: 'Clean account signals support top-of-range rates in negotiations.',
+      lockedAnalysisTitle: 'Your Detailed Analysis',
+      lockedAnalysisDesc: 'The full technical evidence behind your rate — every signal brands will check.',
+      lockedAnalysisF1: 'All rate blockers with impact on your price',
+      lockedAnalysisF2: '10-dimension radar and market position',
+      lockedAnalysisF3: 'Brand matches and monetization readiness',
+      unlockCta: 'Unlock — $9 once',
+      unlockSub: 'One-time payment · deal price, 30-day plan, and full analysis',
     },
     stepLabels: {
       '01': '01',

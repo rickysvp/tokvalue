@@ -120,6 +120,10 @@ export interface Evaluation {
   calculationMetadata?: CalculationMetadata
   dataQuality?: 'full' | 'partial'
   postsFetchError?: string
+  // ── Commercial Growth PMF v3（可缺省：旧缓存/历史数据向后兼容）──
+  commercialSnapshot?: CommercialSnapshot
+  dealPricing?: DealPricing
+  thirtyDayPlan?: ThirtyDayPlan
 }
 
 export interface Metrics {
@@ -441,6 +445,72 @@ export interface CommerceReadiness {
   productMatches: CommerceProductMatch[]
   contentCommerceRatio: number
   recommendation: string
+}
+
+// ========== Commercial Growth PMF（创作者商业成长） ==========
+
+/**
+ * CommercialSnapshot — 免费首屏商业快照（服务端派生，客户端不得重算）。
+ * 定位：替代 Tier 作为主结果，回答"我现在的商业位置和下一步"。
+ */
+export interface CommercialSnapshot {
+  /** 商业准备度 0-100（综合评分 × 商业维度加权） */
+  readinessScore: number
+  /** 专业价值层级（不使用 S/A/B/C 等级字母） */
+  readinessBand: 'Premium Value' | 'Strong Value' | 'Growth Value' | 'Early Value'
+  /** 一句话商业定位，如 "Emerging beauty creator with above-average engagement" */
+  positioning: string
+  /** 宽报价区间（免费可见；精确谈判数据见 DealPricing） */
+  suggestedRateRange: { low: number; mid: number; high: number }
+  /** 最强商业杠杆 */
+  strongestLever: { label: string; detail: string }
+  /** 主要报价阻碍（免费仅展示这一个，全部阻碍见 riskFlags） */
+  primaryRateBlocker: { label: string; detail: string; impact: string }
+  /** 一个立即可执行动作 */
+  nextMove: { title: string; detail: string; effortHours: number }
+  /** 数据置信度 */
+  dataConfidence: 'high' | 'medium' | 'low'
+}
+
+/**
+ * DealPricing — 付费"Price Your Next Deal"谈判报价（服务端派生）。
+ * 输出不是单一金额，而是可谈判的报价结构。
+ */
+export interface DealPricing {
+  /** 推荐开价（略高于中值，留谈判空间） */
+  openingRate: number
+  /** 可接受区间 */
+  acceptableRange: { low: number; high: number }
+  /** 私密底价（低于此价不接） */
+  privateMinimum: number
+  /** 适用假设条件说明 */
+  assumptions: string
+  /** 明确不包含的条件 */
+  notIncluded: string[]
+  /** 影响因素解释（账号表现/播放/互动/垂类/地区/增长/风险/置信度） */
+  factors: { label: string; note: string }[]
+}
+
+/**
+ * ThirtyDayPlan — 付费"Raise Your Value in 30 Days"四周任务清单。
+ * 由已有账号数据导出；缺乏数据时降低确定性并说明原因。
+ */
+export interface ThirtyDayTask {
+  week: number
+  goal: string
+  actions: string[]
+  /** 影响的商业因素（稳定性/内容证明/品牌准备度等） */
+  impacts: string
+  /** 完成证据 */
+  doneWhen: string
+  /** 预计投入时间（小时） */
+  effortHours: number
+}
+
+export interface ThirtyDayPlan {
+  tasks: ThirtyDayTask[]
+  /** 说明计划基于哪些账号数据生成 */
+  summary: string
 }
 
 export type ApiErrorCode = 'USER_NOT_FOUND' | 'RATE_LIMIT' | 'API_ERROR' | 'INVALID_USERNAME' | 'MISSING_API_KEY' | 'NETWORK_ERROR' | 'UNAUTHORIZED' | 'CONSUME_ERROR' | 'BALANCE_ERROR'

@@ -72,10 +72,42 @@ export function IncomeBreakdownSection({ estimate }: { estimate: IncomeEstimate 
       </div>
 
       {/* Summary */}
-      <div className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-[#141414] p-4">
+      <div className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-[#141414] p-4 mb-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
         <p className="text-sm text-neutral-400">{estimate.summary}</p>
       </div>
+
+      {/* How we got here — 计算依据 */}
+      <details className="rounded-xl border border-neutral-800 bg-black/40 open:bg-neutral-900/40 group">
+        <summary className="flex items-center justify-between cursor-pointer select-none px-4 py-3 text-xs text-neutral-400 hover:text-neutral-300 list-none">
+          <span className="inline-flex items-center gap-2">
+            <Info className="h-3.5 w-3.5" />
+            How these numbers are estimated
+          </span>
+          <span className="text-neutral-600 group-open:rotate-180 transition-transform">▾</span>
+        </summary>
+        <div className="px-4 pb-4 text-xs text-neutral-400 space-y-2.5 leading-relaxed border-t border-neutral-800/60 pt-3.5">
+          <p>These are <strong className="text-neutral-200">ranges, not guarantees</strong> — direction and ballpark only. Actual income depends on content quality, posting frequency, deal structure, and luck.</p>
+          <ul className="space-y-2 ml-1.5 list-disc list-outside pl-3">
+            <li>
+              <strong className="text-neutral-300">Brand deals</strong>: estimated 4–8 sponsored posts per year (based on follower tier and posting cadence), priced by your readiness score × suggested rate per post.
+            </li>
+            <li>
+              <strong className="text-neutral-300">Creator Fund / Play bonus</strong>: monthly plays × RPM <code className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">${estimate.categoryRpm.toFixed(2)}</code> for <span className="text-neutral-200">{estimate.categoryLabel}</span> in <span className="text-neutral-200">{estimate.regionLabel}</span> (RPM = revenue per 1,000 views; varies by region and category).
+            </li>
+            <li>
+              <strong className="text-neutral-300">Live / Gifts</strong>: estimated from follower count × historical engagement rate × an assumed live conversion (low confidence for most accounts — treat as upside only).
+            </li>
+            <li>
+              <strong className="text-neutral-300">Affiliate / Shop</strong>: monthly plays × category-average click-through × conversion × average order value. Uses a category CPM baseline of <code className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">${estimate.categoryCpm}</code>.
+            </li>
+            <li>
+              <strong className="text-neutral-300">Region multiplier</strong>: <code className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">{estimate.regionMultiplier.toFixed(2)}×</code> — advertising and creator-fund payouts scale by audience geography.
+            </li>
+          </ul>
+          <p className="pt-0.5 text-neutral-500 italic">Confidence dots on each row indicate how much real data supports that line (green = solid signal, amber = moderate, grey = upside hypothesis).</p>
+        </div>
+      </details>
     </div>
   )
 }
