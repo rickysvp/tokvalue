@@ -1,26 +1,11 @@
 import { NextResponse } from 'next/server'
 import { hashIp } from '@/lib/analytics'
 import { getClientIp } from '@/lib/ip'
+import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 const TO_EMAIL = 'connect@tokvalue.com'
-
-// 简单内存限流：每 IP 每 60 分钟最多 5 次提交
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
-const RATE_LIMIT_MAX = 5
-const submissions = new Map<string, { count: number; windowStart: number }>()
-
-function isRateLimited(ipHash: string): boolean {
-  const now = Date.now()
-  const entry = submissions.get(ipHash)
-  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-    submissions.set(ipHash, { count: 1, windowStart: now })
-    return false
-  }
-  entry.count += 1
-  return entry.count > RATE_LIMIT_MAX
-}
 
 function buildContactEmailHtml(name: string, email: string, topic: string, message: string): string {
   const safe = (s: string) =>
@@ -66,14 +51,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name or topic too long.' }, { status: 400 })
     }
 
-    // 限流
-    const ipHash = hashIp(getClientIp(request))
-    if (isRateLimited(ipHash)) {
-      return NextResponse.json(
-        { error: 'Too many submissions. Please try again later.' },
-        { status: 429 }
-      )
+    // 限流（DB 级，跨 serverless 实例生效；ipBucketKey 内部已做 IP 提取+HMAC 哈希）
+    const allowed = await checkIpRateLimit(ipBucketKey('contact', request), { limit: 5, windowHours: 1 })
+    if (!allowed) {
+      return rateLimitResponse('Too many submissions. Please try again later.')
     }
+
+    const ipHash = hashIp(getClientIp(request))
 
     if (!process.env.RESEND_API_KEY) {
       console.warn('[contact] RESEND_API_KEY not set — email not sent')
