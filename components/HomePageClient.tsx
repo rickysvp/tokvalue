@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2, Lightbulb, Zap, Clock, BarChart3, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight } from 'lucide-react'
+import { Search, Loader2, Lightbulb, Zap, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight, BarChart3 } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 
 import { useI18n } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken, claimCreditsApi, promotePendingToken } from '@/lib/credits-client'
+import { getUtm } from '@/lib/utm'
+import { UserMenu } from '@/components/UserMenu'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { AvatarWall } from '@/components/AvatarWall'
 import { CtaButton } from '@/components/CtaButton'
@@ -31,7 +33,6 @@ export default function HomePage() {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [verifyModalMode, setVerifyModalMode] = useState<'evaluate' | 'unlock'>('evaluate')
@@ -46,7 +47,7 @@ export default function HomePage() {
     if (email && token) {
       setBalanceLoading(true)
       // 登录态仅在服务端验证 token 有效（= 邮箱已验证）后才置位
-      fetchBalance(email).then(b => { if (b) { setCreditBalance(b); setIsLoggedIn(true); } }).finally(() => setBalanceLoading(false))
+      fetchBalance(email).then(b => { if (b) { setCreditBalance(b) } }).finally(() => setBalanceLoading(false))
     }
   }, [])
 
@@ -63,7 +64,6 @@ export default function HomePage() {
     window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
     setActiveEmail(paidEmail)
     promotePendingToken()
-    setIsLoggedIn(true)
     setPaymentSuccess(true)
     setBalanceLoading(true)
     ;(async () => {
@@ -105,7 +105,6 @@ export default function HomePage() {
   }, [paymentSuccess])
 
   async function handleUnlock() {
-    setIsLoggedIn(true)
     const email = getActiveEmail()
     if (email) {
       setBalanceLoading(true)
@@ -122,10 +121,11 @@ export default function HomePage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const token = getSessionToken()
       if (useToken && token) headers['Authorization'] = `Bearer ${token}`
+      const utm = getUtm()
       return fetch('/api/checkout', {
         method: 'POST',
         headers,
-        body: JSON.stringify(useToken ? { packageId } : { packageId, email }),
+        body: JSON.stringify(useToken ? { packageId, ...(utm ? { utm } : {}) } : { packageId, email, ...(utm ? { utm } : {}) }),
       })
     }
     try {
@@ -196,10 +196,6 @@ export default function HomePage() {
           {/* Navigation */}
           <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
             {[
-              ...(isLoggedIn ? [
-                { label: dict.nav.tracker, href: '/tracker', icon: BarChart3 },
-                { label: dict.nav.history, href: '/history', icon: Clock },
-              ] : []),
               { label: dict.nav.pricing, href: '#pricing', icon: Zap },
               { label: dict.nav.howItWorks, href: '#capabilities', icon: Lightbulb },
             ].map(item => (
@@ -248,22 +244,8 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/60 py-0.5 pl-0.5 pr-2.5 min-w-0">
-                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#FF0050] to-[#00F2EA] flex items-center justify-center text-[10px] font-bold text-black shrink-0">
-                    {(creditBalance.email[0] || '?').toUpperCase()}
-                  </div>
-                  <span className="text-[11px] text-neutral-400 truncate max-w-[120px]" title={creditBalance.email}>
-                    {creditBalance.email}
-                  </span>
-                  <button
-                    onClick={() => { setCreditBalance(null); setActiveEmail(null); setSessionToken(null); setIsLoggedIn(false) }}
-                    className="ml-0.5 text-neutral-600 hover:text-neutral-300 transition-colors shrink-0"
-                    aria-label={dict.common.switchAccount}
-                  >
-                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 18l6-6-6-6"/>
-                    </svg>
-                  </button>
+                <div className="hidden sm:block">
+                  <UserMenu email={creditBalance.email} onSwitchAccount={() => { setCreditBalance(null); setActiveEmail(null); setSessionToken(null) }} />
                 </div>
               </>
             ) : (

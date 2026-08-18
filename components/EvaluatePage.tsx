@@ -5,10 +5,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
+import { getUtm } from '@/lib/utm'
 import { ScoreGauge } from '@/components/ScoreGauge'
 import { RadarChart } from '@/components/RadarChart'
 import { RiskList } from '@/components/RiskList'
-import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, ThumbsUp, AlertTriangle, Lightbulb, Target, BadgeCheck, MapPin, Star, Tag, Clock, UserCheck, BarChart3, Building2, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, Activity, Play, Gift, ShoppingBag, CheckCircle2, Users, Mail, Zap, Flame, Share2, Briefcase, Film, User } from 'lucide-react'
+import { Search, Loader2, History, Download, TrendingUp, Shield, DollarSign, ThumbsUp, AlertTriangle, Lightbulb, Target, BadgeCheck, MapPin, Star, Tag, Clock, UserCheck, Building2, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, Activity, Play, Gift, ShoppingBag, CheckCircle2, Users, Mail, Zap, Flame, Share2, Briefcase, Film, User } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import { GrowthPlanSection } from '@/components/sections/GrowthPlanSection'
 import { IncomeBreakdownSection } from '@/components/sections/IncomeBreakdownSection'
@@ -41,6 +42,7 @@ import { useI18n, t } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, claimCreditsApi, setSessionToken, promotePendingToken } from '@/lib/credits-client'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { ShareModal } from '@/components/ShareModal'
+import { UserMenu } from '@/components/UserMenu'
 import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
@@ -60,10 +62,11 @@ function valueIcon(name: string) {
 }
 
 function trackEvent(event_type: string, metadata?: Record<string, unknown>) {
+  const utm = getUtm()
   const body = JSON.stringify({
     event_type,
     path: typeof window !== 'undefined' ? window.location.pathname : '/',
-    metadata,
+    metadata: { ...(metadata || {}), ...(utm ? { utm } : {}) },
     referrer: typeof window !== 'undefined' ? (document.referrer || '') : '',
   })
   fetch('/api/track', {
@@ -300,7 +303,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           const res = await fetch('/api/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: target }),
+            body: JSON.stringify({ username: target, ...(getUtm() ? { utm: getUtm() } : {}) }),
             signal: controller.signal,
           })
           clearTimeout(timeoutId)
@@ -357,7 +360,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ username: target }),
+          body: JSON.stringify({ username: target, ...(getUtm() ? { utm: getUtm() } : {}) }),
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
@@ -520,7 +523,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
           creditBalance={creditBalance}
           balanceLoading={balanceLoading}
           paymentSuccess={paymentSuccess}
-          isLoggedIn={isLoggedIn}
           onVerifyClick={() => { /* no-op during loading */ }}
           onLogout={() => {}}
         />
@@ -550,7 +552,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         creditBalance={creditBalance}
         balanceLoading={balanceLoading}
         paymentSuccess={paymentSuccess}
-        isLoggedIn={isLoggedIn}
         onVerifyClick={() => { /* no-op */ }}
         onLogout={() => { setCreditBalance(null); setActiveEmail(null); setSessionToken(null); setIsLoggedIn(false) }}
       />
@@ -1119,12 +1120,11 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   )
 }
 
-function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, isLoggedIn, onVerifyClick, onLogout }: {
+function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, onVerifyClick, onLogout }: {
   dict: EnDict
   creditBalance: CreditBalance | null
   balanceLoading: boolean
   paymentSuccess: boolean
-  isLoggedIn: boolean
   onVerifyClick: () => void
   onLogout: () => void
 }) {
@@ -1142,10 +1142,6 @@ function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, i
         {/* Navigation */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
           {[
-            ...(isLoggedIn ? [
-              { label: dict.nav.tracker, href: '/tracker', icon: BarChart3 },
-              { label: dict.nav.history, href: '/history', icon: Clock },
-            ] : []),
             { label: dict.nav.blog, href: '/blog', icon: BookOpen },
           ].map(item => (
             <Link
@@ -1183,16 +1179,8 @@ function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, i
                   <span className="text-[10px] text-neutral-500">{dict.common.evaluations}</span>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/60 py-0.5 pl-0.5 pr-2.5 min-w-0">
-                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#FF0050] to-[#00F2EA] flex items-center justify-center text-[10px] font-bold text-black shrink-0">
-                  {(creditBalance.email[0] || '?').toUpperCase()}
-                </div>
-                <span className="text-[11px] text-neutral-400 truncate max-w-[120px]" title={creditBalance.email}>{creditBalance.email}</span>
-                <button onClick={onLogout} className="ml-0.5 text-neutral-600 hover:text-neutral-300 transition-colors shrink-0" aria-label={dict.common.switchAccount}>
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
+              <div className="hidden sm:block">
+                <UserMenu email={creditBalance.email} onSwitchAccount={onLogout} />
               </div>
             </>
           ) : (

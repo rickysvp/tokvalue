@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
-import { BarChart3, Clock, Zap, Lightbulb, BookOpen, Loader2, Mail } from 'lucide-react'
+import { Zap, Lightbulb, BookOpen, Loader2, Mail } from 'lucide-react'
 import { getActiveEmail, getSessionToken } from '@/lib/credits-client'
 import { getServerDict } from '@/lib/i18n/server'
+import { UserMenu } from '@/components/UserMenu'
 
 const dict = getServerDict()
 
@@ -15,7 +16,6 @@ interface CreditBalance {
 }
 
 export function SiteHeader() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
 
@@ -23,12 +23,10 @@ export function SiteHeader() {
     const email = getActiveEmail()
     const token = getSessionToken()
     if (email && token) {
-      // 登录态仅在服务端验证 token 有效（= 邮箱已验证）后才置位，
-      // 防止 token 过期/残留或未完成验证时误显示 tracker/history。
       setBalanceLoading(true)
       fetch('/api/credits/balance', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.ok ? r.json() : null)
-        .then((data: CreditBalance | null) => { if (data) { setCreditBalance(data); setIsLoggedIn(true); } setBalanceLoading(false) })
+        .then((data: CreditBalance | null) => { if (data) { setCreditBalance(data) } setBalanceLoading(false) })
         .catch(() => setBalanceLoading(false))
     }
   }, [])
@@ -39,7 +37,6 @@ export function SiteHeader() {
       m.setSessionToken(null)
     })
     setCreditBalance(null)
-    setIsLoggedIn(false)
   }
 
   return (
@@ -55,10 +52,6 @@ export function SiteHeader() {
         {/* Nav */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
           {[
-            ...(isLoggedIn ? [
-              { label: dict.nav.tracker, href: '/tracker', icon: BarChart3 },
-              { label: dict.nav.history, href: '/history', icon: Clock },
-            ] : []),
             { label: dict.nav.pricing, href: '/#pricing', icon: Zap },
             { label: dict.nav.howItWorks, href: '/#capabilities', icon: Lightbulb },
           ].map(item => (
@@ -100,22 +93,8 @@ export function SiteHeader() {
                 </div>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/60 py-0.5 pl-0.5 pr-2.5 min-w-0">
-                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#FF0050] to-[#00F2EA] flex items-center justify-center text-[10px] font-bold text-black shrink-0">
-                  {(creditBalance.email[0] || '?').toUpperCase()}
-                </div>
-                <span className="text-[11px] text-neutral-400 truncate max-w-[120px]" title={creditBalance.email}>
-                  {creditBalance.email}
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="ml-0.5 text-neutral-600 hover:text-neutral-300 transition-colors shrink-0"
-                  aria-label="Sign out"
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
+              <div className="hidden sm:block">
+                <UserMenu email={creditBalance.email} onSwitchAccount={handleSignOut} />
               </div>
             </>
           ) : (
