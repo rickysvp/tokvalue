@@ -719,86 +719,108 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
               <ValuationMethodology result={result} />
 
               <SectionHeader step="02" title={dict.evaluation.sections.assessmentConclusion} icon={<Target className="h-4 w-4" />} />
-              <div className="mb-10 rounded-2xl border border-[#00F2EA]/20 bg-gradient-to-br from-[#00F2EA]/5 to-[#FF0050]/5 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="h-5 w-5 text-[#FF0050]" />
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">{dict.evaluation.conclusion.label}</h3>
+              <div className="mb-10 space-y-4">
+
+                {/* ── Layer 1 · Verdict Hero — 最重要，一眼看到 ── */}
+                <div className="rounded-2xl border border-[#FF0050]/30 bg-gradient-to-br from-[#FF0050]/10 via-[#0f0f0f] to-[#0f0f0f] p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF0050]/20">
+                      <Star className="h-4 w-4 text-[#FF0050]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xl font-bold text-white mb-2">{result.verdict}</div>
+                      <p className="text-sm text-neutral-300 leading-relaxed mb-4">{result.advice}</p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Price Reference */}
+                        <div className="flex items-start gap-2 rounded-xl border border-[#00F2EA]/15 bg-[#00F2EA]/5 px-4 py-3">
+                          <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-[#00F2EA]" />
+                          <div>
+                            <div className="text-xs font-medium text-[#00F2EA] mb-0.5">{dict.evaluation.conclusion.priceReference}</div>
+                            <div className="text-sm text-neutral-300">{result.priceAdvice}</div>
+                          </div>
+                        </div>
+                        {/* Peer pills — 内嵌，不再单独占一行 */}
+                        <div className="flex items-center gap-2 rounded-xl border border-[#00F2EA]/15 bg-[#00F2EA]/5 px-3 py-3">
+                          <TrendingUp className="h-3.5 w-3.5 shrink-0 text-[#00F2EA]" />
+                          <span className="text-xs text-neutral-300">
+                            {t(dict.resultLabels.peerComparison, { pct: result.metrics.engagementRate.toFixed(2), pct2: result.peerBenchmark ? Math.round((1 - result.peerBenchmark.percentile / 100) * 100) : '--' })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl border border-[#FF0050]/15 bg-[#FF0050]/5 px-3 py-3">
+                          <Star className="h-3.5 w-3.5 shrink-0 text-[#FF0050]" />
+                          <span className="text-xs text-neutral-300">
+                            {t(dict.resultLabels.brandRank, { tier: result.peerRanking?.tierLabel || '--' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xl font-bold mb-5">{result.summary.headline}</div>
-                <div className="grid gap-6 lg:grid-cols-2 mb-5">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
+
+                {/* ── Layer 2 · 四宫格 2×2：Strengths / Weaknesses / Audience / Action ── */}
+                <div className="grid gap-4 lg:grid-cols-2">
+
+                  {/* Strengths */}
+                  <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
+                    <div className="flex items-center gap-2 mb-3">
                       <ThumbsUp className="h-4 w-4 text-green-400" />
-                      <span className="text-sm font-medium text-green-400">{dict.evaluation.conclusion.strengths}</span>
+                      <span className="text-sm font-semibold text-green-400">{dict.evaluation.conclusion.strengths}</span>
                     </div>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {result.summary.strengths.map((s, i) => (
-                        <li key={i} className="text-sm text-neutral-300 flex items-start gap-2"><span className="mt-0.5 text-green-400">+</span>{s}</li>
+                        <li key={i} className="flex items-start gap-2.5 text-sm text-neutral-300">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold text-green-400 ring-1 ring-green-500/30">+</span>
+                          {s}
+                        </li>
                       ))}
                     </ul>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
+
+                  {/* Weaknesses */}
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                    <div className="flex items-center gap-2 mb-3">
                       <AlertTriangle className="h-4 w-4 text-amber-400" />
-                      <span className="text-sm font-medium text-amber-400">{dict.evaluation.conclusion.weaknesses}</span>
+                      <span className="text-sm font-semibold text-amber-400">{dict.evaluation.conclusion.weaknesses}</span>
                     </div>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {result.summary.weaknesses.map((w, i) => (
-                        <li key={i} className="text-sm text-neutral-300 flex items-start gap-2"><span className="mt-0.5 text-amber-400">-</span>{w}</li>
+                        <li key={i} className="flex items-start gap-2.5 text-sm text-neutral-300">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/30">−</span>
+                          {w}
+                        </li>
                       ))}
                     </ul>
                   </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2 mb-5">
-                  <div className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-[#0f0f0f] p-4">
+
+                  {/* Target Audience */}
+                  <div className="flex items-start gap-3 rounded-2xl border border-neutral-800 bg-[#0f0f0f] p-5">
                     <User className="mt-0.5 h-5 w-5 shrink-0 text-[#00F2EA]" />
                     <div>
-                      <div className="text-xs text-neutral-500 mb-1">{dict.evaluation.conclusion.targetAudience}</div>
-                      <div className="text-sm text-neutral-200">{result.summary.targetAudience}</div>
+                      <div className="text-xs text-neutral-500 mb-2 uppercase tracking-wider font-medium">{dict.evaluation.conclusion.targetAudience}</div>
+                      <div className="text-sm text-neutral-200 leading-relaxed">{result.summary.targetAudience}</div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-[#0f0f0f] p-4">
+
+                  {/* Best Action */}
+                  <div className="flex items-start gap-3 rounded-2xl border border-neutral-800 bg-[#0f0f0f] p-5">
                     <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[#FF0050]" />
                     <div>
-                      <div className="text-xs text-neutral-500 mb-1">{dict.evaluation.conclusion.bestAction}</div>
-                      <div className="text-sm text-neutral-200">{result.summary.bestAction}</div>
+                      <div className="text-xs text-neutral-500 mb-2 uppercase tracking-wider font-medium">{dict.evaluation.conclusion.bestAction}</div>
+                      <div className="text-sm text-neutral-200 leading-relaxed">{result.summary.bestAction}</div>
                     </div>
                   </div>
+
                 </div>
-                <div className="rounded-xl border border-[#00F2EA]/20 bg-[#00F2EA]/5 p-4">
-                  <div className="text-lg font-semibold mb-2">{result.verdict}</div>
-                  <p className="text-neutral-300 leading-relaxed mb-3">{result.advice}</p>
-                  <div className="flex items-start gap-3 pt-3 border-t border-[#00F2EA]/10">
-                    <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-[#00F2EA]" />
-                    <div>
-                      <div className="text-sm font-medium text-[#00F2EA]">{dict.evaluation.conclusion.priceReference}</div>
-                      <div className="mt-1 text-sm text-neutral-300">{result.priceAdvice}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="flex items-center gap-2 rounded-xl border border-[#00F2EA]/20 bg-[#00F2EA]/5 px-3 py-2.5">
-                    <TrendingUp className="h-4 w-4 shrink-0 text-[#00F2EA]" />
-                    <span className="text-xs text-neutral-400">
-                      {t(dict.resultLabels.peerComparison, { pct: result.metrics.engagementRate.toFixed(2), pct2: result.peerBenchmark ? Math.round((1 - result.peerBenchmark.percentile / 100) * 100) : '--' })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl border border-[#FF0050]/20 bg-[#FF0050]/5 px-3 py-2.5">
-                    <Star className="h-4 w-4 shrink-0 text-[#FF0050]" />
-                    <span className="text-xs text-neutral-400">
-                      {t(dict.resultLabels.brandRank, { tier: result.peerRanking?.tierLabel || '--' })}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-5">
-                  <MonetizationChecklist
-                    followerCount={result.followerCount}
-                    videoCount={result.videoCount}
-                    region={result.region}
-                    isUnlocked={true}
-                    hasHighRisk={result.riskFlags?.some(r => r.level === 'high')}
-                  />
-                </div>
+
+                {/* ── Layer 3 · Monetization Checklist ── */}
+                <MonetizationChecklist
+                  followerCount={result.followerCount}
+                  videoCount={result.videoCount}
+                  region={result.region}
+                  isUnlocked={true}
+                  hasHighRisk={result.riskFlags?.some(r => r.level === 'high')}
+                />
+
               </div>
 
               <SectionHeader step="03" title={dict.evaluation.sections.radarAndRisk} icon={<Shield className="h-4 w-4" />} />
