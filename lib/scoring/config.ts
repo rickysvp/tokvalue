@@ -414,13 +414,44 @@ export const BRANDING_SIGNAL_BONUS = {
 export const RISK_THRESHOLDS = {
   followerFollowingCritical: 0.05,    // 粉关比<0.05=高风险（大量买粉）
   followerFollowingWarning: 0.1,      // 粉关比<0.1=中风险
-  engagementRateCritical: 0.5,        // 互动率<0.5%=高风险
-  engagementRateWarning: 1.0,         // 互动率<1%=中风险
+  engagementRateCritical: 0.5,        // 互动率<0.5%=高风险（旧全局值，已被 TIER_ER_BENCHMARK 层级化替代，保留向后兼容）
+  engagementRateWarning: 1.0,         // 互动率<1%=中风险（旧全局值，已弃用）
   inactiveDaysCritical: 60,           // 断更>60天=高风险
   inactiveDaysWarning: 30,            // 断更>30天=中风险
-  cvPlaysCritical: 2.0,               // CV>2=流量极不稳定
-  cvPlaysWarning: 1.2,                // CV>1.2=波动较大
+  cvPlaysCritical: 2.0,               // CV>2=流量极不稳定（旧全局值，已被 TIER_CV_BENCHMARK 层级化替代）
+  cvPlaysWarning: 1.2,                // CV>1.2=波动较大（旧全局值，已弃用）
 } as const
+
+/**
+ * 层级 × 预期互动率基准（正常范围中值，%）
+ *
+ * 单一事实源：scoreHealth / scoreEngagement / scoreAuthenticity / detectRisks 均引用此表。
+ * 风险判定规则：
+ *   - er < 基准×0.3 → high 风险（假粉/机器人粉）
+ *   - er < 基准×0.5 → medium 风险（互动偏低）
+ * 这样「健康分低」与「风险信号」严格一致，不会再出现健康分 35 但风险区空白。
+ */
+export const TIER_ER_BENCHMARK: Record<'nano' | 'micro' | 'mid' | 'macro' | 'mega', number> = {
+  nano: 5.0,
+  micro: 3.5,
+  mid: 2.5,
+  macro: 1.8,
+  mega: 1.2,
+}
+
+/**
+ * 层级 × 预期播放变异系数基准（正常范围中值）
+ * 风险判定规则：
+ *   - CV > 基准×2.0 → medium 风险（流量极不稳定，可能 shadowban）
+ *   - CV > 基准×1.5 → low 风险（波动较大）
+ */
+export const TIER_CV_BENCHMARK: Record<'nano' | 'micro' | 'mid' | 'macro' | 'mega', number> = {
+  nano: 0.6,
+  micro: 0.7,
+  mid: 0.9,
+  macro: 1.1,
+  mega: 1.3,
+}
 
 /**
  * 发布活跃度模型（通用标准，非针对单个账号）

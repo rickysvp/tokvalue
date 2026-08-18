@@ -5,21 +5,14 @@ import {
   COMMERCE_INTENT_KEYWORDS,
   MONETIZATION_THRESHOLDS,
   POSTING_ACTIVITY,
+  TIER_ER_BENCHMARK,
+  TIER_CV_BENCHMARK,
   getPeerBenchmarks,
   clamp,
 } from './config'
 import { getFollowerTier, FollowerTier } from './valuation'
 
 // ========== 辅助：tier → 基准参数 ==========
-
-/** 层级 × 预期互动率（正常范围中值） */
-const TIER_ER_BENCHMARK: Record<FollowerTier, number> = {
-  nano: 5.0,
-  micro: 3.5,
-  mid: 2.5,
-  macro: 1.8,
-  mega: 1.2,
-}
 
 /** 层级 × 预期 playFanRatio（正常范围中值） */
 const TIER_PLAY_FAN_BENCHMARK: Record<FollowerTier, number> = {
@@ -28,15 +21,6 @@ const TIER_PLAY_FAN_BENCHMARK: Record<FollowerTier, number> = {
   mid: 0.35,
   macro: 0.25,
   mega: 0.15,
-}
-
-/** 层级 × 预期 CV（正常范围中值） */
-const TIER_CV_BENCHMARK: Record<FollowerTier, number> = {
-  nano: 0.6,
-  micro: 0.7,
-  mid: 0.9,
-  macro: 1.1,
-  mega: 1.3,
 }
 
 /** 层级 × 商业/品牌基础分（即使没有 explicit 商业关键词，大号也有品牌价值） */

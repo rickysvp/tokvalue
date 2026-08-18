@@ -8,6 +8,7 @@ import {
 } from '@/types'
 import {
   THREE_LAYER_WEIGHTS, RISK_THRESHOLDS, MONETIZATION_THRESHOLDS, POSTING_ACTIVITY,
+  TIER_ER_BENCHMARK, TIER_CV_BENCHMARK,
   getPeerBenchmarks, clamp,
 } from './scoring/config'
 import {
@@ -104,8 +105,16 @@ function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnTy
   }
   const { engagementRate, cvPlays, daysSinceLastPost, effectiveAvgPlays } = metrics
   const frRatio = profile.followerCount / Math.max(profile.followingCount, 1)
-  if (engagementRate < RISK_THRESHOLDS.engagementRateCritical) risks.push({ level: 'high', label: 'Suspected Bot Followers', detail: 'Extremely low engagement rate — follower activity may be inauthentic' })
-  else if (profile.followerCount > 100000 && engagementRate < 1) risks.push({ level: 'high', label: 'Inflated Followers', detail: 'Large follower count with abnormally low engagement — limited commercial value' })
+  const tier = getFollowerTier(profile.followerCount)
+  const erBenchmark = TIER_ER_BENCHMARK[tier]
+  const cvBenchmark = TIER_CV_BENCHMARK[tier]
+
+  // 互动率风险：层级化（与 scoreHealth 同源），保证「健康分低 ⟺ 必有风险信号」
+  if (engagementRate < erBenchmark * 0.3) {
+    risks.push({ level: 'high', label: 'Suspected Bot Followers', detail: `Engagement rate ${engagementRate.toFixed(1)}% is far below the ${erBenchmark}% norm for this tier — follower activity may be inauthentic` })
+  } else if (engagementRate < erBenchmark * 0.5) {
+    risks.push({ level: 'medium', label: 'Low Engagement', detail: `Engagement rate ${engagementRate.toFixed(1)}% is below the ${erBenchmark}% norm for this tier — audience interaction is weak` })
+  }
   // 高粉低播检测：粉丝 >= 10万 但 playFanRatio < 0.05 → 高风险
   // effectiveAvgPlays 已含 archive 历史兜底（断更号不会因冷启动低播误判），
   // 此处只对真僵尸粉（历史播放也低、无健康历史基线）触发
@@ -135,8 +144,9 @@ function detectRisks(profile: RawProfile, metrics: Metrics, classified: ReturnTy
   if (frRatio < RISK_THRESHOLDS.followerFollowingCritical) risks.push({ level: 'high', label: 'Suspected Follow-for-Follow', detail: 'Following count close to or exceeding follower count — possible bot/follow-train activity' })
   if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysCritical) risks.push({ level: 'high', label: 'Extended Inactivity', detail: 'No new videos in over 60 days' })
   else if (daysSinceLastPost > RISK_THRESHOLDS.inactiveDaysWarning) risks.push({ level: 'medium', label: 'Low Posting Frequency', detail: 'No new videos in over 30 days' })
-  const matureCV = classified.mature.length >= 3 ? calcMaturePlayCV(classified.mature) : cvPlays
-  if (matureCV > RISK_THRESHOLDS.cvPlaysCritical) risks.push({ level: 'medium', label: 'Erratic Traffic', detail: 'Extreme play volatility on mature videos — possible shadowban or inconsistent content' })
+  // 播放波动 CV：metrics.cvPlays 已是成熟帖 CV（与 scoreHealth 同源），直接引用
+  if (cvPlays > cvBenchmark * 2.0) risks.push({ level: 'medium', label: 'Erratic Traffic', detail: `Play volatility (CV ${cvPlays.toFixed(2)}) is 2× the ${cvBenchmark} norm for this tier — possible shadowban or inconsistent content` })
+  else if (cvPlays > cvBenchmark * 1.5) risks.push({ level: 'low', label: 'Play Volatility', detail: `Play volatility (CV ${cvPlays.toFixed(2)}) is above the ${cvBenchmark} norm for this tier` })
   if (profile.videoCount < 5) risks.push({ level: 'medium', label: 'Insufficient Data', detail: 'Very low video count — score may be unstable' })
   return risks
 }
@@ -162,7 +172,11 @@ function computeMetrics(profile: RawProfile, ep: ReturnType<typeof calcEffective
   const avgLikes = profile.posts.length ? profile.posts.reduce((s, p) => s + (p.likeCount || 0), 0) / profile.posts.length : 0
   const avgComments = profile.posts.length ? profile.posts.reduce((s, p) => s + (p.commentCount || 0), 0) / profile.posts.length : 0
   const avgShares = profile.posts.length ? profile.posts.reduce((s, p) => s + (p.shareCount || 0), 0) / profile.posts.length : 0
+  // 播放波动 CV：以成熟帖（3-30天）为准，与 detectRisks 同源。
+  // archive 历史爆款会污染全量 CV（历史峰值拉高 stdDev），不能反映当前稳定性。
+  // 成熟帖不足 3 条时回退全量 CV。
   const cvAll = avgPlays > 0 ? stdDev(allPlays) / avgPlays : 1
+  const cvPlays = classified.mature.length >= 3 ? calcMaturePlayCV(classified.mature) : cvAll
   const growth = calcWindowedPlayGrowth(profile, now)
   const latest = profile.posts.length ? Math.max(...profile.posts.map(p => p.createTime || 0)) : 0
   const daysSinceLastPost = latest ? Math.floor((now - latest) / 86400) : 999
@@ -179,7 +193,7 @@ function computeMetrics(profile: RawProfile, ep: ReturnType<typeof calcEffective
     recentMedianPlays: Math.round(median(classified.growing.length ? classified.growing.map(p => p.post.playCount || 0) : allPlays.slice(0, Math.ceil(allPlays.length / 2)))),
     olderMedianPlays: Math.round(median(classified.mature.length ? classified.mature.slice(-Math.ceil(classified.mature.length / 2)).map(p => p.post.playCount || 0) : [])),
     playGrowth: Number((growth.playGrowth * 100).toFixed(1)),
-    cvPlays: Number(cvAll.toFixed(2)),
+    cvPlays: Number(cvPlays.toFixed(2)),
     daysSinceLastPost,
     topPostPlays: top?.playCount || 0,
     topPostLikes: top?.likeCount || 0,
