@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEvaluation, saveEvaluation } from '@/lib/db'
+import { findEvaluation, saveEvaluation, upsertOwnership } from '@/lib/db'
 import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
     }
 
     const lang = 'en' // Fixed to English until multi-language dictionaries are ready
+    // 扣积分后补跑 AI 富化：这是付费解锁的真实价值（免费阶段不跑 AI）
     const enriched = await enrichWithAI(evaluation, lang)
     // 兜底：免费阶段若头像编码失败，付费升级时补抓
     if (!enriched.avatarData) {
@@ -129,6 +130,7 @@ export async function POST(req: NextRequest) {
     }
 
     await saveEvaluation(enriched, { evaluatedBy: userEmail, isFree: false })
+    await upsertOwnership(userEmail, normalized, { isFree: false })
 
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',

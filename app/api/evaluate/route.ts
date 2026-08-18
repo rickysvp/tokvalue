@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
 import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { scoreProfile } from '@/lib/scoring'
-import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit } from '@/lib/db'
+import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit, hasOwnership, upsertOwnership, isEvaluationPaid } from '@/lib/db'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits-server'
@@ -181,7 +181,8 @@ export async function POST(req: NextRequest) {
     if (isPaidMode) {
       const forceRefresh = body.force === true
       // 30-day cache to save RapidAPI + DeepSeek quota
-      if (!forceRefresh && await isCacheValid(normalized)) {
+      // 按用户收费：缓存命中只认「当前用户已付费拥有此账号」，跨用户不共享。
+      if (!forceRefresh && await isCacheValid(normalized) && await hasOwnership(userEmail, normalized, { paidOnly: true })) {
         const cached = await findEvaluation(normalized)
         if (cached) {
           recordEventFromRequest(req, {
@@ -222,6 +223,7 @@ export async function POST(req: NextRequest) {
         evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
 
         await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
+        await upsertOwnership(userEmail, normalized, { isFree: false })
 
         recordEventFromRequest(req, {
           event_type: 'evaluate_done',
@@ -314,19 +316,19 @@ export async function POST(req: NextRequest) {
       metadata: { free: true },
     }).catch(err => console.warn('[evaluate] recordEvent(free-start) failed:', err))
 
-    let evaluation = scoreProfile(profile)
+    const evaluation = scoreProfile(profile)
     // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
     evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
-    // Free mode: also run AI enrichment so free users experience full product value.
-    // DeepSeek cost is minimal (~cents/call); P0-1 fixed free rate limit (2/day) bounds cost.
-    // If AI fails, fall back to base scoring — don't block the free evaluation.
-    try {
-      evaluation = await enrichWithAI(evaluation, lang)
-    } catch (aiErr) {
-      console.warn('[evaluate] Free AI enrichment failed, returning base score:', aiErr instanceof Error ? aiErr.message : String(aiErr))
-    }
+    // Free mode：不跑 AI 富化（估值/评分/维度/风险/收入均为算法产出，不依赖 AI）。
+    // AI 富化（trendAnalysis/commercializationAdvice/contentStrategy 的个性化深度分析）
+    // 是付费解锁内容，由 upgrade 或付费 evaluate 路径补跑，避免免费评估白白烧 DeepSeek 钱。
 
-    await saveEvaluation(evaluation, { isFree: true, ip: clientIp })
+    // 免费评估不得覆盖已付费的报告快照（付费报告含 AI 富化深度分析）
+    const alreadyPaid = await isEvaluationPaid(normalized)
+    if (!alreadyPaid) {
+      await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: true, ip: clientIp })
+    }
+    await upsertOwnership(userEmail, normalized, { isFree: true })
 
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',

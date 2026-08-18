@@ -88,6 +88,21 @@ async function initStore(): Promise<Store> {
       // Migration: source posts data quality ('full' | 'partial') — paid cache must reject partial data
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS data_quality TEXT`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS avatar_data TEXT`
+      // Migration: 用户-评估所有权关联表（单一事实源）。
+      // 所有评估按用户收费、不共享：一个账号的报告快照存在 evaluations(username PK)，
+      // 而「谁付费解锁了哪个账号」由本表承载（email+username 联合主键，多用户可各自拥有同一账号）。
+      // evaluated_by 列保留仅为向后兼容（历史行回填），不再是归属唯一依据。
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS evaluation_ownership (
+          email TEXT NOT NULL,
+          username TEXT NOT NULL,
+          is_free BOOLEAN NOT NULL DEFAULT false,
+          upgraded_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (email, username)
+        )
+      `
+      await getSql()`CREATE INDEX IF NOT EXISTS idx_ownership_username ON evaluation_ownership(username)`
       // 报告满意度评分表（用于首页社会证明的真实数据源）
       await getSql()`
         CREATE TABLE IF NOT EXISTS report_ratings (
@@ -296,6 +311,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
         posts = EXCLUDED.posts,
         account_profile = EXCLUDED.account_profile,
         is_free = CASE WHEN evaluations.is_free IS FALSE THEN false ELSE EXCLUDED.is_free END,
+        evaluated_by = CASE WHEN EXCLUDED.evaluated_by IS NOT NULL THEN EXCLUDED.evaluated_by ELSE evaluations.evaluated_by END,
         evaluated_by_ip = CASE WHEN evaluations.is_free IS FALSE THEN evaluations.evaluated_by_ip ELSE EXCLUDED.evaluated_by_ip END,
         upgraded_at = CASE WHEN evaluations.is_free IS true AND EXCLUDED.is_free IS false THEN NOW() ELSE evaluations.upgraded_at END
     `
@@ -769,29 +785,133 @@ export async function findFreeEvaluation(username: string): Promise<Evaluation |
   return hours < 24 ? found : null
 }
 
-/** Upgrade a free evaluation to paid — trigger AI enrichment externally. */
-export async function upgradeEvaluation(username: string, evaluatedBy: string): Promise<boolean> {
-  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+// ── 所有权（按用户收费、不共享）数据访问 ──
+// evaluation_ownership 表是「谁付费解锁了哪个账号」的单一事实源。
+// evaluations 表只存账号级报告快照（username 主键不变）；多用户可各自拥有同一账号。
+
+function normEmail(email: string): string {
+  return String(email || '').trim().toLowerCase()
+}
+
+function normUsername(username: string): string {
+  return String(username || '').trim().replace(/^@/, '').toLowerCase()
+}
+
+/**
+ * 记录/更新所有权：INSERT ... ON CONFLICT (email, username) DO UPDATE。
+ * 免费评估记为 is_free=true，付费（或升级）记为 is_free=false 并置 upgraded_at。
+ * file/memory 模式：写入内存 map（开发用，不持久化）。
+ */
+export async function upsertOwnership(
+  email: string,
+  username: string,
+  opts: { isFree: boolean }
+): Promise<void> {
+  const key = normEmail(email)
+  const uname = normUsername(username)
+  if (!key || !uname) return
   const type = await initStore()
   if (type === 'postgres') {
-    // RETURNING 直接返回受影响行：非空 = 升级成功，空 = 无匹配的免费记录，
-    // 无需依赖 Neon 对无 RETURNING UPDATE 的返回行为，也省去一次 SELECT 读回
+    await getSql()`
+      INSERT INTO evaluation_ownership (email, username, is_free, upgraded_at)
+      VALUES (${key}, ${uname}, ${opts.isFree}, ${opts.isFree ? null : new Date().toISOString()})
+      ON CONFLICT (email, username) DO UPDATE SET
+        is_free = CASE WHEN evaluation_ownership.is_free IS FALSE THEN false ELSE EXCLUDED.is_free END,
+        upgraded_at = CASE WHEN evaluation_ownership.is_free IS true AND EXCLUDED.is_free IS false THEN NOW() ELSE evaluation_ownership.upgraded_at END
+    `
+    return
+  }
+  // file/memory 开发模式：内存 Map 承载（不落盘，仅测试/本地可用）
+  memoryOwnership.set(`${key}::${uname}`, { isFree: opts.isFree })
+}
+
+/**
+ * 查询用户是否已拥有某账号（免费或付费都算「拥有」）。
+ * opts.paidOnly=true 时仅认付费所有权（is_free=false），用于付费缓存命中。
+ */
+export async function hasOwnership(
+  email: string,
+  username: string,
+  opts: { paidOnly?: boolean } = {}
+): Promise<boolean> {
+  const key = normEmail(email)
+  const uname = normUsername(username)
+  if (!key || !uname) return false
+  const type = await initStore()
+  if (type === 'postgres') {
+    const rows = await getSql()`
+      SELECT 1 FROM evaluation_ownership
+      WHERE email = ${key} AND username = ${uname}
+        ${opts.paidOnly ? 'AND is_free = false' : ''}
+      LIMIT 1`
+    return rows.length > 0
+  }
+  const rec = memoryOwnership.get(`${key}::${uname}`)
+  if (!rec) return false
+  return opts.paidOnly ? !rec.isFree : true
+}
+
+/**
+ * 查询用户付费拥有的账号列表（用于 /api/history 按用户过滤）。
+ * 返回 username 列表；free 评估也计入历史（用户自己评估过的都应出现在历史里）。
+ * file/memory：返回内存 Map 中该用户的全部 username。
+ */
+export async function listOwnedUsernames(email: string, limit = 50): Promise<string[]> {
+  const key = normEmail(email)
+  if (!key) return []
+  const type = await initStore()
+  if (type === 'postgres') {
+    const rows = await getSql()`
+      SELECT username FROM evaluation_ownership
+      WHERE email = ${key}
+      ORDER BY created_at DESC
+      LIMIT ${limit}`
+    return rows.map((r: Record<string, unknown>) => String(r.username))
+  }
+  return [...memoryOwnership.keys()]
+    .filter(k => k.startsWith(`${key}::`))
+    .map(k => k.slice(key.length + 2))
+    .slice(0, limit)
+}
+
+// file/memory 模式的所有权内存 Map（开发用）
+const memoryOwnership = new Map<string, { isFree: boolean }>()
+
+/** 查询某账号当前报告快照是否为付费版（is_free=false）。免费评估不得覆盖付费 AI 报告。 */
+export async function isEvaluationPaid(username: string): Promise<boolean> {
+  const normalized = normUsername(username)
+  const type = await initStore()
+  if (type === 'postgres') {
+    const rows = await getSql()`SELECT is_free FROM evaluations WHERE username = ${normalized}`
+    const row = rows[0] as { is_free: boolean | null } | undefined
+    if (!row) return false
+    return row.is_free === false
+  }
+  const found = await findEvaluation(normalized)
+  return !!found && (found as { isFree?: boolean }).isFree === false
+}
+
+/** Upgrade a free evaluation to paid — trigger AI enrichment externally. */
+export async function upgradeEvaluation(username: string, evaluatedBy: string): Promise<boolean> {
+  const normalized = normUsername(username)
+  const type = await initStore()
+  if (type === 'postgres') {
+    // 所有权翻转为付费（is_free=false）。返回是否真的存在免费所有权待升级。
     const result = await getSql()`
-      UPDATE evaluations
-      SET is_free = false, upgraded_at = NOW(), evaluated_by = ${evaluatedBy}
-      WHERE username = ${normalized} AND is_free = true
+      UPDATE evaluation_ownership
+      SET is_free = false, upgraded_at = NOW()
+      WHERE username = ${normalized} AND email = ${normEmail(evaluatedBy)} AND is_free = true
       RETURNING username`
     const rows = result as unknown as Array<Record<string, unknown>>
     return rows.length > 0
   }
-  // File/memory: mark the record
-  const evaluation = await findEvaluation(normalized)
-  if (!evaluation) return false
-  await saveEvaluation(evaluation, { evaluatedBy, isFree: false })
+  // file/memory
+  const k = `${normEmail(evaluatedBy)}::${normalized}`
+  const rec = memoryOwnership.get(k)
+  if (!rec || !rec.isFree) return false
+  memoryOwnership.set(k, { isFree: false })
   return true
-}
-
-/**
+}/**
  * IP-based free rate limiter.
  * Uses a simple in-memory sliding window. For production, swap to Redis or DB.
  */

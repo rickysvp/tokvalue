@@ -261,9 +261,9 @@ export async function checkShareRateLimit(email: string): Promise<boolean> {
 }
 
 /**
- * 分享所有权校验：该 username 的评估必须由当前邮箱用户付费完成
- * （evaluations.evaluated_by = email 且 is_free 不为 true）。免费评估不可分享（产品决策）。
- * 依赖 evaluations 表（由 db.ts 的 initStore 创建，调用前需先触发 findEvaluation 等初始化）。
+ * 分享所有权校验：该 username 的评估必须由当前邮箱用户付费完成。
+ * 按用户收费、不共享：以 evaluation_ownership 表为单一事实源（is_free=false）。
+ * 免费评估不可分享（产品决策）。
  */
 export async function checkShareOwnership(
   username: string,
@@ -274,11 +274,10 @@ export async function checkShareOwnership(
   const key = email.toLowerCase().trim()
 
   const rows = await s`
-    SELECT evaluated_by, is_free FROM evaluations WHERE username = ${normalized}
+    SELECT is_free FROM evaluation_ownership WHERE email = ${key} AND username = ${normalized}
   `
-  const row = rows[0] as { evaluated_by: string | null; is_free: boolean | null } | undefined
+  const row = rows[0] as { is_free: boolean | null } | undefined
   if (!row) return 'not_found'
-  if (String(row.evaluated_by || '').toLowerCase() !== key) return 'forbidden'
   if (row.is_free === true) return 'forbidden'
   return 'ok'
 }

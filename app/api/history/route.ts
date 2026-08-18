@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { neon } from '@neondatabase/serverless'
 import { verifySessionToken, getBearerToken } from '@/lib/auth'
+import { listOwnedUsernames } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,12 @@ export async function GET(req: NextRequest) {
 
     const sql = neon(DATABASE_URL)
 
+    // 按用户收费、不共享：以 ownership 表为单一事实源，取当前用户拥有的账号列表
+    const owned = await listOwnedUsernames(auth.email, 50)
+    if (owned.length === 0) {
+      return NextResponse.json({ evaluations: [] }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+
     const rows = await sql`
       SELECT
         username, nickname, avatar, tier, score,
@@ -41,7 +48,7 @@ export async function GET(req: NextRequest) {
         business_value->'totalValue'->>'high' as bv_high,
         computed_at
       FROM evaluations
-      WHERE evaluated_by = ${auth.email}
+      WHERE username = ANY(${owned})
       ORDER BY created_at DESC
       LIMIT 50
     `
