@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { captureUtm, getUtm } from '@/lib/utm'
 
 /**
  * 生成 UUID v4。crypto.randomUUID() 仅在安全上下文（HTTPS / localhost）可用，
@@ -31,17 +32,21 @@ export function PageViewTracker() {
 
   useEffect(() => {
     if (!pathname) return
+    // 采集 utm（首次访问时从 URL 解析写入 sessionStorage）
+    captureUtm()
     // 从 sessionStorage 读取或生成 session_id（标签页级别去重）
     let sessionId = sessionStorage.getItem('tokvalue_sid')
     if (!sessionId) {
       sessionId = generateUUID()
       sessionStorage.setItem('tokvalue_sid', sessionId)
     }
+    const utm = getUtm()
     const body = JSON.stringify({
       event_type: 'page_view',
       path: pathname,
       referrer: document.referrer || '',
       session_id: sessionId,
+      ...(utm ? { metadata: { utm } } : {}),
     })
     // keepalive 确保页面卸载时请求仍能发出（替代 sendBeacon，且支持 POST + JSON）
     fetch('/api/track', {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { grantCredits, storePendingPurchase } from '@/lib/credits-server'
 import { verifyCode, createSessionToken } from '@/lib/auth'
+import { recordEventFromRequest } from '@/lib/analytics'
 import { getServerDict, t as serverT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const email = String(body.email || '').trim().toLowerCase()
     const code = String(body.code || '').trim()
+    // utm 归因：客户端透传，写入 pending + Creem metadata + checkout_start
+    const utm = (body.utm && typeof body.utm === 'object') ? body.utm as Record<string, unknown> : undefined
 
     if (!email) return NextResponse.json({ error: getServerDict().api.auth.NO_EMAIL, code: 'INVALID_EMAIL' }, { status: 400 })
     if (!/^\d{6}$/.test(code)) {
@@ -120,6 +123,7 @@ export async function POST(req: NextRequest) {
               packageId: entry.packageId,
               credits: String(entry.credits),
               amount: String(entry.amount),
+              ...(utm ? { utm: JSON.stringify(utm) } : {}),
             },
           }),
         })
@@ -151,8 +155,15 @@ export async function POST(req: NextRequest) {
           amount: entry.amount,
           checkoutId,
           createdAt: Date.now(),
+          ...(utm ? { utm } : {}),
         })
         console.log('[verify-code] Pending purchase stored for:', email, 'checkoutId:', checkoutId)
+        // 漏斗事件（结账发起，不算收入）
+        recordEventFromRequest(req, {
+          event_type: 'checkout_start',
+          email,
+          metadata: { packageId: entry.packageId, credits: entry.credits, amount: entry.amount, checkoutId, ...(utm ? { utm } : {}) },
+        }).catch(err => console.warn('[verify-code] recordEvent(checkout_start) failed:', err))
       } else {
         console.error('[verify-code] No checkout ID in Creem response!', JSON.stringify(session).slice(0, 200))
       }
@@ -171,7 +182,7 @@ export async function POST(req: NextRequest) {
       email,
       granted: entry.credits,
       packageId: entry.packageId,
-      balance: balance.credits,
+      balance: balance.balance.credits,
       token,
       message: serverT(getServerDict().api.auth.VERIFY_SUCCESS, { count: entry.credits }),
     })

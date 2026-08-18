@@ -103,7 +103,7 @@ export async function grantCredits(
   credits: number,
   amount: number,
   paymentId?: string,
-): Promise<CreditBalance> {
+): Promise<{ balance: CreditBalance; granted: boolean }> {
   const key = email.toLowerCase().trim()
   if (!key || !Number.isFinite(credits) || credits <= 0) {
     throw new Error('Invalid grant credits request')
@@ -127,7 +127,9 @@ export async function grantCredits(
       RETURNING payment_id
     `
     if (!locked || locked.length === 0) {
-      return getBalance(key) as Promise<CreditBalance>
+      // 幂等重放：该 paymentId 已发放过，直接返回余额，granted=false（供 webhook/claim 埋点去重）
+      const balance = await getBalance(key)
+      return { balance: balance!, granted: false }
     }
   }
 
@@ -145,7 +147,8 @@ export async function grantCredits(
   `
 
   // Read back the updated row
-  return getBalance(key) as Promise<CreditBalance>
+  const balance = await getBalance(key)
+  return { balance: balance!, granted: true }
 }
 
 // ── Pending Purchase (for payment callback fallback) ──
@@ -157,6 +160,7 @@ export interface PendingPurchase {
   amount: number
   checkoutId: string
   createdAt: number
+  utm?: Record<string, unknown>
 }
 
 async function initPendingTable(): Promise<void> {
@@ -171,6 +175,7 @@ async function initPendingTable(): Promise<void> {
       created_at BIGINT NOT NULL
     )
   `
+  await s`ALTER TABLE pending_purchases ADD COLUMN IF NOT EXISTS utm JSONB`
 }
 
 export async function storePendingPurchase(purchase: PendingPurchase): Promise<void> {
@@ -179,14 +184,15 @@ export async function storePendingPurchase(purchase: PendingPurchase): Promise<v
   const s = await getSql()
   const key = purchase.email.toLowerCase().trim()
   await s`
-    INSERT INTO pending_purchases (email, package_id, credits, amount, checkout_id, created_at)
-    VALUES (${key}, ${purchase.packageId}, ${purchase.credits}, ${purchase.amount}, ${purchase.checkoutId}, ${purchase.createdAt})
+    INSERT INTO pending_purchases (email, package_id, credits, amount, checkout_id, created_at, utm)
+    VALUES (${key}, ${purchase.packageId}, ${purchase.credits}, ${purchase.amount}, ${purchase.checkoutId}, ${purchase.createdAt}, ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb)
     ON CONFLICT (email) DO UPDATE SET
       package_id = ${purchase.packageId},
       credits = ${purchase.credits},
       amount = ${purchase.amount},
       checkout_id = ${purchase.checkoutId},
-      created_at = ${purchase.createdAt}
+      created_at = ${purchase.createdAt},
+      utm = ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb
   `
 }
 
@@ -218,7 +224,7 @@ export async function claimPendingPurchase(email: string): Promise<CreditBalance
   const checkoutId = String(pending.checkout_id)
 
   // Grant credits (idempotent via checkoutId)
-  const balance = await grantCredits(key, packageId, credits, amount, checkoutId)
+  const { balance } = await grantCredits(key, packageId, credits, amount, checkoutId)
 
   // Delete pending purchase
   await s`DELETE FROM pending_purchases WHERE email = ${key}`
@@ -240,6 +246,10 @@ export async function getPendingPurchase(email: string): Promise<PendingPurchase
     await s`DELETE FROM pending_purchases WHERE email = ${key}`
     return null
   }
+  let utm: Record<string, unknown> | undefined
+  if (r.utm) {
+    try { utm = typeof r.utm === 'string' ? JSON.parse(r.utm) : (r.utm as Record<string, unknown>) } catch { utm = undefined }
+  }
   return {
     email: key,
     packageId: String(r.package_id),
@@ -247,6 +257,7 @@ export async function getPendingPurchase(email: string): Promise<PendingPurchase
     amount: Number(r.amount),
     checkoutId: String(r.checkout_id),
     createdAt,
+    ...(utm ? { utm } : {}),
   }
 }
 

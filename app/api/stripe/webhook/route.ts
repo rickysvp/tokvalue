@@ -3,7 +3,7 @@ import { grantCredits } from '@/lib/credits-server'
 import { adminDeductCredits } from '@/lib/admin-credits'
 import { findPackage, CREDIT_PACKAGES } from '@/lib/credits'
 import { getServerDict } from '@/lib/i18n/server'
-import { recordRefund } from '@/lib/analytics'
+import { recordRefund, recordEvent } from '@/lib/analytics'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -119,6 +119,11 @@ export async function POST(req: NextRequest) {
       const metadata = (obj.metadata || {}) as Record<string, string>
       const email = metadata.email || ''
       const packageId = metadata.packageId || ''
+      // utm 归因：checkout 创建时塞进 Creem metadata（JSON 字符串），此处回读
+      let utm: Record<string, unknown> | undefined
+      if (metadata.utm) {
+        try { utm = JSON.parse(metadata.utm) } catch { utm = undefined }
+      }
 
       if (!email || !packageId) {
         console.warn('[creem-webhook] missing metadata fields:', { hasEmail: !!email, hasPackageId: !!packageId })
@@ -164,8 +169,16 @@ export async function POST(req: NextRequest) {
 
       try {
         const paidAmountUsd = info.orderAmount / 100
-        await grantCredits(email.toLowerCase(), packageId, pkg.credits, paidAmountUsd, checkoutId)
-        console.log('[creem-webhook] credits granted for', email, 'checkout:', checkoutId)
+        const { granted } = await grantCredits(email.toLowerCase(), packageId, pkg.credits, paidAmountUsd, checkoutId)
+        console.log('[creem-webhook] credits granted for', email, 'checkout:', checkoutId, 'granted:', granted)
+        // 漏斗事件（不算收入）：仅本次真正新发放时埋点，避免 webhook 重试/claim 幂等重放重复计数
+        if (granted) {
+          recordEvent({
+            event_type: 'checkout_success',
+            email,
+            metadata: { packageId, credits: pkg.credits, amount: paidAmountUsd, checkoutId, ...(utm ? { utm } : {}) },
+          }).catch(err => console.warn('[creem-webhook] recordEvent(checkout_success) failed:', err))
+        }
         // 收款事件已停写（收款统计整体下线，以 Creem 账单为准；此前的 purchase 事件已不再作为收入口径）
       } catch (err) {
         console.error('[creem-webhook] failed to grant credits:', err)

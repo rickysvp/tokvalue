@@ -7,7 +7,7 @@ import {
   LogOut, TrendingUp, Users, Activity,
   Settings, Loader2, CheckCircle2, XCircle, Search, FileText,
   CreditCard, Zap, RefreshCw, Filter,
-  Clock, AlertCircle, AlertTriangle, Globe, RotateCcw,
+  Clock, AlertCircle, AlertTriangle, Globe, RotateCcw, Link2,
 } from 'lucide-react'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -61,6 +61,13 @@ interface StatsData {
     visitors: number
     pct: number
   }>
+  funnel?: {
+    stages: Array<{ stage: string; label: string; count: number; pct: number }>
+  }
+  utmAttribution?: {
+    sources: Array<{ key: string; value: string; visitors: number; paid: number; pct: number }>
+    campaigns: Array<{ key: string; value: string; visitors: number; paid: number; pct: number }>
+  }
   trends?: {
     evaluationsByDay: Array<{ date: string; count: number }>
     pvuvByDay: Array<{ date: string; pv: number; uv: number }>
@@ -219,6 +226,8 @@ export default function AdminDashboard() {
           pvuv: data.pvuv || { totalPV: 0, totalUV: 0, pvToday: 0, uvToday: 0, pvWeek: 0, uvWeek: 0, pvMonth: 0, uvMonth: 0 },
           users: Array.isArray(data.users) ? data.users : [],
           sources: Array.isArray(data.sources) ? data.sources : [],
+          funnel: data.funnel || { stages: [] },
+          utmAttribution: data.utmAttribution || { sources: [], campaigns: [] },
           trends: data.trends || {
             evaluationsByDay: [],
             pvuvByDay: [],
@@ -615,6 +624,75 @@ export default function AdminDashboard() {
               <StatCard label="转化用户" value={fmtNum(o.convertedUsers)} sub="免费后付费" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[#FF0050]/20 to-transparent" accent="text-[#FF0050]" border="border-[#FF0050]/30" />
               <StatCard label="转化率" value={fmtRate(o.conversionRate)} sub={`${fmtNum(o.convertedUsers)} / ${fmtNum(o.freeUsers)}`} icon={<Activity className="h-5 w-5" />} gradient="from-amber-500/20 to-transparent" accent="text-amber-400" border="border-amber-500/30" />
             </div>
+
+            {/* 转化漏斗 */}
+            <ChartCard title={`转化漏斗（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<Filter className="h-4 w-4" />}>
+              {(() => {
+                const stages = stats!.funnel?.stages || []
+                if (stages.length === 0) {
+                  return <div className="py-10 text-center text-sm text-neutral-600">暂无漏斗数据（事件埋点上线后开始累计）</div>
+                }
+                const max = Math.max(...stages.map(s => s.count), 1)
+                return (
+                  <div className="space-y-3">
+                    {stages.map((s, i) => (
+                      <div key={s.stage} className="flex items-center gap-3">
+                        <div className="w-24 shrink-0 text-xs text-neutral-400">{s.label}</div>
+                        <div className="flex-1">
+                          <div className="h-8 rounded-lg bg-neutral-900 overflow-hidden">
+                            <div
+                              className="h-full rounded-lg flex items-center justify-end pr-2 transition-all"
+                              style={{
+                                width: `${Math.max((s.count / max) * 100, 2)}%`,
+                                background: `linear-gradient(90deg, ${['#00F2EA', '#22c55e', '#a855f7', '#FF0050', '#f59e0b'][i % 5]}, transparent)`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="w-16 shrink-0 text-right text-sm font-bold tabular-nums text-neutral-200">{fmtNum(s.count)}</div>
+                        <div className={`w-16 shrink-0 text-right text-xs tabular-nums ${i === 0 ? 'text-neutral-500' : s.pct >= 30 ? 'text-green-400' : s.pct >= 10 ? 'text-amber-400' : 'text-neutral-500'}`}>
+                          {i === 0 ? '—' : `${s.pct}%`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </ChartCard>
+
+            {/* UTM 归因 */}
+            <ChartCard title={`UTM 归因（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<Link2 className="h-4 w-4" />}>
+              {(() => {
+                const att = stats!.utmAttribution
+                const rows = att?.sources || []
+                if (rows.length === 0) {
+                  return <div className="py-10 text-center text-sm text-neutral-600">暂无 UTM 归因数据（带 utm 参数的访问落地后开始累计）</div>
+                }
+                const max = Math.max(...rows.map(r => r.visitors), 1)
+                return (
+                  <div className="space-y-3">
+                    {rows.map((r, i) => (
+                      <div key={r.key} className="flex items-center gap-3">
+                        <div className="w-40 shrink-0 text-xs text-neutral-400 truncate">{r.value || '(未命名)'}</div>
+                        <div className="flex-1">
+                          <div className="h-8 rounded-lg bg-neutral-900 overflow-hidden">
+                            <div
+                              className="h-full rounded-lg transition-all"
+                              style={{
+                                width: `${Math.max((r.visitors / max) * 100, 2)}%`,
+                                background: `linear-gradient(90deg, ${['#00F2EA', '#22c55e', '#a855f7', '#FF0050', '#f59e0b'][i % 5]}, transparent)`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="w-20 shrink-0 text-right text-sm font-bold tabular-nums text-neutral-200">{fmtNum(r.visitors)}</div>
+                        <div className="w-16 shrink-0 text-right text-xs tabular-nums text-green-400">{fmtNum(r.paid)} 付费</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </ChartCard>
 
             {/* 转化趋势 */}
             <ChartCard title={`转化趋势（近${TREND_PERIODS.find(p => p.key === trendPeriod)?.label}）`} icon={<TrendingUp className="h-4 w-4" />}>

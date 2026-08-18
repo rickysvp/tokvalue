@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPendingPurchase, claimPendingPurchase } from '@/lib/credits-server'
 import { getBearerToken, verifySessionToken, createSessionToken } from '@/lib/auth'
+import { recordEventFromRequest } from '@/lib/analytics'
 import { getServerDict } from '@/lib/i18n/server'
 import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -131,6 +132,13 @@ export async function POST(req: NextRequest) {
         totalPurchased: 0,
       })
     }
+
+    // 漏斗事件：到账（与 webhook 的 checkout_success 互补——本路径是 guest 回跳认领到账）
+    recordEventFromRequest(req, {
+      event_type: 'credit_claim',
+      email,
+      metadata: { credits: balance.credits, checkoutId: pending.checkoutId, isGuest, ...(pending.utm ? { utm: pending.utm } : {}) },
+    }).catch(err => console.warn('[claim] recordEvent(credit_claim) failed:', err))
 
     // Guest 通道：认领成功即签发会话 token，前端存储后转为登录态
     const sessionToken = isGuest ? await createSessionToken(email) : null

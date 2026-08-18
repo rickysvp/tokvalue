@@ -7,6 +7,7 @@ import {
   Zap, ArrowRight, Star, DollarSign, Shield, TrendingUp, Copy, CreditCard,
 } from 'lucide-react'
 import { useI18n, t } from '@/lib/i18n'
+import { getUtm } from '@/lib/utm'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import {
@@ -152,7 +153,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed, ...(getUtm() ? { utm: getUtm() } : {}) }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.ok) throw new Error(data.error || dict.verifyEmail.paymentStartFailed)
@@ -253,7 +254,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
       const res = await fetch('/api/auth/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code: fullCode }),
+        body: JSON.stringify({ email: email.trim(), code: fullCode, ...(getUtm() ? { utm: getUtm() } : {}) }),
       })
       const data = await res.json().catch(() => ({ error: dict.verifyEmail.verifyFailed }))
       if (!res.ok) throw new Error(data.error || dict.verifyEmail.verifyFailed)

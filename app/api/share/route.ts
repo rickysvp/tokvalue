@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createShare, getShare, checkShareRateLimit, checkShareOwnership } from '@/lib/share-store'
 import { findEvaluation } from '@/lib/db'
 import { verifySessionToken, getBearerToken } from '@/lib/auth'
+import { recordEventFromRequest } from '@/lib/analytics'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +52,14 @@ export async function POST(req: NextRequest) {
 
     const shareId = await createShare(evaluation)
     const shareUrl = `${req.nextUrl.protocol}//${req.nextUrl.host}/share/${shareId}`
+
+    // 漏斗/传播事件：分享创建（测病毒系数 K 因子的分母）
+    recordEventFromRequest(req, {
+      event_type: 'share_create',
+      email: payload.email,
+      username: normalized,
+      metadata: { shareId },
+    }).catch(err => console.warn('[share] recordEvent(share_create) failed:', err))
 
     return NextResponse.json({ shareId, shareUrl })
   } catch (err) {

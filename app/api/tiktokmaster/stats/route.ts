@@ -7,6 +7,8 @@ import {
   getPvuvByDay,
   getConversionByDay,
   getRefundsByDay,
+  getFunnel,
+  getUtmAttribution,
 } from '@/lib/analytics'
 import { getEvaluationsByDay } from '@/lib/db'
 import { requireAdminAuth } from '@/lib/admin-auth'
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
   const noStore = { 'Cache-Control': 'no-store, max-age=0' }
 
   try {
-    const [overview, pvuv, users, sources, evaluationsByDay, pvuvByDay, conversionByDay, refundsByDay] = await Promise.all([
+    const [overview, pvuv, users, sources, evaluationsByDay, pvuvByDay, conversionByDay, refundsByDay, funnel, utmAttribution] = await Promise.all([
       getStatsOverview(),
       getPVUV(),
       getUsersList(),
@@ -37,6 +39,8 @@ export async function GET(req: NextRequest) {
       getPvuvByDay(days),
       getConversionByDay(days),
       getRefundsByDay(days),
+      getFunnel(days),
+      getUtmAttribution(days),
     ])
 
     return NextResponse.json({
@@ -44,6 +48,8 @@ export async function GET(req: NextRequest) {
       pvuv,
       users,
       sources,
+      funnel,
+      utmAttribution,
       // 趋势时序数据（按所选周期 days 填充连续日期）
       trends: {
         evaluationsByDay,

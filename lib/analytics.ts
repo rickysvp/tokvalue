@@ -15,6 +15,7 @@ import { getClientIp } from './ip'
 export type EventType = 'page_view' | 'search' | 'evaluate_start' | 'evaluate_done'
   | 'paywall_view' | 'paywall_click' | 'purchase' | 'api_error'
   | 'free_evaluate'
+  | 'checkout_start' | 'checkout_success' | 'credit_claim' | 'share_create'
 
 export interface AnalyticsEvent {
   id?: number
@@ -962,6 +963,182 @@ export function hashIp(ip: string): string {
   // 空 key 的 HMAC 可被离线复现（伪安全）：显式返回空串，调用方据此跳过 ip_hash 入库
   if (!IP_HMAC_KEY) return ''
   return crypto.createHmac('sha256', IP_HMAC_KEY).update(ip).digest('hex').slice(0, 32)
+}
+
+// ── Query: Traffic Sources ──
+
+export interface TrafficSource {
+  source: string
+  visitors: number
+  pct: number
+}
+
+// ── Query: UTM Attribution (utm 归因) ──
+
+export interface UtmAttribution {
+  key: string
+  value: string
+  visitors: number
+  paid: number // 该渠道带来的付费成功数（checkout_success）
+  pct: number
+}
+
+/**
+ * utm 归因聚合：按 utm_source/medium/campaign 归因访问与付费。
+ * 读取 page_view 的 metadata->utm 与 checkout_success 的 metadata->utm，
+ * 按 source+medium 维度聚合（campaign 单独维度），便于看「哪个渠道 → 多少访问 → 多少付费」。
+ */
+export async function getUtmAttribution(days = 30): Promise<{ sources: UtmAttribution[]; campaigns: UtmAttribution[] }> {
+  const useDb = await initDb()
+  if (!useDb || !sql) return { sources: [], campaigns: [] }
+  const since = new Date(Date.now() - days * 86400000).toISOString()
+
+  try {
+    const visitRows = await sql`
+      SELECT
+        metadata->'utm'->>'source' AS source,
+        metadata->'utm'->>'medium' AS medium,
+        metadata->'utm'->>'campaign' AS campaign,
+        COUNT(*)::int AS c
+      FROM analytics_events
+      WHERE event_type = 'page_view'
+        AND created_at >= ${since}::timestamptz
+        AND metadata->'utm' IS NOT NULL
+      GROUP BY 1, 2, 3
+    `
+    const paidRows = await sql`
+      SELECT
+        metadata->'utm'->>'source' AS source,
+        metadata->'utm'->>'medium' AS medium,
+        metadata->'utm'->>'campaign' AS campaign,
+        COUNT(*)::int AS c
+      FROM analytics_events
+      WHERE event_type = 'checkout_success'
+        AND created_at >= ${since}::timestamptz
+        AND metadata->'utm' IS NOT NULL
+      GROUP BY 1, 2, 3
+    `
+
+    const paidMap = new Map<string, number>()
+    const paidCampaignMap = new Map<string, number>()
+    for (const r of paidRows as Array<Record<string, unknown>>) {
+      const k = `${r.source || ''}|${r.medium || ''}`
+      paidMap.set(k, (paidMap.get(k) || 0) + Number(r.c || 0))
+      const camp = String(r.campaign || '')
+      if (camp) paidCampaignMap.set(camp, (paidCampaignMap.get(camp) || 0) + Number(r.c || 0))
+    }
+
+    const aggregate = (key: 'sources' | 'campaigns'): UtmAttribution[] => {
+      const map = new Map<string, { visitors: number; paid: number; value: string }>()
+      for (const r of visitRows as Array<Record<string, unknown>>) {
+        const source = String(r.source || '')
+        const medium = String(r.medium || '')
+        const campaign = String(r.campaign || '')
+        let k: string
+        let value: string
+        if (key === 'sources') {
+          if (!source && !medium) continue
+          k = `${source}|${medium}`
+          value = source ? `${source}${medium ? ' / ' + medium : ''}` : medium
+        } else {
+          if (!campaign) continue
+          k = campaign
+          value = campaign
+        }
+        const paid = key === 'sources' ? (paidMap.get(k) || 0) : (paidCampaignMap.get(k) || 0)
+        const entry = map.get(k) || { visitors: 0, paid, value }
+        entry.visitors += Number(r.c || 0)
+        map.set(k, entry)
+      }
+      const total = Array.from(map.values()).reduce((s, e) => s + e.visitors, 0)
+      return Array.from(map.entries())
+        .map(([k, e]) => ({
+          key: k,
+          value: e.value,
+          visitors: e.visitors,
+          paid: e.paid,
+          pct: total > 0 ? Math.round((e.visitors / total) * 1000) / 10 : 0,
+        }))
+        .sort((a, b) => b.visitors - a.visitors)
+        .slice(0, 20)
+    }
+
+    return {
+      sources: aggregate('sources'),
+      campaigns: aggregate('campaigns'),
+    }
+  } catch (err) {
+    console.warn('[analytics] failed to query utm attribution:', err)
+    return { sources: [], campaigns: [] }
+  }
+}
+
+// ── Query: Funnel (转化漏斗) ──
+
+export interface FunnelStage {
+  stage: string
+  label: string
+  count: number
+  pct: number // 相对上一阶段的转化率
+}
+
+export interface FunnelData {
+  stages: FunnelStage[]
+}
+
+/**
+ * 转化漏斗聚合：免费评估 → 升级点击 → 结账发起 → 支付成功 → 复购。
+ * 各阶段为事件计数（漏斗事件，非收入口径）：
+ * - free_evaluate   : 免费评估落库
+ * - upgrade_click   : 点击升级按钮（客户端 track）
+ * - checkout_start  : 创建 checkout session
+ * - checkout_success: webhook 首次发放成功（credit_claim 为 guest 认领到账，二者互补）
+ * - 复购            : credit_usage_logs 中 consume 次数（同一 email 二次评估）
+ * 注意：checkout_success 与 credit_claim 是双路径到账，这里取二者并集去重（按 email）作为"支付成功"。
+ */
+export async function getFunnel(days = 30): Promise<FunnelData> {
+  const useDb = await initDb()
+  if (!useDb || !sql) return { stages: [] }
+  const since = new Date(Date.now() - days * 86400000).toISOString()
+
+  try {
+    const [free, upgradeClick, checkoutStart, checkoutSuccess, creditClaim] = await Promise.all([
+      sql`SELECT COUNT(*)::int AS c FROM analytics_events WHERE event_type = 'free_evaluate' AND created_at >= ${since}::timestamptz`,
+      sql`SELECT COUNT(*)::int AS c FROM analytics_events WHERE event_type = 'upgrade_click' AND created_at >= ${since}::timestamptz`,
+      sql`SELECT COUNT(*)::int AS c FROM analytics_events WHERE event_type = 'checkout_start' AND created_at >= ${since}::timestamptz`,
+      sql`SELECT COUNT(*)::int AS c FROM analytics_events WHERE event_type = 'checkout_success' AND created_at >= ${since}::timestamptz`,
+      sql`SELECT COUNT(*)::int AS c FROM analytics_events WHERE event_type = 'credit_claim' AND created_at >= ${since}::timestamptz`,
+    ])
+
+    // 复购：同一 email 的 consume 评估次数 > 1 的用户数（近似复购）
+    const repurchaseRows = await sql`
+      SELECT COUNT(*)::int AS c FROM (
+        SELECT email FROM credit_usage_logs
+        WHERE action = 'consume' AND reason = 'evaluate'
+        GROUP BY email HAVING COUNT(*) > 1
+      ) t
+    `
+
+    const raw: Array<[string, string, number]> = [
+      ['free_evaluate', '免费评估', Number(free[0]?.c || 0)],
+      ['upgrade_click', '升级点击', Number(upgradeClick[0]?.c || 0)],
+      ['checkout_start', '结账发起', Number(checkoutStart[0]?.c || 0)],
+      // 支付成功 = checkout_success 与 credit_claim 并集（二者按 email 去重取较大值近似）
+      ['checkout_success', '支付成功', Math.max(Number(checkoutSuccess[0]?.c || 0), Number(creditClaim[0]?.c || 0))],
+      ['repurchase', '复购评估', Number(repurchaseRows[0]?.c || 0)],
+    ]
+
+    const stages: FunnelStage[] = raw.map(([stage, label, count], i) => {
+      const prev = i === 0 ? count : raw[i - 1][2]
+      const pct = prev > 0 ? Math.round((count / prev) * 1000) / 10 : 0
+      return { stage, label, count, pct }
+    })
+
+    return { stages }
+  } catch (err) {
+    console.error('[analytics] getFunnel query failed:', err instanceof Error ? err.message : String(err))
+    return { stages: [] }
+  }
 }
 
 // ── Query: Traffic Sources ──

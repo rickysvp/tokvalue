@@ -13,6 +13,11 @@ import { ApiErrorResponse, Evaluation } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
+// 合并 utm 到事件 metadata（服务端归因）
+function withUtm(meta: Record<string, unknown>, utm?: Record<string, unknown>): Record<string, unknown> {
+  return utm && Object.keys(utm).length > 0 ? { ...meta, utm } : meta
+}
+
 function buildSnapshot(evaluation: Evaluation) {
   return {
     username: evaluation.username,
@@ -149,6 +154,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const username = String(body.username || '').trim()
+    // utm 归因：客户端从 sessionStorage 透传到 body（可选），服务端写入事件 metadata
+    const utm = (body.utm && typeof body.utm === 'object') ? body.utm as Record<string, unknown> : undefined
 
     if (!username) {
       return errorResponse('INVALID_USERNAME', getServerDict().api.evaluate.INVALID_USERNAME, 400)
@@ -313,7 +320,7 @@ export async function POST(req: NextRequest) {
       event_type: 'evaluate_start',
       username: normalized,
       path: '/api/evaluate',
-      metadata: { free: true },
+      metadata: withUtm({ free: true }, utm),
     }).catch(err => console.warn('[evaluate] recordEvent(free-start) failed:', err))
 
     const evaluation = scoreProfile(profile)
@@ -333,14 +340,14 @@ export async function POST(req: NextRequest) {
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',
       username: normalized,
-      metadata: {
+      metadata: withUtm({
         score: evaluation.score,
         tier: evaluation.tier,
         cached: false,
         free: true,
         // 免费额度使用进度（"used/limit"，如 "1/2"）；dev 无 token 跳过额度检查时无此字段
         freeUsed: freeAllowance ? `${freeAllowance.used}/${freeAllowance.limit}` : undefined,
-      },
+      }, utm),
     }).catch(err => console.warn('[evaluate] recordEvent(free-done) failed:', err))
 
     console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)

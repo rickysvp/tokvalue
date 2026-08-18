@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { recordEventFromRequest } from '@/lib/analytics'
 import { verifySessionToken, getBearerToken } from '@/lib/auth'
 import { storePendingPurchase } from '@/lib/credits-server'
 import { findPackage } from '@/lib/credits'
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const packageId = String(body.packageId || '').trim()
+    // utm 归因：客户端从 sessionStorage 透传到 body，存 pending + Creem metadata，webhook 回读
+    const utm = (body.utm && typeof body.utm === 'object') ? body.utm as Record<string, unknown> : undefined
 
     if (!packageId) {
       return NextResponse.json({ error: 'Package ID required', code: 'INVALID_PACKAGE' }, { status: 400 })
@@ -105,6 +108,7 @@ export async function POST(req: NextRequest) {
               packageId,
               credits: String(pkg.credits),
               amount: String(pkg.price),
+              ...(utm ? { utm: JSON.stringify(utm) } : {}),
             },
           }),
         })
@@ -134,8 +138,15 @@ export async function POST(req: NextRequest) {
           amount: pkg.price,
           checkoutId,
           createdAt: Date.now(),
+          ...(utm ? { utm } : {}),
         })
         console.log('[checkout] Pending purchase stored for:', email, 'checkoutId:', checkoutId)
+        // 漏斗事件（结账发起，不算收入）
+        recordEventFromRequest(req, {
+          event_type: 'checkout_start',
+          email,
+          metadata: { packageId, credits: pkg.credits, amount: pkg.price, checkoutId, ...(utm ? { utm } : {}) },
+        }).catch(err => console.warn('[checkout] recordEvent(checkout_start) failed:', err))
       }
 
       return NextResponse.json({

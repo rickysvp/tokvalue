@@ -14,6 +14,7 @@ import {
   getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken,
 } from '@/lib/credits-client'
 import { useI18n, t } from '@/lib/i18n'
+import { getUtm } from '@/lib/utm'
 
 interface PaidWallProps {
   onUnlock: () => void
@@ -83,7 +84,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed }),
+      body: JSON.stringify({ packageId: selectedPkg.id, email: trimmed, ...(getUtm() ? { utm: getUtm() } : {}) }),
     })
     const data = await res.json().catch(() => ({ error: dict.paidWall.sendFailed }))
     if (!res.ok) throw new Error(data.error || dict.paidWall.sendFailed)
