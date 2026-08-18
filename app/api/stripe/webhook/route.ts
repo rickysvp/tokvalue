@@ -4,6 +4,7 @@ import { adminDeductCredits } from '@/lib/admin-credits'
 import { findPackage, CREDIT_PACKAGES } from '@/lib/credits'
 import { getServerDict } from '@/lib/i18n/server'
 import { recordRefund, recordEvent } from '@/lib/analytics'
+import { createCommission, voidCommission, voidCommissionByOrder, resolveReferralCode } from '@/lib/referral'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -178,6 +179,33 @@ export async function POST(req: NextRequest) {
             email,
             metadata: { packageId, credits: pkg.credits, amount: paidAmountUsd, checkoutId, ...(utm ? { utm } : {}) },
           }).catch(err => console.warn('[creem-webhook] recordEvent(checkout_success) failed:', err))
+
+          // 推荐佣金：ref 参数（含在 utm 对象内）→ 解析推荐码 → 写 pending 佣金
+          // 自购拦截 + payment_id（checkoutId）幂等，webhook 重试不重复入账
+          const refCode = utm && typeof utm.ref === 'string' ? utm.ref.trim().toUpperCase() : ''
+          if (refCode) {
+            try {
+              const referrerEmail = await resolveReferralCode(refCode)
+              if (referrerEmail) {
+                const orderObj = (obj.order || {}) as Record<string, unknown>
+                const orderId = typeof orderObj.id === 'string' ? orderObj.id : ''
+                const cr = await createCommission({
+                  code: refCode,
+                  referrerEmail,
+                  buyerEmail: email.toLowerCase(),
+                  paymentId: checkoutId,
+                  orderId,
+                  packageId,
+                  amount: paidAmountUsd,
+                })
+                if (cr.created) {
+                  console.log('[creem-webhook] referral commission created:', checkoutId, 'commission:', cr.commission)
+                }
+              }
+            } catch (refErr) {
+              console.warn('[creem-webhook] referral commission create failed:', refErr instanceof Error ? refErr.message : String(refErr))
+            }
+          }
         }
         // 收款事件已停写（收款统计整体下线，以 Creem 账单为准；此前的 purchase 事件已不再作为收入口径）
       } catch (err) {
@@ -225,9 +253,31 @@ export async function POST(req: NextRequest) {
         }
         await adminDeductCredits(email, creditsToDeduct, `system:refund refund:${refundId} amount:${refundAmount}`)
         console.log('[creem-webhook] refund processed, deducted', creditsToDeduct, 'credits from', email, 'refund:', refundId)
+
+        // 撤销推荐佣金（pending → voided）：保护期内退款即作废。
+        // 佣金以 checkout_id（= checkout.completed 的 obj.id）为幂等键，退款事件的 object.checkout.id 与之对应。
+        const checkoutObj = (obj.checkout || {}) as Record<string, unknown>
+        const checkoutIdForVoid = typeof checkoutObj.id === 'string' ? checkoutObj.id : ''
+        if (checkoutIdForVoid) {
+          await voidCommission(checkoutIdForVoid)
+        }
       } catch (err) {
         console.error('[creem-webhook] refund credit deduction failed:', err)
         return NextResponse.json({ error: 'Refund processing failed' }, { status: 500 })
+      }
+    } else if (event.eventType === 'dispute.created') {
+      // 拒付/争议：撤销推荐佣金（pending → voided）。
+      // dispute 事件无 checkout.id，只有 transaction.order（order id），用 voidCommissionByOrder。
+      const obj = event.object as Record<string, unknown>
+      const transaction = (obj.transaction || {}) as Record<string, unknown>
+      const orderId = typeof transaction.order === 'string' ? transaction.order : ''
+      if (orderId) {
+        try {
+          await voidCommissionByOrder(orderId)
+          console.log('[creem-webhook] referral commission voided by dispute. order:', orderId)
+        } catch (err) {
+          console.warn('[creem-webhook] referral commission void by order failed:', err instanceof Error ? err.message : String(err))
+        }
       }
     } else {
       console.log('[creem-webhook] unhandled event type:', event.eventType)

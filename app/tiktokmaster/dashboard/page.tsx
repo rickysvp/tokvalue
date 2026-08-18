@@ -97,7 +97,7 @@ interface LogItem {
   createdAt: string
 }
 
-type Tab = 'overview' | 'conversion' | 'refund' | 'users' | 'logs' | 'ops'
+type Tab = 'overview' | 'conversion' | 'refund' | 'users' | 'payouts' | 'logs' | 'ops'
 
 // ── 赠送原因选项 ──
 const GRANT_REASONS = [
@@ -167,6 +167,7 @@ const TAB_CONFIG: Record<Tab, { label: string; icon: React.ReactNode; activeColo
   conversion: { label: '转化分析', icon: <TrendingUp className="h-4 w-4" />, activeColor: 'text-green-400 border-green-400' },
   refund:     { label: '退款分析', icon: <RotateCcw className="h-4 w-4" />, activeColor: 'text-orange-400 border-orange-400' },
   users:      { label: '用户管理', icon: <Users className="h-4 w-4" />, activeColor: 'text-purple-400 border-purple-400' },
+  payouts:    { label: '提现审核', icon: <CreditCard className="h-4 w-4" />, activeColor: 'text-[#00F2EA] border-[#00F2EA]' },
   logs:       { label: '系统日志', icon: <FileText className="h-4 w-4" />, activeColor: 'text-amber-400 border-amber-400' },
   ops:        { label: '运营操作', icon: <Settings className="h-4 w-4" />, activeColor: 'text-cyan-400 border-cyan-400' },
 }
@@ -194,6 +195,14 @@ export default function AdminDashboard() {
   const [logFilter, setLogFilter] = useState('')
   const [logTypeFilter, setLogTypeFilter] = useState('all')
   const [userSearch, setUserSearch] = useState('')
+
+  // 提现审核
+  const [payouts, setPayouts] = useState<Array<{ id: number; email: string; amount: number; usdc_address: string; status: string; tx_hash: string | null; reject_reason: string | null; created_at: string; processed_at: string | null }>>([])
+  const [payoutsLoading, setPayoutsLoading] = useState(false)
+  const [payoutFilter, setPayoutFilter] = useState<'requested' | 'processing' | 'paid' | 'rejected' | 'all'>('requested')
+  const [payoutTxHash, setPayoutTxHash] = useState('')
+  const [payoutRejectReason, setPayoutRejectReason] = useState('')
+  const [payoutActionResult, setPayoutActionResult] = useState<{ success: boolean; msg: string } | null>(null)
 
   // 用户管理操作
   const [userAction, setUserAction] = useState<{
@@ -266,9 +275,25 @@ export default function AdminDashboard() {
     }
   }, [])
 
+  const fetchPayouts = useCallback(async () => {
+    setPayoutsLoading(true)
+    try {
+      const qs = payoutFilter === 'all' ? '' : `?status=${payoutFilter}`
+      const res = await fetch(`/api/tiktokmaster/payouts${qs}`)
+      const data = await res.json()
+      setPayouts(data.payouts || [])
+    } catch {
+      console.error('获取提现列表失败')
+    } finally {
+      setPayoutsLoading(false)
+    }
+  }, [payoutFilter])
+
   useEffect(() => { fetchStats() }, [fetchStats])
   useEffect(() => { if (tab === 'ops') fetchHistory() }, [tab, fetchHistory])
   useEffect(() => { if (tab === 'logs') fetchLogs() }, [tab, fetchLogs])
+  useEffect(() => { if (tab === 'payouts') fetchPayouts() }, [tab, fetchPayouts])
+  useEffect(() => { if (tab === 'payouts') fetchPayouts() }, [tab, fetchPayouts])
 
   async function handleGrant() {
     const emails = grantMode === 'single'
@@ -350,6 +375,41 @@ export default function AdminDashboard() {
       setActionResult({ success: false, msg: '网络错误' })
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  async function handlePayoutAction(id: number, action: 'paid' | 'rejected') {
+    setPayoutActionResult(null)
+    if (action === 'paid') {
+      if (!/^0x[a-fA-F0-9]{64}$/.test(payoutTxHash.trim())) {
+        setPayoutActionResult({ success: false, msg: '请输入合法的链上交易哈希（0x + 64 hex）' })
+        return
+      }
+    } else {
+      if (!payoutRejectReason.trim()) {
+        setPayoutActionResult({ success: false, msg: '请填写拒绝原因' })
+        return
+      }
+    }
+    try {
+      const res = await fetch('/api/tiktokmaster/payouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'paid'
+          ? { action, id, txHash: payoutTxHash.trim() }
+          : { action, id, reason: payoutRejectReason.trim() }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setPayoutActionResult({ success: true, msg: action === 'paid' ? '已标记支付完成' : '已拒绝该提现' })
+        setPayoutTxHash('')
+        setPayoutRejectReason('')
+        fetchPayouts()
+      } else {
+        setPayoutActionResult({ success: false, msg: data.error || '操作失败' })
+      }
+    } catch {
+      setPayoutActionResult({ success: false, msg: '网络错误' })
     }
   }
 
@@ -970,6 +1030,126 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ════════ Tab: 提现审核 ════════ */}
+        {tab === 'payouts' && (
+          <div className="space-y-6">
+            {/* 筛选 */}
+            <div className="flex gap-2 flex-wrap">
+              {([['requested', '待处理'], ['processing', '处理中'], ['paid', '已支付'], ['rejected', '已拒绝'], ['all', '全部']] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setPayoutFilter(k)}
+                  className={`px-4 py-2 rounded-lg text-sm border transition-colors ${payoutFilter === k ? 'border-[#00F2EA] text-[#00F2EA] bg-[#00F2EA]/10' : 'border-neutral-700 text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {payoutActionResult && (
+              <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${payoutActionResult.success ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
+                {payoutActionResult.success ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
+                {payoutActionResult.msg}
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-neutral-800 bg-[#141414] overflow-hidden">
+              <div className="p-6 pb-4">
+                <h3 className="text-sm font-semibold text-neutral-300 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-[#00F2EA]" />
+                  USDC 提现申请
+                </h3>
+              </div>
+              {payoutsLoading ? (
+                <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#00F2EA]" /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-[#141414] z-10">
+                      <tr className="text-left text-xs text-neutral-500 border-b border-neutral-800">
+                        <th className="px-6 py-3 font-medium">时间</th>
+                        <th className="px-6 py-3 font-medium">用户</th>
+                        <th className="px-6 py-3 font-medium text-right">金额</th>
+                        <th className="px-6 py-3 font-medium">USDC 地址</th>
+                        <th className="px-6 py-3 font-medium">状态</th>
+                        <th className="px-6 py-3 font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payouts.map(p => {
+                        const pendingAction = p.status === 'requested' || p.status === 'processing'
+                        return (
+                          <tr key={p.id} className="border-b border-neutral-800/30">
+                            <td className="px-6 py-3 text-neutral-500 text-xs whitespace-nowrap">{fmtTime(p.created_at)}</td>
+                            <td className="px-6 py-3 text-neutral-300 text-xs">{p.email}</td>
+                            <td className="px-6 py-3 text-right tabular-nums text-[#00F2EA] font-semibold">${Number(p.amount).toFixed(2)}</td>
+                            <td className="px-6 py-3 text-neutral-400 text-xs font-mono max-w-[180px] truncate" title={p.usdc_address}>{p.usdc_address}</td>
+                            <td className="px-6 py-3">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                p.status === 'paid' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
+                                p.status === 'processing' ? 'text-sky-400 bg-sky-400/10 border-sky-400/20' :
+                                p.status === 'rejected' ? 'text-neutral-500 bg-neutral-500/10 border-neutral-500/20' :
+                                'text-amber-400 bg-amber-400/10 border-amber-400/20'
+                              }`}>
+                                {p.status === 'paid' ? '已支付' : p.status === 'processing' ? '处理中' : p.status === 'rejected' ? '已拒绝' : '待处理'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3">
+                              {pendingAction ? (
+                                <div className="flex flex-col gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={payoutTxHash}
+                                    onChange={e => setPayoutTxHash(e.target.value)}
+                                    placeholder="交易哈希 0x..."
+                                    className="w-40 rounded-lg border border-neutral-700 bg-[#0f0f0f] px-2.5 py-1.5 text-xs text-white placeholder:text-neutral-600 focus:border-[#00F2EA] focus:outline-none font-mono"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={payoutRejectReason}
+                                    onChange={e => setPayoutRejectReason(e.target.value)}
+                                    placeholder="拒绝原因（拒绝时填）"
+                                    className="w-40 rounded-lg border border-neutral-700 bg-[#0f0f0f] px-2.5 py-1.5 text-xs text-white placeholder:text-neutral-600 focus:border-red-400 focus:outline-none"
+                                  />
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => handlePayoutAction(p.id, 'paid')}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs hover:bg-emerald-500/25 transition-colors"
+                                    >
+                                      确认支付
+                                    </button>
+                                    <button
+                                      onClick={() => handlePayoutAction(p.id, 'rejected')}
+                                      className="px-2.5 py-1.5 rounded-lg bg-red-500/15 border border-red-500/25 text-red-400 text-xs hover:bg-red-500/25 transition-colors"
+                                    >
+                                      拒绝
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-neutral-500">
+                                  {p.tx_hash ? (
+                                    <span className="font-mono" title={p.tx_hash}>{p.tx_hash.slice(0, 10)}…{p.tx_hash.slice(-6)}</span>
+                                  ) : p.reject_reason ? (
+                                    <span className="text-red-400/70">{p.reject_reason}</span>
+                                  ) : '—'}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {payouts.length === 0 && (
+                        <tr><td colSpan={6} className="py-12 text-center text-neutral-600">暂无提现申请</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -43,6 +43,7 @@ import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, claimCre
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { ShareModal } from '@/components/ShareModal'
 import { UserMenu } from '@/components/UserMenu'
+import { ReferralCta } from '@/components/ReferralCta'
 import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
@@ -1158,6 +1159,7 @@ function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, o
 
         {/* Right side */}
         <div className="flex items-center justify-end gap-2 min-w-0 w-[160px] sm:w-auto">
+          <ReferralCta />
           {paymentSuccess && (
             <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium text-green-300 animate-fade-in-up">
               <CheckCircle2 className="h-3 w-3" />

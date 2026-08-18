@@ -11,6 +11,8 @@ const nextConfig = {
     ],
   },
   async headers() {
+    // 开发模式（HMR/React Refresh 依赖 unsafe-eval）不加 CSP，避免 hydration 崩溃；生产才加严格 CSP。
+    const isDev = process.env.NODE_ENV === 'development'
     return [{
       source: '/(.*)',
       headers: [
@@ -18,7 +20,7 @@ const nextConfig = {
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-        {
+        ...(isDev ? [] : [{
           key: 'Content-Security-Policy',
           // 核心目标：即使存在 XSS，也阻断「向外部域外传 token」的通道。
           // - connect-src 'self'：客户端 fetch/XHR 只能打同源 /api/*（token 无法外传）
@@ -39,7 +41,7 @@ const nextConfig = {
             "form-action 'self'",
             "frame-ancestors 'none'",
           ].join('; '),
-        },
+        }]),
       ],
     }]
   },

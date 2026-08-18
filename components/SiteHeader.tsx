@@ -7,6 +7,7 @@ import { Zap, Lightbulb, BookOpen, Loader2, Mail } from 'lucide-react'
 import { getActiveEmail, getSessionToken } from '@/lib/credits-client'
 import { getServerDict } from '@/lib/i18n/server'
 import { UserMenu } from '@/components/UserMenu'
+import { ReferralCta } from '@/components/ReferralCta'
 
 const dict = getServerDict()
 
@@ -77,6 +78,7 @@ export function SiteHeader() {
 
         {/* Right side */}
         <div className="flex items-center justify-end gap-2 min-w-0">
+          <ReferralCta />
           {balanceLoading && !creditBalance ? (
             <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
               <Loader2 className="h-3 w-3 animate-spin" />

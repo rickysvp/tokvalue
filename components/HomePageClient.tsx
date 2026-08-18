@@ -13,6 +13,7 @@ import { useI18n } from '@/lib/i18n'
 import { getActiveEmail, setActiveEmail, fetchBalance, getSessionToken, setSessionToken, claimCreditsApi, promotePendingToken } from '@/lib/credits-client'
 import { getUtm } from '@/lib/utm'
 import { UserMenu } from '@/components/UserMenu'
+import { ReferralCta } from '@/components/ReferralCta'
 import { VerifyEmailModal } from '@/components/VerifyEmailModal'
 import { AvatarWall } from '@/components/AvatarWall'
 import { CtaButton } from '@/components/CtaButton'
@@ -221,6 +222,7 @@ export default function HomePage() {
 
           {/* Right side */}
           <div className="flex items-center justify-end gap-2 min-w-0 w-[160px] sm:w-auto">
+            <ReferralCta />
             {paymentSuccess && (
               <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium text-green-300 animate-fade-in-up">
                 <CheckCircle2 className="h-3 w-3" />

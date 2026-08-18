@@ -14,6 +14,8 @@ export interface UtmParams {
   campaign?: string
   content?: string
   term?: string
+  /** 推荐码（?ref=CODE，推荐佣金追踪） */
+  ref?: string
   /** 首访时间戳（TTL 判断用） */
   ts: number
 }
@@ -36,6 +38,9 @@ function parseFromUrl(): Partial<Omit<UtmParams, 'ts'>> {
     const v = params.get(`utm_${key}`)
     if (v && v.trim() !== '') result[key] = v.trim().slice(0, 100)
   }
+  // 推荐码：?ref=CODE（不截断到 100，码本身短；仍做上限保护）
+  const ref = params.get('ref')
+  if (ref && ref.trim() !== '') result.ref = ref.trim().toUpperCase().slice(0, 32)
   return result
 }
 

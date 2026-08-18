@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { BarChart3, Clock, ChevronDown, LogOut } from 'lucide-react'
+import { BarChart3, Clock, ChevronDown, LogOut, Share2 } from 'lucide-react'
 import { getServerDict } from '@/lib/i18n/server'
 
 const dict = getServerDict()
@@ -54,6 +54,14 @@ export function UserMenu({ email, onSwitchAccount }: UserMenuProps) {
             <p className="text-[10px] text-neutral-500 truncate" title={email}>{email}</p>
           </div>
           <div className="p-1">
+            <Link
+              href="/referral"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800/60 hover:text-white transition-colors"
+            >
+              <Share2 className="h-4 w-4 text-[#FF0050]" />
+              {dict.nav.referral}
+            </Link>
             <Link
               href="/tracker"
               onClick={() => setOpen(false)}
