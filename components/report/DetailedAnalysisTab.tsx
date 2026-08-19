@@ -13,7 +13,8 @@ import { TrendAnalysisSection } from '@/components/sections/TrendAnalysisSection
 import { BrandMatchingSection } from '@/components/sections/BrandMatchingSection'
 import { CommercializationSection } from '@/components/sections/CommercializationSection'
 import { CommerceReadinessSection } from '@/components/sections/CommerceReadinessSection'
-import { Activity, Flame, Building2, DollarSign, ShoppingBag } from 'lucide-react'
+import { PillarSection } from '@/components/sections/PillarSection'
+import { Activity, Flame, Building2, DollarSign, ShoppingBag, BarChart3 } from 'lucide-react'
 
 interface DetailedAnalysisTabProps {
   result: Evaluation
@@ -24,6 +25,17 @@ export function DetailedAnalysisTab({ result }: DetailedAnalysisTabProps) {
 
   return (
     <>
+      {/* ── 新报告：6 支柱记分卡（Spec §7.1）；旧报告无 pillars 走原结构 ── */}
+      {result.pillars && (
+        <div className="mb-10">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            <BarChart3 className="h-4 w-4 text-[#00F2EA]" />
+            Six-Pillar Scorecard
+          </div>
+          <PillarSection pillars={result.pillars} />
+        </div>
+      )}
+
       <SectionHeader step="01" title={dict.evaluation.sections.deepAnalysis} icon={<Activity className="h-4 w-4" />} />
       <div className="mb-10">
         <DeepAnalysisSection result={result} />

@@ -13,6 +13,7 @@ import { SectionHeader } from '@/components/SectionHeader'
 import { CtaButton } from '@/components/CtaButton'
 import { RadarChart } from '@/components/RadarChart'
 import { PeerRankingSection } from '@/components/sections/PeerRankingSection'
+import { PillarSection } from '@/components/sections/PillarSection'
 import {
   Star, Zap, TrendingUp, Target, Lightbulb, ShieldAlert, Clock,
   BarChart3, Lock, ChevronDown, ShieldCheck,
@@ -254,12 +255,22 @@ export function CommercialSnapshotTab({ result, isPremium, onUnlock }: Commercia
         <p className="text-sm text-neutral-400 leading-relaxed">{snap?.nextMove.detail || ''}</p>
       </div>
 
-      {/* ── 付费追加：Evidence（雷达 + Market Position 并排支撑快照结论）── */}
+      {/* ── 付费追加：Evidence（新报告 6 支柱 / 旧报告雷达 + Market Position）── */}
       {isPremium && (
         <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 flex items-center justify-center">
-            <RadarChart dimensions={result.dimensions} />
-          </div>
+          {result.pillars ? (
+            <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6">
+              <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                <BarChart3 className="h-4 w-4 text-[#00F2EA]" />
+                Six-Pillar Scorecard
+              </div>
+              <PillarSection pillars={result.pillars} />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 flex items-center justify-center">
+              <RadarChart dimensions={result.dimensions} />
+            </div>
+          )}
           <div className="rounded-2xl border border-neutral-800 bg-[#0d0d0d] p-6">
             <PeerRankingSection ranking={result.peerRanking} />
           </div>
