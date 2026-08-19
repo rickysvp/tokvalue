@@ -14,6 +14,7 @@ import { CtaButton } from '@/components/CtaButton'
 import { RadarChart } from '@/components/RadarChart'
 import { PeerRankingSection } from '@/components/sections/PeerRankingSection'
 import { PillarSection } from '@/components/sections/PillarSection'
+import { BaselineStrip } from '@/components/sections/BaselineStrip'
 import {
   Star, Zap, TrendingUp, Target, Lightbulb, ShieldAlert, Clock,
   BarChart3, Lock, ChevronDown, ShieldCheck,
@@ -69,6 +70,9 @@ export function CommercialSnapshotTab({ result, isPremium, onUnlock }: Commercia
   return (
     <>
       <SectionHeader step="01" title={dict.evaluation.sections.commercialSnapshot} icon={<Star className="h-4 w-4" />} />
+
+      {/* ── Baseline / Since last review（Spec §8；旧报告不渲染）── */}
+      <BaselineStrip result={result} />
 
       {/* ═══ c) 顶部并排双大卡：Readiness + Account Value ═══ */}
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
@@ -287,6 +291,11 @@ export function CommercialSnapshotTab({ result, isPremium, onUnlock }: Commercia
           {snap?.nextMove && (
             <span className="rounded-full border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-[10px] text-neutral-400">
               {t(c.effortHours, { n: String(snap.nextMove.effortHours) })}
+            </span>
+          )}
+          {result.baselineReview && (
+            <span className="rounded-full border border-[#00F2EA]/30 bg-[#00F2EA]/10 px-2 py-0.5 text-[10px] font-semibold text-[#00F2EA]">
+              Baseline calibration
             </span>
           )}
         </div>

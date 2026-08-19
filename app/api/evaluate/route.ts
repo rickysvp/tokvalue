@@ -50,6 +50,24 @@ function buildSnapshot(evaluation: Evaluation) {
   }
 }
 
+/**
+ * B5a Baseline（Spec §8）：保存前取被 UPSERT 覆盖的上一次评估。
+ * 库中无该 username → 首评 baselineReview=true；有 → 附 previousReview 摘要（次评起显示 delta）。
+ */
+async function attachBaseline(evaluation: Evaluation, normalized: string) {
+  const previous = await findEvaluation(normalized)
+  if (previous) {
+    evaluation.previousReview = {
+      computedAt: previous.computedAt,
+      score: previous.score,
+      tier: previous.tier,
+      valueMid: previous.businessValue?.totalValue?.mid ?? 0,
+    }
+  } else {
+    evaluation.baselineReview = true
+  }
+}
+
 function isValidTrendAnalysis(v: unknown): boolean {
   if (!v || typeof v !== 'object') return false
   const t = v as Record<string, unknown>
@@ -267,6 +285,9 @@ export async function POST(req: NextRequest) {
         evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
         await advance('report_generating')
 
+        // ── B5a Baseline（Spec §8）：首评 / 次评对比摘要 ──
+        await attachBaseline(evaluation, normalized)
+
         await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
         await upsertOwnership(userEmail, normalized, { isFree: false })
 
@@ -467,6 +488,8 @@ export async function POST(req: NextRequest) {
     const evaluation = scoreProfile(profile)
     // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
     evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
+    // ── B5a Baseline（Spec §8）：首评 / 次评对比摘要 ──
+    await attachBaseline(evaluation, normalized)
     // Free mode：不跑 AI 富化（估值/评分/维度/风险/收入均为算法产出，不依赖 AI）。
     // AI 富化（trendAnalysis/commercializationAdvice/contentStrategy 的个性化深度分析）
     // 是付费解锁内容，由 upgrade 或付费 evaluate 路径补跑，避免免费评估白白烧 DeepSeek 钱。

@@ -8,6 +8,7 @@ import { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
 import { formatNumber, formatUsd } from '@/lib/format'
 import { SectionHeader } from '@/components/SectionHeader'
+import { BaselineStrip } from '@/components/sections/BaselineStrip'
 import { TIER_COLORS } from '@/lib/tier'
 import { valueTierOf } from '@/lib/pillar'
 import {
@@ -63,6 +64,9 @@ export function TeaserReport({ result, onUnlock }: TeaserReportProps) {
   return (
     <>
       <SectionHeader step="01" title="Your Free Snapshot" icon={<Star className="h-4 w-4" />} />
+
+      {/* ── Baseline / Since last review（Spec §8；旧报告不渲染）── */}
+      <BaselineStrip result={result} />
 
       {/* ═══ ① 价值区间 + 置信度 + 层级（Teaser 首屏主卡）═══ */}
       <div className="mb-6 rounded-2xl border border-neutral-800 bg-gradient-to-br from-[#0f0f0f] to-[#141414] p-6 sm:p-8">

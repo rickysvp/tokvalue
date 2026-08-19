@@ -71,6 +71,9 @@ export function stripForTeaser(evaluation: Evaluation): TeaserPayload {
     // ── Teaser 核心（Spec §3.3）──
     score: evaluation.score,
     tier: evaluation.tier,
+    // ── Baseline 模式（Spec §8）：首评文案 / 次评 delta 标记 ──
+    baselineReview: evaluation.baselineReview,
+    previousReview: evaluation.previousReview,
     businessValue: evaluation.businessValue
       ? {
           // Spec §7.3：区间宽度按置信度 band 重算（低置信更宽）；旧报告无 valuationV2 → 原样透传

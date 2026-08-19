@@ -88,6 +88,8 @@ async function initStore(): Promise<Store> {
       // Migration: source posts data quality ('full' | 'partial') — paid cache must reject partial data
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS data_quality TEXT`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS avatar_data TEXT`
+      // Migration: B5a 报告 v2 叙事（6 支柱 / 估值 v2 / Baseline 模式）单列 JSONB 持久化
+      await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS report_v2 JSONB`
       // Migration: 用户-评估所有权关联表（单一事实源）。
       // 所有评估按用户收费、不共享：一个账号的报告快照存在 evaluations(username PK)，
       // 而「谁付费解锁了哪个账号」由本表承载（email+username 联合主键，多用户可各自拥有同一账号）。
@@ -224,6 +226,31 @@ interface SaveOptions {
   ip?: string
 }
 
+/** B5a：报告 v2 叙事字段打包（pillars / valuationV2 / Baseline）→ report_v2 JSONB */
+function packReportV2(evaluation: Evaluation) {
+  const has = evaluation.pillars || evaluation.valuationV2
+    || evaluation.baselineReview !== undefined || evaluation.previousReview
+  if (!has) return null
+  return {
+    pillars: evaluation.pillars ?? null,
+    valuationV2: evaluation.valuationV2 ?? null,
+    baselineReview: evaluation.baselineReview ?? null,
+    previousReview: evaluation.previousReview ?? null,
+  }
+}
+
+/** report_v2 JSONB → Evaluation 字段（null → undefined，保证可选语义） */
+function unpackReportV2(row: Record<string, unknown>): Partial<Pick<Evaluation, 'pillars' | 'valuationV2' | 'baselineReview' | 'previousReview'>> {
+  const v2 = row.report_v2 as Record<string, unknown> | null | undefined
+  if (!v2) return {}
+  return {
+    ...(v2.pillars ? { pillars: v2.pillars as Evaluation['pillars'] } : {}),
+    ...(v2.valuationV2 ? { valuationV2: v2.valuationV2 as Evaluation['valuationV2'] } : {}),
+    ...(v2.baselineReview !== null && v2.baselineReview !== undefined ? { baselineReview: v2.baselineReview as boolean } : {}),
+    ...(v2.previousReview ? { previousReview: v2.previousReview as Evaluation['previousReview'] } : {}),
+  }
+}
+
 export async function saveEvaluation(evaluation: Evaluation, options?: string | SaveOptions): Promise<Evaluation> {
   // Backward-compat: string arg → { evaluatedBy }
   const opts: SaveOptions = typeof options === 'string'
@@ -240,7 +267,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
          account_health, content_cadence, engagement_quality, peer_benchmark, brand_potential, monetization_path, growth_plan,
          income_estimate, business_value, revenue_roadmap, content_strategy, peer_ranking, brand_matching,
          trend_analysis, commercialization_advice, commerce_readiness, formula_version, calculation_metadata, data_quality,
-         computed_at, avatar, avatar_data, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip)
+         computed_at, avatar, avatar_data, bio, follower_count, following_count, total_likes, video_count, verified, region, posts, account_profile, evaluated_by, is_free, evaluated_by_ip, report_v2)
       VALUES
         (${evaluation.username}, ${evaluation.nickname}, ${evaluation.score}, ${evaluation.tier},
          ${JSON.stringify(evaluation.dimensions)}::jsonb, ${JSON.stringify(evaluation.summary)}::jsonb,
@@ -267,7 +294,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
          ${evaluation.followerCount}, ${evaluation.followingCount}, ${evaluation.totalLikes}, ${evaluation.videoCount},
          ${evaluation.verified ?? null}, ${evaluation.region || null}, ${JSON.stringify(evaluation.posts || [])}::jsonb,
          ${JSON.stringify(evaluation.accountProfile)}::jsonb,
-         ${evaluatedBy || null}, ${isFree}, ${ip || null})
+         ${evaluatedBy || null}, ${isFree}, ${ip || null}, ${JSON.stringify(packReportV2(evaluation))}::jsonb)
       ON CONFLICT (username) DO UPDATE SET
         nickname = EXCLUDED.nickname,
         score = EXCLUDED.score,
@@ -311,6 +338,7 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
         posts = EXCLUDED.posts,
         account_profile = EXCLUDED.account_profile,
         is_free = CASE WHEN evaluations.is_free IS FALSE THEN false ELSE EXCLUDED.is_free END,
+        report_v2 = EXCLUDED.report_v2,
         evaluated_by = CASE WHEN EXCLUDED.evaluated_by IS NOT NULL THEN EXCLUDED.evaluated_by ELSE evaluations.evaluated_by END,
         evaluated_by_ip = CASE WHEN evaluations.is_free IS FALSE THEN evaluations.evaluated_by_ip ELSE EXCLUDED.evaluated_by_ip END,
         upgraded_at = CASE WHEN evaluations.is_free IS true AND EXCLUDED.is_free IS false THEN NOW() ELSE evaluations.upgraded_at END
@@ -761,6 +789,8 @@ function rowToEvaluation(row: Record<string, unknown>): Evaluation {
     formulaVersion: row.formula_version ? String(row.formula_version) as 'v2' : undefined,
     calculationMetadata: parseJson<Evaluation['calculationMetadata']>(row.calculation_metadata),
     dataQuality: row.data_quality ? String(row.data_quality) as Evaluation['dataQuality'] : undefined,
+    // B5a：report_v2 JSONB → pillars / valuationV2 / Baseline 字段（旧报告无此列 → 空对象，走旧模板）
+    ...unpackReportV2(row),
   })
 }
 
