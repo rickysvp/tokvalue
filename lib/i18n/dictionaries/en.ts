@@ -831,6 +831,13 @@ const en = {
       peerMedian: 'Peer median',
       insight: 'Insight',
     },
+    risk: {
+      title: 'Risk & Account Health',
+      subtitle: 'Signals brands check before they pay.',
+      noneDetected: 'No risk signals detected in public data.',
+      riskScore: 'Risk Score',
+      healthChecks: 'Health checks',
+    },
   },
 
   // ── Tier Labels ──
