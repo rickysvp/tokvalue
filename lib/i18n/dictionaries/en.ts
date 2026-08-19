@@ -895,6 +895,22 @@ const en = {
         medium: 'Medium potential',
       },
     },
+    brand: {
+      title: 'Brand & Commerce Fit',
+      subtitle: 'Which brands and commerce channels fit your account.',
+      readiness: 'Commerce readiness',
+      matchedBrands: 'Matched brand categories',
+      exampleBrands: 'Brands',
+      channels: 'Channel fit',
+      products: 'Product matches',
+      recommendation: 'Recommendation',
+      avgOrder: 'avg. order',
+      fit: {
+        high: 'Strong fit',
+        medium: 'Possible',
+        low: 'Weak',
+      },
+    },
     risk: {
       title: 'Risk & Account Health',
       subtitle: 'Signals brands check before they pay.',
