@@ -7,7 +7,7 @@ export function UnlockBar({ price, ctaText, includedText, includedItems, onUnloc
   price: string
   ctaText: string
   includedText: string
-  includedItems: string[]
+  includedItems: readonly string[]
   onUnlock: () => void
 }) {
   const [showIncluded, setShowIncluded] = useState(false)

@@ -6,26 +6,15 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
 import { getUtm } from '@/lib/utm'
-import { ScoreGauge } from '@/components/ScoreGauge'
-import { Search, Loader2, History, Download, TrendingUp, DollarSign, BadgeCheck, MapPin, Tag, Clock, UserCheck, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, BarChart3, FlaskConical } from 'lucide-react'
+import { Search, Loader2, History, Download, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, FlaskConical } from 'lucide-react'
 import html2canvas from 'html2canvas'
-import { MonetizationChecklist } from '@/components/sections/MonetizationChecklist'
 import { PaidWallModal } from '@/components/PaidWallModal'
 import { EvaluatingModal, type EvaluatingStatus } from '@/components/EvaluatingModal'
-import { CommercialSnapshotTab } from '@/components/report/CommercialSnapshotTab'
-import { DealPricingTab } from '@/components/report/DealPricingTab'
-import { ThirtyDayPlanTab } from '@/components/report/ThirtyDayPlanTab'
-import { DetailedAnalysisTab } from '@/components/report/DetailedAnalysisTab'
-import { LockedTabPreview } from '@/components/report/LockedTabPreview'
-import { TeaserReport } from '@/components/report/TeaserReport'
 import { SiteFooter } from '@/components/SiteFooter'
-import { ReportTabs } from '@/components/ReportTabs'
-import { FreeBanner } from '@/components/FreeBanner'
-import { UnlockFooter } from '@/components/UnlockFooter'
+import { ReportShell } from '@/components/report-v2/ReportShell'
 import { DemoConversionBar } from '@/components/DemoConversionBar'
 import { saveToTracker, getTrackedByUsername } from '@/lib/tracker'
 import { downloadPdf } from '@/lib/export-pdf'
-import { formatNumber } from '@/lib/format'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
@@ -38,7 +27,6 @@ import { ReferralCta } from '@/components/ReferralCta'
 import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
-import type { TabId } from '@/components/ReportTabs'
 import { trackEvent } from '@/lib/track-client'
 
 export function EvaluatePage({ username }: { username: string }) {
@@ -89,7 +77,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   const mountedRef = useRef(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabId>('snapshot')
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -400,9 +387,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     if (target) handleEvaluate(target)
   }, [handleEvaluate])
 
-  // 解锁内容区锚点（解锁成功后平滑滚动至此，避免直接跳到底部）
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-
   // Handle unlock
   async function handleUnlock() {
     if (!result) return
@@ -447,9 +431,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       toast('Report unlocked! 🎉')
       setCreditBalance(prev => prev ? { ...prev, credits: Math.max(0, prev.credits - 1) } : null)
       trackEvent('unlock_completed', { username: result.username })
-      // 平滑滚动至解锁内容区顶部（报告 tabs），下一帧等 full 渲染挂载
+      // 平滑滚动至解锁内容区顶部（Report v2 #unlocked-content 锚点），下一帧等 full 渲染挂载
       requestAnimationFrame(() => {
-        tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        document.getElementById('unlocked-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
     } catch {
       toast(dict.errors.networkError)
@@ -524,7 +508,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     try {
       const reportEl = reportRef.current
       const canvas = await html2canvas(reportEl, {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: '#F7F8FA',
         scale: 2,
         useCORS: true,
         allowTaint: true,
@@ -624,197 +608,87 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         </div>
       </section>
 
-      {/* Report */}
+      {/* Report — v2 浅色单页叙事报告 */}
       {result && (
-        <section className="mx-auto max-w-5xl px-4 py-10">
-          <div ref={reportRef} className="rounded-3xl border border-neutral-800 bg-[#141414] p-6 sm:p-10">
-            {/* Account Header */}
-            <div className="flex items-start gap-5 mb-8 pb-6 border-b border-neutral-800">
-              {result.avatar ? (
-                <Image src={result.avatar} alt={result.nickname} width={64} height={64} className="h-14 w-14 sm:h-16 sm:w-16 rounded-full border-2 border-neutral-700 shrink-0 object-cover" />
-              ) : (
-                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-neutral-800 flex items-center justify-center text-xl font-bold shrink-0">
-                  {result.nickname.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-xl sm:text-2xl font-bold">{result.nickname}</h2>
-                  {result.verified && (
-                    <BadgeCheck className="h-5 w-5 text-[#00F2EA] shrink-0" />
-                  )}
-                  {result.mock && (
-                    <span className="inline-block rounded-full border border-red-700/60 bg-red-950/40 px-2.5 py-0.5 text-xs font-semibold text-red-400">
-                      {dict.common.mockData} — sample only
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-neutral-500">@{result.username}</p>
-                {result.bio && (
-                  <p className="text-sm text-neutral-400 mt-1 line-clamp-1">{result.bio}</p>
-                )}
-                <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
-                  <span><span className="font-semibold tabular-nums">{formatNumber(result.followerCount)}</span> <span className="text-neutral-500">{dict.common.followers}</span></span>
-                  <span><span className="font-semibold tabular-nums">{formatNumber(result.followingCount)}</span> <span className="text-neutral-500">{dict.common.following}</span></span>
-                  <span><span className="font-semibold tabular-nums">{formatNumber(result.totalLikes)}</span> <span className="text-neutral-500">{dict.common.totalLikes}</span></span>
-                  <span><span className="font-semibold tabular-nums">{result.videoCount}</span> <span className="text-neutral-500">{dict.common.videos}</span></span>
-                  {result.region && (
-                    <span className="inline-flex items-center gap-1 text-neutral-500">
-                      <MapPin className="h-3 w-3" />
-                      {result.region}
-                    </span>
-                  )}
-                </div>
-                {result.accountProfile && (
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {result.accountProfile.categories.map((cat, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 rounded-full border border-[#00F2EA]/30 bg-[#00F2EA]/10 px-2 py-0.5 text-xs text-[#00F2EA]">
-                        <Tag className="h-3 w-3" />
-                        {cat}
-                      </span>
-                    ))}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-xs text-neutral-400">
-                      <UserCheck className="h-3 w-3" />
-                      {result.accountProfile.personaType}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-neutral-700 bg-neutral-800/50 px-2 py-0.5 text-xs text-neutral-400">
-                      <Clock className="h-3 w-3" />
-                      {result.accountProfile.postingRhythm}
-                    </span>
-                  </div>
-                )}
+        <div className="bg-[#F7F8FA]">
+          {result.mock && (
+            <div className="mx-auto max-w-3xl px-4 pt-6">
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-700">
+                <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+                <span><span className="font-semibold">Sample report</span> — illustrative data for a fictional fitness creator. Evaluate your own handle for real numbers.</span>
               </div>
-              <div data-pdf="score-gauge"><ScoreGauge score={result.score} tier={result.tier} size={100} showLabel /></div>
             </div>
-
-            {/* Tab Navigation — PMF 决策页顺序 */}
-            <div ref={tabsRef} className="scroll-mt-24">
-              {result.mock && (
-                <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300/90">
-                  <FlaskConical className="h-3.5 w-3.5 shrink-0" />
-                  <span><span className="font-semibold">Sample report</span> — illustrative data for a fictional fitness creator. Evaluate your own handle for real numbers.</span>
-                </div>
-              )}
-              <ReportTabs active={activeTab} onChange={setActiveTab} isPremium={isPremium} />
-            </div>
-
-            {/* Free tier badge */}
-            {!isPremium && result && (
-              <FreeBanner tier={result.tier} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-            )}
-
-            {/* ═══ SNAPSHOT TAB（免费 Teaser / 付费完整快照）═══ */}
-            {activeTab === 'snapshot' && (<>
-              {isPremium ? (
-                <CommercialSnapshotTab
-                  result={result}
-                  isPremium={isPremium}
-                  onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
-                />
-              ) : (
-                <TeaserReport
-                  result={result}
-                  onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
-                />
-              )}
-              {/* 变现门槛检查（平台资格事实，免费可见） */}
-              <MonetizationChecklist
-                followerCount={result.followerCount}
-                videoCount={result.videoCount}
-                region={result.region}
-                isUnlocked={true}
-                hasHighRisk={result.riskFlags?.some(r => r.level === 'high')}
-              />
-            </>)}
-
-            {/* ═══ PRICE YOUR NEXT DEAL TAB（付费）═══ */}
-            {activeTab === 'deal' && (
-              isPremium
-                ? <DealPricingTab result={result} />
-                : <LockedTabPreview kind="pricing" icon={DollarSign} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-            )}
-
-            {/* ═══ 30-DAY PLAN TAB（付费）═══ */}
-            {activeTab === 'plan' && (
-              isPremium
-                ? <ThirtyDayPlanTab result={result} />
-                : <LockedTabPreview kind="plan" icon={TrendingUp} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-            )}
-
-            {/* ═══ DETAILED ANALYSIS TAB（付费二级内容）═══ */}
-            {activeTab === 'analysis' && (
-              isPremium
-                ? <DetailedAnalysisTab result={result} />
-                : <LockedTabPreview kind="analysis" icon={BarChart3} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-            )}
-
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-neutral-600 pt-4 border-t border-neutral-800">
+          )}
+          <div ref={reportRef}>
+            <ReportShell
+              result={result}
+              dict={dict}
+              isPremium={isPremium}
+              onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
+            />
+          </div>
+          {/* 报告尾部：时间戳/免责 + 操作区（ShareCardModal/ShareModal/导出/tracker 接线保留） */}
+          <div className="mx-auto max-w-3xl px-4 pb-12">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#E5E7EB] pt-4 text-xs text-neutral-600">
               <span>{dict.common.evaluatedAt} {new Date(result.computedAt).toLocaleString('en-US')}</span>
               <span>{t('© {year} TokValue. {disclaimer}', { year: new Date().getFullYear(), disclaimer: dict.common.dataDisclaimer })}</span>
             </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-            {/* Share Card — available to everyone (free-tier data, viral image) */}
-            <button
-              onClick={() => setShowShareCardModal(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-purple-500/40 bg-purple-950/20 px-5 py-2.5 text-sm font-medium text-purple-300 hover:border-purple-400 hover:text-purple-200 transition-colors"
-            >
-              <Share2 className="h-4 w-4" />
-              {dict.evaluation.shareCard}
-            </button>
-
-            {/* Export Dropdown */}
-            <div className="relative" ref={exportMenuRef}>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+              {/* Share Card — available to everyone (free-tier data, viral image) */}
               <button
-                onClick={() => { if (!isPremium) return; setShowExportMenu(!showExportMenu) }}
-                aria-expanded={showExportMenu}
-                aria-haspopup="menu"
-                aria-controls="export-menu"
-                title={!isPremium ? 'Unlock to export' : undefined}
-                className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${!isPremium ? 'border-neutral-800 bg-neutral-900/50 text-neutral-600 cursor-not-allowed' : 'border-neutral-700 bg-neutral-900 hover:border-[#00F2EA] hover:text-[#00F2EA]'}`}
+                onClick={() => setShowShareCardModal(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-500/40 bg-purple-950/20 px-5 py-2.5 text-sm font-medium text-purple-300 hover:border-purple-400 hover:text-purple-200 transition-colors"
               >
-                <Download className="h-4 w-4" />
-                {dict.evaluation.exportReport}
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+                <Share2 className="h-4 w-4" />
+                {dict.evaluation.shareCard}
               </button>
-              {showExportMenu && (
-                <div id="export-menu" role="menu" className="absolute bottom-full mb-2 left-0 rounded-xl border border-neutral-700 bg-[#141414] shadow-xl shadow-black/50 overflow-hidden min-w-[160px]">
-                  <button onClick={handleExportPng} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
-                    <ImageIcon className="h-4 w-4 text-[#FF0050]" />
-                    {dict.evaluation.exportPng}
+
+              {/* Export Dropdown */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => { if (!isPremium) return; setShowExportMenu(!showExportMenu) }}
+                  aria-expanded={showExportMenu}
+                  aria-haspopup="menu"
+                  aria-controls="export-menu"
+                  title={!isPremium ? 'Unlock to export' : undefined}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${!isPremium ? 'border-neutral-800 bg-neutral-900/50 text-neutral-600 cursor-not-allowed' : 'border-neutral-700 bg-neutral-900 hover:border-[#00F2EA] hover:text-[#00F2EA]'}`}
+                >
+                  <Download className="h-4 w-4" />
+                  {dict.evaluation.exportReport}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+                </button>
+                {showExportMenu && (
+                  <div id="export-menu" role="menu" className="absolute bottom-full mb-2 left-0 rounded-xl border border-neutral-700 bg-[#141414] shadow-xl shadow-black/50 overflow-hidden min-w-[160px]">
+                    <button onClick={handleExportPng} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors">
+                      <ImageIcon className="h-4 w-4 text-[#FF0050]" />
+                      {dict.evaluation.exportPng}
+                    </button>
+                    <button onClick={handleExportPdf} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors border-t border-neutral-800">
+                      <FileText className="h-4 w-4 text-[#00F2EA]" />
+                      {dict.evaluation.exportPdf}
+                    </button>
+                    <button onClick={handleShareLink} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors border-t border-neutral-800">
+                      <Share2 className="h-4 w-4 text-purple-400" />
+                      {dict.evaluation.shareLink}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {isLoggedIn && (
+                <>
+                  <button onClick={handleSaveToTracker} disabled={isSaved} className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${isSaved ? 'border-green-900/50 bg-green-950/20 text-green-400 cursor-default' : 'border-neutral-700 bg-neutral-900 hover:border-[#FF0050] hover:text-[#FF0050]'}`}>
+                    <BookmarkPlus className="h-4 w-4" />
+                    {isSaved ? dict.evaluation.savedToTracker : dict.evaluation.saveToTracker}
                   </button>
-                  <button onClick={handleExportPdf} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors border-t border-neutral-800">
-                    <FileText className="h-4 w-4 text-[#00F2EA]" />
-                    {dict.evaluation.exportPdf}
-                  </button>
-                  <button onClick={handleShareLink} role="menuitem" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors border-t border-neutral-800">
-                    <Share2 className="h-4 w-4 text-purple-400" />
-                    {dict.evaluation.shareLink}
-                  </button>
-                </div>
+                  <Link href="/history" className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-sm font-medium hover:border-[#FF0050] hover:text-[#FF0050] transition-colors">
+                    <History className="h-4 w-4" />
+                    {dict.nav.history}
+                  </Link>
+                </>
               )}
             </div>
-            {isLoggedIn && (
-              <>
-                <button onClick={handleSaveToTracker} disabled={isSaved} className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${isSaved ? 'border-green-900/50 bg-green-950/20 text-green-400 cursor-default' : 'border-neutral-700 bg-neutral-900 hover:border-[#FF0050] hover:text-[#FF0050]'}`}>
-                  <BookmarkPlus className="h-4 w-4" />
-                  {isSaved ? dict.evaluation.savedToTracker : dict.evaluation.saveToTracker}
-                </button>
-                <Link href="/history" className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-sm font-medium hover:border-[#FF0050] hover:text-[#FF0050] transition-colors">
-                  <History className="h-4 w-4" />
-                  {dict.nav.history}
-                </Link>
-              </>
-            )}
           </div>
-
-          {/* Free tier upgrade footer */}
-          {!isPremium && result && (
-            <UnlockFooter onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-          )}
-        </section>
+        </div>
       )}
 
       {result && (
@@ -823,13 +697,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
       <SiteFooter />
       <ToastContainer toasts={toasts} dismiss={dismiss} />
-
-      {/* Mobile sticky unlock bar */}
-      {!isPremium && result && (
-        <div className="block sm:hidden">
-          <UnlockFooter sticky onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
-        </div>
-      )}
 
       {/* Demo conversion bar — mock report can't be paid for, route to real evaluation */}
       {result && result.mock && (

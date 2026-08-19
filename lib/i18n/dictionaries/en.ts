@@ -855,6 +855,16 @@ const en = {
       included: 'What’s included',
       teaserCta: 'Unlock your exact value',
     },
+    shell: {
+      included: [
+        'Exact account value & full breakdown',
+        'Negotiation-ready deal pricing',
+        'Six-pillar scorecard with attributions',
+        'Peer benchmarking across your niche',
+        'Risk & account health checks',
+        'Your 30-day value growth plan',
+      ],
+    },
   },
 
   // ── Tier Labels ──
