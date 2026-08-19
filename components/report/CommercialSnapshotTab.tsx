@@ -40,12 +40,25 @@ function impactOf(level: 'high' | 'medium' | 'low'): string {
   return 'Minor impact — worth monitoring before big deals.'
 }
 
+/** Spec §7.5 必备免责声明（所有估值页显示） */
+const VALUATION_DISCLAIMER =
+  'This is an estimated commercial value range based on publicly available third-party data and TokValue\'s internal model. It is not a guaranteed sale price, income forecast, or official TikTok metric.'
+
+const CONFIDENCE_LABELS: Record<string, string> = {
+  medium_high: 'Medium-High confidence',
+  medium: 'Medium confidence',
+  medium_low: 'Medium-Low confidence',
+  low: 'Low confidence',
+}
+
 export function CommercialSnapshotTab({ result, isPremium, onUnlock }: CommercialSnapshotTabProps) {
   const { dict } = useI18n()
   const c = dict.evaluation.commercial
   const snap = result.commercialSnapshot
   const [showConclusion, setShowConclusion] = useState(true)
   const bv = result.businessValue
+  // Spec §7.3：估值区间 v2——按置信度 band 宽度展示（低置信更宽）；旧报告无 valuationV2 → 原区间
+  const valueRange = result.valuationV2?.range ?? bv?.totalValue
 
   const readinessColor = (snap?.readinessScore ?? result.score) >= 70 ? '#00F2EA' : (snap?.readinessScore ?? result.score) >= 45 ? '#FF0050' : '#f59e0b'
 
@@ -98,7 +111,7 @@ export function CommercialSnapshotTab({ result, isPremium, onUnlock }: Commercia
           </div>
         </div>
 
-        {/* ── 右：Account Value Estimate（强化展示）── */}
+        {/* ── 右：Account Value Estimate v2（band 区间 + 显式风险折扣，Spec §7.3–7.5）── */}
         <div className="rounded-2xl border border-[#00F2EA]/25 bg-gradient-to-br from-[#00F2EA]/[0.07] via-[#0f0f0f] to-[#FF0050]/[0.05] p-6 sm:p-8 relative overflow-hidden">
           <div className="pointer-events-none absolute -top-20 -right-16 h-48 w-48 rounded-full bg-[#00F2EA]/10 blur-3xl" />
           <div className="relative">
@@ -109,21 +122,47 @@ export function CommercialSnapshotTab({ result, isPremium, onUnlock }: Commercia
             <div className="mb-4">
               <div className="flex items-baseline gap-3 flex-wrap mb-2">
                 <span className="text-4xl sm:text-5xl font-black tracking-tight text-white tabular-nums">
-                  ${formatNumber(bv?.totalValue.low || 0)} – ${formatNumber(bv?.totalValue.high || 0)}
+                  ${formatNumber(valueRange?.low || 0)} – ${formatNumber(valueRange?.high || 0)}
                 </span>
               </div>
               <p className="text-xs text-neutral-400 leading-relaxed max-w-sm">
                 {c.accountValueHint}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {bv?.components?.slice(0, 4).map((comp, i) => (
-                <div key={i} className="rounded-lg border border-neutral-800/70 bg-black/30 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-0.5">{comp.label}</div>
-                  <div className="text-sm font-bold tabular-nums text-neutral-200">${formatNumber(comp.amount.low)}–${formatNumber(comp.amount.high)}</div>
-                </div>
-              ))}
-            </div>
+            {/* v2：置信度 + 显式风险折扣（低置信区间更宽；旧报告无此行） */}
+            {result.valuationV2 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00F2EA]/30 bg-[#00F2EA]/10 px-2.5 py-1 text-[11px] font-semibold text-[#00F2EA]">
+                  <ShieldCheck className="h-3 w-3" />
+                  {CONFIDENCE_LABELS[result.valuationV2.band]}
+                </span>
+                {result.valuationV2.riskDiscountPct > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-400">
+                    <ShieldAlert className="h-3 w-3" />
+                    Risk adjustment: −{result.valuationV2.riskDiscountPct}% (Risk Score: {result.valuationV2.riskScore})
+                  </span>
+                )}
+              </div>
+            )}
+            {/* 四分项摘要（付费） */}
+            {isPremium && (
+              <div className="grid grid-cols-2 gap-2">
+                {bv?.components?.slice(0, 4).map((comp, i) => (
+                  <div key={i} className="rounded-lg border border-neutral-800/70 bg-black/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-0.5">{comp.label}</div>
+                    <div className="text-sm font-bold tabular-nums text-neutral-200">${formatNumber(comp.amount.low)}–${formatNumber(comp.amount.high)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!isPremium && bv?.components && (
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <Lock className="h-3 w-3" />
+                Value breakdown by component — unlock to view
+              </div>
+            )}
+            {/* Spec §7.5 必备免责声明 */}
+            <p className="mt-4 text-[10px] leading-relaxed text-neutral-600">{VALUATION_DISCLAIMER}</p>
           </div>
         </div>
       </div>
