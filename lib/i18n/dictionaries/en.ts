@@ -809,6 +809,11 @@ const en = {
       howEstimated: 'How this is estimated',
       components: 'Value breakdown',
     },
+    pillars: {
+      title: 'What Drives Your Value',
+      subtitle: 'Six pillars behind your score. Tap any card for details.',
+      improve: 'How to improve',
+    },
   },
 
   // ── Tier Labels ──
