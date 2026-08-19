@@ -8,7 +8,7 @@ import { generateTrendAnalysis, generateCommercializationAdvice, generateContent
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits-server'
 import { getServerDict } from '@/lib/i18n/server'
-import { recordEventFromRequest, recordFreeEvaluate } from '@/lib/analytics'
+import { recordEventFromRequest, recordEvent, recordFreeEvaluate } from '@/lib/analytics'
 import { getClientIp } from '@/lib/ip'
 import { createOrGetReview, transitionReview, failReview, reconcileInFlight, type AccountReviewRow } from '@/lib/reviews'
 import { recordUsageEvent } from '@/lib/usage-events'
@@ -17,6 +17,7 @@ import { getFreshSnapshot, upsertSnapshot } from '@/lib/snapshots'
 import { hasFreeGrant, consumeFreeGrant } from '@/lib/free-grants'
 import { isFreeBudgetExceeded } from '@/lib/api-governance'
 import { stripForTeaser } from '@/lib/teaser'
+import { sendReviewCompletedEmail } from '@/lib/email'
 import type { RawProfile } from '@/types'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
@@ -25,11 +26,6 @@ export const dynamic = 'force-dynamic'
 // 合并 utm 到事件 metadata（服务端归因）
 function withUtm(meta: Record<string, unknown>, utm?: Record<string, unknown>): Record<string, unknown> {
   return utm && Object.keys(utm).length > 0 ? { ...meta, utm } : meta
-}
-
-/** B1 状态机开关：默认关闭 = 行为与旧版完全一致 */
-function reviewStateMachineEnabled(): boolean {
-  return process.env.REVIEW_STATE_MACHINE === 'true'
 }
 
 function buildSnapshot(evaluation: Evaluation) {
@@ -57,6 +53,8 @@ function buildSnapshot(evaluation: Evaluation) {
 async function attachBaseline(evaluation: Evaluation, normalized: string) {
   const previous = await findEvaluation(normalized)
   if (previous) {
+    // B7 埋点：次评检测（Spec §15 second_review_started；无 req 上下文用 recordEvent）
+    recordEvent({ event_type: 'second_review_started', username: normalized }).catch(() => {})
     evaluation.previousReview = {
       // postgres timestamptz 读回是 Date 对象 → 统一 ISO 字符串
       computedAt: new Date(previous.computedAt).toISOString(),
@@ -140,7 +138,7 @@ export async function POST(req: NextRequest) {
   // 免费额度扣减结果（用于埋点；null = 未经过额度扣减，如 dev 无 token）
   let freeAllowance: { used: number; limit: number } | null = null
 
-  // ── B1 review 状态机上下文（flag 关闭时恒为 null，走旧路径）──
+  // ── B1 review 状态机上下文（唯一路径：幂等 + in-flight 锁 + usage_events 流水）──
   let reviewRow: AccountReviewRow | null = null
   let reviewQuotaReserved = false // credits 已预扣且未落定（用于 catch 精确返还）
   const advance = async (to: ReviewStatus) => {
@@ -198,34 +196,33 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── B1: 幂等 + in-flight 锁（仅 flag 开启时）──
-      if (reviewStateMachineEnabled()) {
-        await reconcileInFlight(userEmail, normalized) // 先清理超时僵尸
-        const idemKey = typeof body.idempotency_key === 'string' && body.idempotency_key
-          ? body.idempotency_key.slice(0, 64)
-          : crypto.randomUUID() // 客户端未传则本次请求内生成（无跨请求幂等，行为同旧版）
-        const res = await createOrGetReview(userEmail, normalized, idemKey, 'credits')
-        if (res.kind === 'conflict') {
-          return NextResponse.json(
-            { error: 'A review for this account is already in progress.', code: 'REVIEW_IN_FLIGHT', review_id: res.review.id },
-            { status: 409 }
-          )
+      // ── B1: 幂等 + in-flight 锁（状态机唯一路径；非 postgres 返回 unavailable，
+      // reviewRow 保持 null 自然降级为无状态，本地 file/memory 开发模式行为不变）──
+      await reconcileInFlight(userEmail, normalized) // 先清理超时僵尸
+      const idemKey = typeof body.idempotency_key === 'string' && body.idempotency_key
+        ? body.idempotency_key.slice(0, 64)
+        : crypto.randomUUID() // 客户端未传则本次请求内生成（无跨请求幂等，行为同旧版）
+      const res = await createOrGetReview(userEmail, normalized, idemKey, 'credits')
+      if (res.kind === 'conflict') {
+        return NextResponse.json(
+          { error: 'A review for this account is already in progress.', code: 'REVIEW_IN_FLIGHT', review_id: res.review.id },
+          { status: 409 }
+        )
+      }
+      if (res.kind === 'reused' && res.review.status === 'completed') {
+        // 幂等重放：直接返回已完成的报告，不重复扣费
+        const cached = await findEvaluation(normalized)
+        if (cached) {
+          return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, access_level: 'full', review_id: res.review.id })
         }
-        if (res.kind === 'reused' && res.review.status === 'completed') {
-          // 幂等重放：直接返回已完成的报告，不重复扣费
-          const cached = await findEvaluation(normalized)
-          if (cached) {
-            return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, access_level: 'full', review_id: res.review.id })
-          }
-        }
-        if (res.kind === 'created' || res.kind === 'reused') {
-          reviewRow = res.review
-          await recordUsageEvent({
-            email: userEmail, username: normalized, reviewId: reviewRow.id,
-            eventType: res.kind === 'created' ? 'review_started' : 'review_reused',
-            purchaseType: 'credits', status: reviewRow.status,
-          })
-        }
+      }
+      if (res.kind === 'created' || res.kind === 'reused') {
+        reviewRow = res.review
+        await recordUsageEvent({
+          email: userEmail, username: normalized, reviewId: reviewRow.id,
+          eventType: res.kind === 'created' ? 'review_started' : 'review_reused',
+          purchaseType: 'credits', status: reviewRow.status,
+        })
       }
 
       const consumeResult = await consumeCredit(userEmail, normalized)
@@ -266,6 +263,11 @@ export async function POST(req: NextRequest) {
         if (snap) {
           profile = snap.profile
           dataRefreshedHoursAgo = Math.floor(snap.ageHours)
+          // B7 埋点：付费 24h 快照命中（Spec §15 cache_hit）
+          recordEventFromRequest(req, {
+            event_type: 'cache_hit', username: normalized,
+            metadata: { username: normalized, free: false },
+          }).catch(() => {})
           await advance('data_saved')
         } else {
           profile = await fetchProfile(normalized, { reviewId: reviewRow?.id ?? undefined, purchaseType: 'credits' })
@@ -291,6 +293,15 @@ export async function POST(req: NextRequest) {
 
         await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
         await upsertOwnership(userEmail, normalized, { isFree: false })
+
+        // ── B7: Review 完成邮件（fire-and-forget，失败只 warn 绝不影响响应）──
+        // 仅付费评估发送；24h 快照命中（数据未刷新的重复评估）不重复发送；
+        // 30 天缓存命中 / 幂等重放路径在更早处 return，天然不会走到这里
+        if (dataRefreshedHoursAgo === undefined) {
+          sendReviewCompletedEmail(userEmail, normalized).catch(err =>
+            console.warn('[evaluate] sendReviewCompletedEmail failed:', err instanceof Error ? err.message : String(err))
+          )
+        }
 
         if (reviewRow) {
           reviewRow = (await transitionReview(reviewRow.id, 'completed')) ?? reviewRow
@@ -387,7 +398,7 @@ export async function POST(req: NextRequest) {
 
     // ── B1: 免费路径幂等 + in-flight 锁（有 userEmail 时）。
     // 置于额度扣减之前：conflict 409 时不耗免费额度（幂等检查先于锁定额度）──
-    if (reviewStateMachineEnabled() && userEmail) {
+    if (userEmail) {
       await reconcileInFlight(userEmail, normalized)
       const idemKey = typeof body.idempotency_key === 'string' && body.idempotency_key
         ? body.idempotency_key.slice(0, 64)
@@ -413,7 +424,7 @@ export async function POST(req: NextRequest) {
     // 本邮箱 24h 免费缓存命中已在更早处 return）──
     if (!IS_DEV || userEmail) {
       if (await hasFreeGrant(normalized)) {
-        if (reviewStateMachineEnabled() && reviewRow && !isTerminalReview(reviewRow.status)) {
+        if (reviewRow && !isTerminalReview(reviewRow.status)) {
           await failReview(reviewRow.id, 'free_username_grant_used').catch(() => {})
           reviewRow = null
         }
@@ -460,6 +471,13 @@ export async function POST(req: NextRequest) {
 
     // ── B2: 快照优先——24h 内拉取过的账号直接复用，不调 RapidAPI、不耗辅闸 ──
     let profile: RawProfile | null = (await getFreshSnapshot(normalized))?.profile ?? null
+    if (profile) {
+      // B7 埋点：免费 24h 快照命中（Spec §15 cache_hit）
+      recordEventFromRequest(req, {
+        event_type: 'cache_hit', username: normalized,
+        metadata: { username: normalized, free: true },
+      }).catch(() => {})
+    }
     if (!profile) {
       // ── B2 辅闸原子消耗：并发下仅一个请求拿到该 username 的免费名额 ──
       const grant = await consumeFreeGrant(normalized, userEmail || undefined)
@@ -531,7 +549,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     // ── B1: 精确返还——只有「review 行存在且仍活跃」才 fail + refund，
     // 修复旧路径"consume 之前出错也返还"的多退边界 ──
-    if (reviewStateMachineEnabled() && reviewRow && !isTerminalReview(reviewRow.status)) {
+    if (reviewRow && !isTerminalReview(reviewRow.status)) {
       try {
         const detail = err instanceof Error ? err.message : String(err)
         const failed = await failReview(reviewRow.id, detail)
@@ -547,11 +565,6 @@ export async function POST(req: NextRequest) {
         // 清理失败不吞原始错误（reconcile 惰性对账兜底释放）
         console.error('[evaluate] B1 fail/refund cleanup failed:', cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr))
       }
-    } else if (!reviewStateMachineEnabled() && userEmail && !isFreeMode) {
-      // flag 关闭：保留旧行为（原样返还）
-      refundCredit(userEmail).catch(e =>
-        console.error('[evaluate] refund failed:', e instanceof Error ? e.message : String(e))
-      )
     }
 
     const code: ApiCode = (err && typeof err === 'object' && 'code' in err)
