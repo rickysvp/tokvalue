@@ -115,11 +115,22 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] 免费报告严格符合 Teaser 边界（逐项核对 Spec §3.3）
-- [ ] 现有支付成功 → 同一报告升 full，无重新拉数据
-- [ ] 无 Teaser 时支付 → 发起新完整 Review
-- [ ] 移动端付费墙容器完整（max-h-90vh 约定）
-- [ ] 埋点：teaser_viewed / paywall_viewed / unlock_completed
+- [x] 免费报告严格符合 Teaser 边界（逐项核对 Spec §3.3）
+- [x] 现有支付成功 → 同一报告升 full，无重新拉数据（upgrade 返回 `access_level: 'full'` + AI 富化补跑）
+- [x] 无 Teaser 时支付 → 发起新完整 Review（`handleUnlock` 404 回退 `handleEvaluate`）
+- [x] 移动端付费墙容器完整（max-h-90vh 约定，PaidWallModal 未改动沿用）
+- [x] 埋点：teaser_viewed / paywall_viewed / unlock_completed（track 白名单已同步）
+
+**实施记录（2026-08-19）**
+
+交付物：`lib/teaser.ts`（`stripForTeaser` 裁剪纯函数 + 9 单测）、`app/api/evaluate/route.ts`（FREE→teaser / PAID→full / 免费缓存→teaser 三路接线）、`app/api/evaluate/upgrade/route.ts`（响应加 `access_level: 'full'`）、`components/report/TeaserReport.tsx`（免费钩子区 + 锁定价值栈）、`components/EvaluatePage.tsx`（snapshot tab 免费/付费分叉渲染 + 解锁流 404 回退 + 平滑滚动 + teaser_viewed 埋点）、`lib/analytics.ts` + `app/api/track/route.ts`（3 个新事件类型 + 白名单）。
+
+集成验证（本机 dev，mrbeast 真实数据）：
+- API 边界：`POST /api/evaluate` 免费返回 `access_level: 'teaser'`，`dimensions/metrics/peerBenchmark/summary/verdict/advice/priceAdvice` 全部剥离，`businessValue` 仅 `totalValue`，`posts` Top3，`commercialSnapshot` 仅 `readinessBand/dataConfidence/primaryRateBlocker` ✓
+- UI：Teaser 报告完整渲染（$17.3M–$43.2M 价值区间 / Premium Value 层级 / 最大瓶颈 / Top3 视频 / 锁定价值栈 4 模块）；点击 Unlock Full Report 弹出付费墙（Single/Growth/Studio 套餐）✓
+- 97 单测全绿 + TSC 干净
+- 修复集成 bug：`EvaluatePage` 的 `commercial_snapshot_ready` 埋点 useEffect 直接读 `commercialSnapshot.suggestedRateRange.low`，Teaser 快照无此字段导致整页 error.tsx 崩溃——已加可选防护
+- 环境注：本机网络对 Neon（直连/代理）均间歇 ECONNRESET，评估偶发 500 为网络问题非代码问题；生产 Vercel 出网不受影响
 
 ---
 

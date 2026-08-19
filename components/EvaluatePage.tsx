@@ -186,6 +186,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   useEffect(() => {
     if (!result?.commercialSnapshot || snapshotTrackedRef.current === result.username) return
     snapshotTrackedRef.current = result.username
+    // Teaser 快照仅含 readinessBand/dataConfidence/primaryRateBlocker，其余字段可选
+    const rateRange = result.commercialSnapshot.suggestedRateRange
     trackEvent('commercial_snapshot_ready', {
       username: result.username,
       readinessBand: result.commercialSnapshot.readinessBand,
@@ -193,7 +195,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       tier: result.tier,
       isPremium,
       // suggested_rate_viewed：快照首屏即含宽报价区间，合并记录避免重复请求
-      suggestedRate: [result.commercialSnapshot.suggestedRateRange.low, result.commercialSnapshot.suggestedRateRange.high],
+      ...(rateRange ? { suggestedRate: [rateRange.low, rateRange.high] } : {}),
     })
   }, [result, isPremium])
 
