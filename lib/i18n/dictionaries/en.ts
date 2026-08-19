@@ -824,6 +824,13 @@ const en = {
       notIncluded: 'Not included',
       factors: 'What moves your rate',
     },
+    peer: {
+      title: 'How You Compare',
+      subtitle: 'You vs. similar-size creators in your niche.',
+      you: 'You',
+      peerMedian: 'Peer median',
+      insight: 'Insight',
+    },
   },
 
   // ── Tier Labels ──
