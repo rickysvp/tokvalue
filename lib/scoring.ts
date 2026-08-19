@@ -23,6 +23,7 @@ import {
 import { tierFromScore, buildPriceAdvice, buildVerdict, buildSummary } from './scoring/verdict'
 import { buildContentStrategy } from './scoring/content-strategy'
 import { buildCommercialSnapshot, buildDealPricing, buildThirtyDayPlan } from './scoring/commercial'
+import { buildPillars, buildValuationV2 } from './pillar'
 
 export { clamp, tierFromScore, inferCategories, peerGroupFromFollowers, aggregateByHour, aggregateByWeekday, average, median, stdDev }
 
@@ -478,6 +479,15 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     snapshot: commercialSnapshot, metrics, cadence, contentStrategy, brandMatching,
     followerCount: profile.followerCount, risks,
   })
+  // ── B5a 支柱叙事：10 维 → 6 支柱映射 + 估值展示 v2（内部引擎不动）──
+  const pillars = buildPillars({ dims, metrics, posts: profile.posts, risks })
+  const valuationV2 = buildValuationV2({
+    mid: business.totalValue.mid,
+    risks,
+    videoCount: profile.videoCount,
+    dataQuality: profile.dataQuality,
+    outlierBreakout: metrics.effectiveAvgPlays > 0 && metrics.effectivePeakPlays > metrics.effectiveAvgPlays * 8,
+  })
   const { verdict, advice } = buildVerdict({ score, tier, tierReason, nickname: profile.nickname || profile.username, metrics, health, dims, risks, categories, businessValueMid: business.totalValue.mid })
   const priceAdvice = buildPriceAdvice({ perVideoLow: brand.perVideoLow, perVideoMid: brand.perVideoMid, perVideoHigh: brand.perVideoHigh, effectiveAvgPlays: metrics.effectiveAvgPlays, categoryLabel, cpm: categoryCpm, engagementMult, regionLabel, regionMult, risks })
   const peerBench = buildPeerBenchmark(profile, metrics)
@@ -517,5 +527,6 @@ export function scoreProfile(profile: RawProfile, options?: ScoreOptions): Evalu
     dataQuality: (profile.dataQuality as 'full' | 'partial' | undefined),
     postsFetchError: profile.postsFetchError,
     commercialSnapshot, dealPricing, thirtyDayPlan,
+    pillars, valuationV2,
   }
 }

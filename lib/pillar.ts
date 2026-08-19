@@ -2,46 +2,14 @@
 // 内部 10 维加权评分引擎不动；本模块只做「内部维度 → 对外支柱」的纯映射，
 // 以及估值展示 v2 的置信度区间宽度与风险折扣公式。零 LLM、零副作用。
 
-import type { DimensionScores, Metrics, Post, RiskFlag } from '../types'
+import type {
+  DimensionScores, Metrics, Post, RiskFlag,
+  PillarKey, Pillar, PillarBreakdown, PillarStatus, ConfidenceBand, ValuationV2,
+} from '../types'
 import { TIER_COLORS } from './tier'
 
-// ========== 类型 ==========
-
-export type PillarKey =
-  | 'growth_momentum'
-  | 'content_consistency'
-  | 'audience_quality'
-  | 'niche_clarity'
-  | 'brand_readiness'
-  | 'risk'
-
-export type PillarStatus = 'Strong' | 'On track' | 'Needs attention'
-
-export interface Pillar {
-  key: PillarKey
-  name: string
-  /** 0–100；risk 支柱为「风险分」（高 = 高风险），status 已按反向语义换算 */
-  score: number
-  status: PillarStatus
-  /** 归因：哪些内部维度/指标/视频导致该分值（点击展开显示） */
-  attribution: string
-}
-
-export interface PillarBreakdown {
-  pillars: Pillar[]
-}
-
-export type ConfidenceBand = 'medium_high' | 'medium' | 'medium_low' | 'low'
-
-export interface ValuationV2 {
-  band: ConfidenceBand
-  /** 0–100 风险分（high+30 / medium+15 / low+6 汇总） */
-  riskScore: number
-  /** 显式风险折扣百分比：min(40, riskScore × 0.75) */
-  riskDiscountPct: number
-  /** band 宽度重算后的展示区间（内部引擎估值不动，仅展示层） */
-  range: { low: number; mid: number; high: number }
-}
+// 类型定义统一在 types.ts；此处 re-export 便于组件单点导入
+export type { PillarKey, Pillar, PillarBreakdown, PillarStatus, ConfidenceBand, ValuationV2 }
 
 export interface BuildPillarsInput {
   dims: DimensionScores
@@ -225,6 +193,19 @@ export function rangeWidthForConfidence(band: ConfidenceBand): number {
 export function valuationRangeOf(mid: number, band: ConfidenceBand): { low: number; mid: number; high: number } {
   const w = rangeWidthForConfidence(band)
   return { low: Math.round(mid * (1 - w)), mid: Math.round(mid), high: Math.round(mid * (1 + w)) }
+}
+
+/** 组合：估值展示 v2 全量字段（scoreProfile 单点调用） */
+export function buildValuationV2(input: ConfidenceInput & { mid: number; risks: RiskFlag[] }): ValuationV2 {
+  const { mid, risks, ...conf } = input
+  const { band } = confidenceBandOf(conf)
+  const riskScore = riskScoreOf(risks)
+  return {
+    band,
+    riskScore,
+    riskDiscountPct: Math.round(riskDiscountPct(riskScore)),
+    range: valuationRangeOf(mid, band),
+  }
 }
 
 // ========== 价值层级（Spec §7.2；色值读 TIER_COLORS 硬约束） ==========

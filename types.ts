@@ -60,6 +60,44 @@ export interface RiskFlag {
   detail: string
 }
 
+// ========== B5a：6 支柱 + 估值展示 v2（可缺省：旧缓存/历史数据向后兼容 → 旧模板） ==========
+
+export type PillarKey =
+  | 'growth_momentum'
+  | 'content_consistency'
+  | 'audience_quality'
+  | 'niche_clarity'
+  | 'brand_readiness'
+  | 'risk'
+
+export type PillarStatus = 'Strong' | 'On track' | 'Needs attention'
+
+export interface Pillar {
+  key: PillarKey
+  name: string
+  /** 0–100；risk 支柱为「风险分」（高 = 高风险），status 已按反向语义换算 */
+  score: number
+  status: PillarStatus
+  /** 归因：哪些内部维度/指标/视频导致该分值（点击展开显示） */
+  attribution: string
+}
+
+export interface PillarBreakdown {
+  pillars: Pillar[]
+}
+
+export type ConfidenceBand = 'medium_high' | 'medium' | 'medium_low' | 'low'
+
+export interface ValuationV2 {
+  band: ConfidenceBand
+  /** 0–100 风险分（high+30 / medium+15 / low+6 汇总） */
+  riskScore: number
+  /** 显式风险折扣百分比：min(40, riskScore × 0.75) */
+  riskDiscountPct: number
+  /** band 宽度重算后的展示区间（内部引擎估值不动，仅展示层） */
+  range: { low: number; mid: number; high: number }
+}
+
 export interface AccountProfile {
   categories: string[]           // 内容分类标签，如 ["美妆护肤", "日更"]
   personaType: string            // 账号类型，如 "腰部创作者" / "头部达人" / "品牌号"
@@ -124,6 +162,17 @@ export interface Evaluation {
   commercialSnapshot?: CommercialSnapshot
   dealPricing?: DealPricing
   thirtyDayPlan?: ThirtyDayPlan
+  // ── B5a 支柱叙事（可缺省：旧报告走旧模板）──
+  pillars?: PillarBreakdown
+  valuationV2?: ValuationV2
+  // ── Baseline 模式（Spec §8）：首评 true；次评起附 previous 摘要 ──
+  baselineReview?: boolean
+  previousReview?: {
+    computedAt: string
+    score: number
+    tier: string
+    valueMid: number
+  }
 }
 
 export interface Metrics {
