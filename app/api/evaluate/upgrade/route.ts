@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[upgrade] ${normalized} | email=${userEmail}`)
 
-    return NextResponse.json({ ...enriched, isFree: false })
+    return NextResponse.json({ ...enriched, isFree: false, access_level: 'full' })
 
   } catch (err) {
     if (userEmail) {

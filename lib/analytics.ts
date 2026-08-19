@@ -16,6 +16,7 @@ export type EventType = 'page_view' | 'search' | 'evaluate_start' | 'evaluate_do
   | 'paywall_view' | 'paywall_click' | 'purchase' | 'api_error'
   | 'free_evaluate'
   | 'checkout_start' | 'checkout_success' | 'credit_claim' | 'share_create'
+  | 'teaser_viewed' | 'paywall_viewed' | 'unlock_completed'
 
 export interface AnalyticsEvent {
   id?: number

@@ -30,7 +30,10 @@ const TRACK_EVENT_TYPES: readonly string[] = [
   'upgrade_click',
   // Commercial Growth PMF 事件（区分新定位与旧估值定位的转化差异）
   'commercial_snapshot_ready',
-  'deal_toolkit_paywall_viewed',
+  // B3 Teaser 转化漏斗事件
+  'teaser_viewed',
+  'paywall_viewed',
+  'unlock_completed',
   'deal_toolkit_unlock_clicked',
 ]
 
