@@ -12,7 +12,8 @@ const dims = (over: Partial<DimensionScores> = {}): DimensionScores => ({
 })
 
 const metrics = {
-  engagementRate: 4.2, playGrowth: 12, cvPlays: 0.6, effectiveAvgPlays: 50000,
+  // playGrowth 为小数比率（0.35 = +35%），与 scoreProfile 真实数据一致
+  engagementRate: 4.2, playGrowth: 0.12, cvPlays: 0.6, effectiveAvgPlays: 50000,
 } as unknown as Metrics
 
 const posts = (descs: string[]): Post[] =>
@@ -84,6 +85,11 @@ describe('buildPillars (Spec 7.1 mapping)', () => {
     const ps = buildPillars({ dims: dims({ momentum: 90 }), metrics, posts: [], risks: [] })
     const gm = ps.pillars.find(p => p.key === 'growth_momentum')!
     expect(gm.score).toBe(90)
+  })
+  it('Growth attribution renders decimal playGrowth as percent (0.12 → +12%)', () => {
+    const ps = buildPillars({ dims: dims(), metrics, posts: [], risks: [] })
+    const gm = ps.pillars.find(p => p.key === 'growth_momentum')!
+    expect(gm.attribution).toContain('+12%')
   })
   it('Audience Quality = mean(engagement, authenticity)', () => {
     const ps = buildPillars({ dims: dims({ engagement: 60, authenticity: 80 }), metrics, posts: [], risks: [] })

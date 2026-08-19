@@ -58,7 +58,8 @@ async function attachBaseline(evaluation: Evaluation, normalized: string) {
   const previous = await findEvaluation(normalized)
   if (previous) {
     evaluation.previousReview = {
-      computedAt: previous.computedAt,
+      // postgres timestamptz 读回是 Date 对象 → 统一 ISO 字符串
+      computedAt: new Date(previous.computedAt).toISOString(),
       score: previous.score,
       tier: previous.tier,
       valueMid: previous.businessValue?.totalValue?.mid ?? 0,

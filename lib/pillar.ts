@@ -104,7 +104,7 @@ export function buildPillars(input: BuildPillarsInput): PillarBreakdown {
       name: 'Growth Momentum',
       score: growthScore,
       status: pillarStatusOf(growthScore),
-      attribution: `Recent plays ${fmtPct(metrics.playGrowth)} vs earlier period (internal: momentum).`,
+      attribution: `Recent plays ${fmtPct(metrics.playGrowth * 100)} vs earlier period (internal: momentum).`,
     },
     {
       key: 'content_consistency',

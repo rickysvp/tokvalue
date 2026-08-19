@@ -148,11 +148,22 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] 新报告 6 支柱数值 + 状态词 + 归因完整
-- [ ] 低置信度区间明显宽于高置信度
-- [ ] 首评无 "since last review"，次评出现对比
-- [ ] 旧历史报告渲染不回归
-- [ ] 单测：pillar 映射 + 区间宽度函数
+- [x] 新报告 6 支柱数值 + 状态词 + 归因完整（`lib/pillar.ts` + `components/sections/PillarSection.tsx`，含 "Why this score" 展开）
+- [x] 低置信度区间明显宽于高置信度（`rangeWidthForConfidence`：±15/20/25/30%；Teaser 与付费报告均按 band 重算，见 `lib/teaser.ts`）
+- [x] 首评无 "since last review"，次评出现对比（`BaselineStrip`：首评 Baseline 文案；次评 Score/Value delta 徽章；`app/api/evaluate/route.ts` `attachBaseline` 查历史）
+- [x] 旧历史报告渲染不回归（`pillars`/`valuationV2` 可缺省，旧报告回退雷达图 + 原区间；`normalizeEvaluation` 白名单透传 v2 字段，`report_v2` JSONB 列持久化）
+- [x] 单测：pillar 映射 + 区间宽度函数（`lib/pillar.test.ts` 18 用例；全量 118/118 通过，TSC 干净）
+
+**实施记录（2026-08-19）**
+
+- `lib/pillar.ts`：6 支柱映射（growth=momentum / consistency=stability / audience=mean(engagement,authenticity) / niche=hashtag 聚类 top3Share+top1Share 加成 / brand=0.4 commerce+0.3 monetization+0.3 influence / risk=风险旗标加权 30/15/6）；置信度分档（videoCount+dataQuality+outlier 破坏性扣分）；估值区间 band 宽度重算；风险折扣 min(40%, RiskScore×0.75%)
+- 类型：`types.ts` 扩展 `PillarBreakdown`/`ValuationV2`/`baselineReview`/`previousReview`（全部可缺省 → 旧报告旧模板）；`lib/db.ts` 新增 `report_v2` JSONB 列 + 打包/解包/透传
+- 展示：`ScoreGauge` 显示 4 档层级短词（Premium/Growth/Developing/Early）；i18n `tiers` 同步替换；`CommercialSnapshotTab` 估值卡 v2（置信度徽章 + 显式风险折扣 + band 区间）+ 新旧模板切换（新报告 Six-Pillar Scorecard / 旧报告雷达图）
+- Teaser：`stripForTeaser` 保留 v2 字段，估值区间按 band 重算（低置信更宽更诚实）
+- Baseline：首评标 `baselineReview: true`；次评附 `previousReview`（score/tier/valueMid/computedAt），前端 delta 徽章
+- demo 同构：`lib/demo-data.ts` 补 posts（fitness hashtag）+ 走真实 `buildPillars`/`buildValuationV2`，演示首评场景
+- 集成验证（@demo 浏览器实测）：Baseline 条 ✓ / 估值 $63.8K–$86.3K（medium_high ±15%）✓ / Six-Pillar Scorecard + 归因展开 ✓ / Premium 层级词 ✓
+- 修复集成 bug：Growth Momentum 归因 `fmtPct(playGrowth)` 漏乘 100，小数比率（0.35）显示 "+0%"——已修为 `fmtPct(playGrowth * 100)` 并补回归断言（0.12 → +12%）
 
 ---
 

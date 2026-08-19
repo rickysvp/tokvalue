@@ -699,6 +699,11 @@ function normalizeEvaluation(evaluation: Partial<Evaluation>): Evaluation {
     formulaVersion: (evaluation.formulaVersion as 'v2' | undefined) || undefined,
     calculationMetadata: evaluation.calculationMetadata,
     dataQuality: evaluation.dataQuality,
+    // B5a 报告 v2 叙事（白名单透传，缺省 undefined → 旧模板）
+    pillars: evaluation.pillars,
+    valuationV2: evaluation.valuationV2,
+    baselineReview: evaluation.baselineReview,
+    previousReview: evaluation.previousReview,
   }
 }
 

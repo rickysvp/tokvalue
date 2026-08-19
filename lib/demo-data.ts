@@ -1,5 +1,6 @@
 import { Evaluation } from '@/types'
 import { hydrateCommercial } from './scoring/commercial'
+import { buildPillars, buildValuationV2 } from './pillar'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DEMO_RAW = {
@@ -32,6 +33,17 @@ const DEMO_RAW = {
   dimensions: { reach: 68, engagement: 78, content: 71, authenticity: 82,
     momentum: 74, stability: 70, commerce: 65, monetization: 60, health: 85, influence: 68 },
   riskFlags: [],
+  // B5a：demo posts（fitness 主题 hashtag 聚焦，供 Niche Clarity 聚类）
+  posts: [
+    { id: 'd1', playCount: 62_000, likeCount: 30_000, commentCount: 1_900, shareCount: 2_800, createTime: Date.now() - 86_400_000 * 2, desc: '[DEMO] Full body HIIT #fitness #workout #hiit' },
+    { id: 'd2', playCount: 55_000, likeCount: 27_000, commentCount: 1_700, shareCount: 2_400, createTime: Date.now() - 86_400_000 * 4, desc: '[DEMO] 30-day challenge day 12 #fitness #workout' },
+    { id: 'd3', playCount: 71_000, likeCount: 36_000, commentCount: 2_300, shareCount: 3_500, createTime: Date.now() - 86_400_000 * 6, desc: '[DEMO] Protein meal prep #fitness #nutrition' },
+    { id: 'd4', playCount: 48_000, likeCount: 24_000, commentCount: 1_500, shareCount: 2_100, createTime: Date.now() - 86_400_000 * 8, desc: '[DEMO] Morning routine #fitness #workout #motivation' },
+    { id: 'd5', playCount: 58_000, likeCount: 29_000, commentCount: 1_800, shareCount: 2_600, createTime: Date.now() - 86_400_000 * 10, desc: '[DEMO] Leg day tutorial #fitness #workout' },
+    { id: 'd6', playCount: 52_000, likeCount: 26_000, commentCount: 1_600, shareCount: 2_300, createTime: Date.now() - 86_400_000 * 12, desc: '[DEMO] Mobility drills #fitness #mobility' },
+    { id: 'd7', playCount: 66_000, likeCount: 33_000, commentCount: 2_000, shareCount: 3_000, createTime: Date.now() - 86_400_000 * 14, desc: '[DEMO] HIIT vs steady state #fitness #hiit' },
+    { id: 'd8', playCount: 45_000, likeCount: 22_000, commentCount: 1_400, shareCount: 1_900, createTime: Date.now() - 86_400_000 * 16, desc: '[DEMO] Home gym setup #fitness #workout' },
+  ],
   summary: {
     headline: '[DEMO] A-tier mid-tier fitness account sample — illustrative results, not a real valuation.',
     strengths: ['[DEMO] Illustrative 7.5% engagement rate (sample data)',
@@ -194,5 +206,25 @@ const DEMO_RAW = {
   },
 } as Evaluation
 
-// Demo 与线上同构：PMF 派生字段（commercialSnapshot/dealPricing/thirtyDayPlan）走真实引擎
-export const DEMO_RESULT = hydrateCommercial(DEMO_RAW)
+// Demo 与线上同构：PMF 派生字段（commercialSnapshot/dealPricing/thirtyDayPlan）走真实引擎；
+// B5a v2 字段（6 支柱 + 估值展示 v2）同样走真实纯函数，demo 永远演示首评（Baseline）场景
+const DEMO_WITH_V2: Evaluation = {
+  ...DEMO_RAW,
+  baselineReview: true,
+  pillars: buildPillars({
+    dims: DEMO_RAW.dimensions,
+    metrics: DEMO_RAW.metrics,
+    posts: DEMO_RAW.posts ?? [],
+    risks: DEMO_RAW.riskFlags,
+  }),
+  valuationV2: buildValuationV2({
+    mid: DEMO_RAW.businessValue.totalValue.mid,
+    risks: DEMO_RAW.riskFlags,
+    videoCount: DEMO_RAW.videoCount,
+    dataQuality: DEMO_RAW.dataQuality,
+    outlierBreakout: DEMO_RAW.metrics.effectiveAvgPlays > 0
+      && DEMO_RAW.metrics.effectivePeakPlays > DEMO_RAW.metrics.effectiveAvgPlays * 8,
+  }),
+}
+
+export const DEMO_RESULT = hydrateCommercial(DEMO_WITH_V2)
