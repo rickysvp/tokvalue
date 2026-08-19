@@ -784,6 +784,26 @@ const en = {
     },
   },
 
+  // ── Report v2（浅色单页叙事报告）──
+  reportV2: {
+    hero: {
+      confidence: 'Confidence',
+      unlockExact: 'Unlock your exact value',
+      metrics: {
+        followers: 'Followers',
+        avgViews: 'Avg. Views',
+        engagement: 'Engagement',
+        percentile: 'Top Percentile',
+      },
+      hints: {
+        followers: 'Total followers on your TikTok profile.',
+        avgViews: 'Average views per video in your recent library.',
+        engagement: 'Likes + comments + shares per view. Above 5% is strong.',
+        percentile: 'Your position among similar-size accounts in your niche.',
+      },
+    },
+  },
+
   // ── Tier Labels ──
   tiers: {
     // Spec §7.2：S–F 字母标签对外替换为 4 档价值层级（历史报告旧标签不回写）
