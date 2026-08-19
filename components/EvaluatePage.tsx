@@ -17,6 +17,7 @@ import { DealPricingTab } from '@/components/report/DealPricingTab'
 import { ThirtyDayPlanTab } from '@/components/report/ThirtyDayPlanTab'
 import { DetailedAnalysisTab } from '@/components/report/DetailedAnalysisTab'
 import { LockedTabPreview } from '@/components/report/LockedTabPreview'
+import { TeaserReport } from '@/components/report/TeaserReport'
 import { SiteFooter } from '@/components/SiteFooter'
 import { ReportTabs } from '@/components/ReportTabs'
 import { FreeBanner } from '@/components/FreeBanner'
@@ -194,6 +195,15 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       // suggested_rate_viewed：快照首屏即含宽报价区间，合并记录避免重复请求
       suggestedRate: [result.commercialSnapshot.suggestedRateRange.low, result.commercialSnapshot.suggestedRateRange.high],
     })
+  }, [result, isPremium])
+
+  // B3 埋点：Teaser 报告曝光（免费态每个 username 一次）
+  const teaserViewedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (isPremium || !result?.username) return
+    if (teaserViewedRef.current === result.username) return
+    teaserViewedRef.current = result.username
+    trackEvent('teaser_viewed', { username: result.username, tier: result.tier })
   }, [result, isPremium])
 
   // Check if current result is already tracked
@@ -680,13 +690,20 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
               <FreeBanner tier={result.tier} onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }} />
             )}
 
-            {/* ═══ SNAPSHOT TAB（免费首屏决策页 — PMF 核心）═══ */}
+            {/* ═══ SNAPSHOT TAB（免费 Teaser / 付费完整快照）═══ */}
             {activeTab === 'snapshot' && (<>
-              <CommercialSnapshotTab
-                result={result}
-                isPremium={isPremium}
-                onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
-              />
+              {isPremium ? (
+                <CommercialSnapshotTab
+                  result={result}
+                  isPremium={isPremium}
+                  onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
+                />
+              ) : (
+                <TeaserReport
+                  result={result}
+                  onUnlock={() => { setPaidWallMode('unlock'); setShowPaidWallModal(true) }}
+                />
+              )}
               {/* 变现门槛检查（平台资格事实，免费可见） */}
               <MonetizationChecklist
                 followerCount={result.followerCount}
