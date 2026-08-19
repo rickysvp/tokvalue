@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { neon } from '@neondatabase/serverless'
 import { verifySessionToken, getBearerToken } from '@/lib/auth'
-import { listOwnedUsernames } from '@/lib/db'
+import { listOwnedUsernames, findEvaluation } from '@/lib/db'
+import { hydrateCommercial } from '@/lib/scoring/commercial'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,8 +45,9 @@ export async function GET(req: NextRequest) {
       SELECT
         username, nickname, avatar, tier, score,
         follower_count, total_likes, video_count, region, verified,
-        account_profile,
+        account_profile, is_free,
         business_value->'totalValue'->>'high' as bv_high,
+        business_value->'totalValue'->>'mid' as bv_mid,
         computed_at
       FROM evaluations
       WHERE username = ANY(${owned})
@@ -69,13 +71,45 @@ export async function GET(req: NextRequest) {
         categories: Array.isArray(profile.categories) ? profile.categories.slice(0, 3) : [],
         personaType: profile.personaType || null,
         businessValueHigh: Number(r.bv_high || 0),
+        businessValueMid: Number(r.bv_mid || 0),
+        // access 标识：is_free=false（付费完整报告）才可分享/导出 PDF；NULL/true 视为免费
+        isFree: r.is_free !== false,
         computedAt: String(r.computed_at || ''),
       }
     })
 
+    // ── B5b Dashboard（Overview / Topbar）增强：computed_at 最近一条的全量数据 ──
+    // 重评会刷新 computed_at（created_at 仅记录行首次插入），故按 computed_at 取最近；
+    // 商业快照（primaryRateBlocker）在服务端 hydrate —— 客户端不得基于可篡改数值重算报价。
+    let latest: Record<string, unknown> | null = null
+    if (evaluations.length > 0) {
+      const latestItem = evaluations.reduce((a, b) =>
+        new Date(b.computedAt).getTime() > new Date(a.computedAt).getTime() ? b : a,
+      )
+      const full = await findEvaluation(latestItem.username)
+      if (full) {
+        const hydrated = hydrateCommercial(full)
+        latest = {
+          username: hydrated.username,
+          nickname: hydrated.nickname,
+          avatar: hydrated.avatar ?? null,
+          computedAt: hydrated.computedAt,
+          score: hydrated.score,
+          tier: hydrated.tier,
+          totalValue: hydrated.businessValue?.totalValue ?? null,
+          valuationV2: hydrated.valuationV2 ?? null,
+          pillars: hydrated.pillars ?? null,
+          baselineReview: hydrated.baselineReview ?? null,
+          previousReview: hydrated.previousReview ?? null,
+          dimensions: hydrated.dimensions ?? null,
+          primaryRateBlocker: hydrated.commercialSnapshot?.primaryRateBlocker ?? null,
+        }
+      }
+    }
+
     return NextResponse.json(
-      { evaluations, email: auth.email },
-      { headers: { 'Cache-Control': 'private, no-store, max-age=0' } }
+      { evaluations, email: auth.email, latest },
+      { headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     )
   } catch (err) {
     console.error('[history] error:', err)
