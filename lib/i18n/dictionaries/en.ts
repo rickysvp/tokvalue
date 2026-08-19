@@ -846,6 +846,15 @@ const en = {
       doneWhen: 'Done when',
       effort: 'hrs',
     },
+    method: {
+      title: 'Methodology',
+      body: 'TokValue estimates are derived from public TikTok data: recent video views, engagement, follower base, niche market rates and account risk signals. Confidence bands widen the range when sample size or data coverage is limited. Figures are estimates for creator guidance, not offers or guarantees.',
+    },
+    unlock: {
+      bar: 'Unlock full report',
+      included: 'What’s included',
+      teaserCta: 'Unlock your exact value',
+    },
   },
 
   // ── Tier Labels ──
