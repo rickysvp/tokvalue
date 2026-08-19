@@ -831,6 +831,18 @@ const en = {
       subtitle: 'Six pillars behind your score. Tap any card for details.',
       improve: 'How to improve',
     },
+    income: {
+      title: 'Income Opportunities',
+      subtitle: 'What you could earn per month across 8 monetization channels.',
+      monthlyTotal: 'Estimated monthly income',
+      confidence: {
+        high: 'High',
+        medium: 'Medium',
+        low: 'Low',
+      },
+      niche: 'Niche',
+      region: 'Audience region',
+    },
     deal: {
       title: 'Price Your Next Deal',
       subtitle: 'Negotiation-ready rates for one branded video.',
