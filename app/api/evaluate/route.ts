@@ -16,6 +16,7 @@ import { isTerminalReview, type ReviewStatus } from '@/lib/review-state'
 import { getFreshSnapshot, upsertSnapshot } from '@/lib/snapshots'
 import { hasFreeGrant, consumeFreeGrant } from '@/lib/free-grants'
 import { isFreeBudgetExceeded } from '@/lib/api-governance'
+import { stripForTeaser } from '@/lib/teaser'
 import type { RawProfile } from '@/types'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
@@ -94,51 +95,6 @@ async function enrichWithAI(evaluation: Evaluation, lang = 'en'): Promise<Evalua
 }
 
 type ApiCode = ApiErrorResponse['code']
-
-/**
- * 免费模式字段白名单裁剪（付费墙核心修复 + Commercial Growth PMF 免费边界）：
- * 免费层 = Commercial Snapshot（商业快照）：readiness、宽报价区间、定位、
- * 最强杠杆、一个 primary rate blocker、next move、结论摘要。
- * 精确谈判数据（brandDealPerVideo / priceAdvice / dealPricing / 全部 blockers）
- * 与付费模块（增长计划/内容策略/趋势/收入/品牌匹配等）一律不下发，
- * 防止通过 devtools Network 响应绕过付费墙白嫖。
- * 注意：数据库仍存全量（saveEvaluation 不变），用户付费升级后由 upgrade 路由从缓存补发完整报告。
- */
-function stripForFreeMode(evaluation: Evaluation): Partial<Evaluation> & { isFree: true } {
-  // 免费仅展示一个 primary rate blocker（与 commercialSnapshot.primaryRateBlocker 对应）
-  const rank = { high: 0, medium: 1, low: 2 }
-  const primaryBlocker = [...(evaluation.riskFlags || [])].sort((a, b) => rank[a.level] - rank[b.level])[0]
-  return {
-    isFree: true,
-    // ── 账号基础信息（头部卡片 + 基础统计）──
-    username: evaluation.username,
-    nickname: evaluation.nickname,
-    avatar: evaluation.avatar,
-    avatarData: evaluation.avatarData,
-    bio: evaluation.bio,
-    verified: evaluation.verified,
-    mock: evaluation.mock,
-    region: evaluation.region,
-    followerCount: evaluation.followerCount,
-    followingCount: evaluation.followingCount,
-    totalLikes: evaluation.totalLikes,
-    videoCount: evaluation.videoCount,
-    accountProfile: evaluation.accountProfile,
-    // ── Commercial Snapshot 免费区（PMF 新边界）──
-    commercialSnapshot: evaluation.commercialSnapshot,
-    score: evaluation.score,
-    tier: evaluation.tier,
-    summary: evaluation.summary,
-    verdict: evaluation.verdict,
-    advice: evaluation.advice,
-    dimensions: evaluation.dimensions,
-    metrics: evaluation.metrics,
-    riskFlags: primaryBlocker ? [primaryBlocker] : [],
-    businessValue: evaluation.businessValue,
-    peerBenchmark: evaluation.peerBenchmark,
-    computedAt: evaluation.computedAt,
-  }
-}
 
 function errorResponse(code: ApiCode, message: string, httpStatus: number, detail?: string) {
   const body: ApiErrorResponse = { error: message, code }
@@ -219,7 +175,7 @@ export async function POST(req: NextRequest) {
             metadata: { score: cached.score, tier: cached.tier, cached: true },
           }).catch(err => console.warn('[evaluate] recordEvent(cached) failed:', err))
           // 旧缓存缺 PMF 字段时服务端补建（客户端不得重算报价）
-          return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false })
+          return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, access_level: 'full' })
         }
       }
 
@@ -240,7 +196,7 @@ export async function POST(req: NextRequest) {
           // 幂等重放：直接返回已完成的报告，不重复扣费
           const cached = await findEvaluation(normalized)
           if (cached) {
-            return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, review_id: res.review.id })
+            return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, access_level: 'full', review_id: res.review.id })
           }
         }
         if (res.kind === 'created' || res.kind === 'reused') {
@@ -337,6 +293,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           ...evaluation,
           isFree: false,
+          access_level: 'full',
           ...(reviewRow ? { review_id: reviewRow.id } : {}),
           ...(dataRefreshedHoursAgo !== undefined ? { dataRefreshedHoursAgo } : {}),
         })
@@ -369,8 +326,8 @@ export async function POST(req: NextRequest) {
         username: normalized,
         metadata: { score: freeCached.score, tier: freeCached.tier, cached: true, free: true },
       }).catch(err => console.warn('[evaluate] recordEvent(free-cached) failed:', err))
-      // 免费缓存命中同样只下发白名单字段（缓存中是全量数据，必须裁剪）
-      return NextResponse.json({ ...stripForFreeMode(hydrateCommercial(freeCached)), cached: true, ...(reviewRow ? { review_id: reviewRow.id } : {}) })
+      // 免费缓存命中同样只下发 Teaser 白名单字段（缓存中是全量数据，必须裁剪）
+      return NextResponse.json({ ...stripForTeaser(hydrateCommercial(freeCached)), cached: true, ...(reviewRow ? { review_id: reviewRow.id } : {}) })
     }
 
     // IP-based daily rate limit
@@ -544,8 +501,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)
 
-    // 免费模式只下发白名单字段（数据库已存全量，付费升级后可取回完整报告）
-    return NextResponse.json({ ...stripForFreeMode(evaluation), ...(reviewRow ? { review_id: reviewRow.id } : {}) })
+    // 免费模式只下发 Teaser 白名单字段（数据库已存全量，付费升级后可取回完整报告）
+    return NextResponse.json({ ...stripForTeaser(evaluation), ...(reviewRow ? { review_id: reviewRow.id } : {}) })
 
   } catch (err) {
     // ── B1: 精确返还——只有「review 行存在且仍活跃」才 fail + refund，
