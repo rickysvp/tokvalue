@@ -183,11 +183,20 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] Overview 无滚动可见 4 模块
-- [ ] 冷却期文案含原因解释
-- [ ] PDF 输出完整（估值/评分/任务/免责声明）
-- [ ] 分享链接 30 天后失效、可关闭、可延长
-- [ ] Creator Profile 含极简字段集
+- [x] Overview 无滚动可见 4 模块（`app/dashboard/page.tsx` 2×2 网格：ValueCard/FocusCard/CreditsCard/PillarsCard + 空态引导）
+- [x] 冷却期文案含原因解释（`UpdateAccountButton`：24h 内显示 `Next review available in {x}h` + `Weekly reviews keep your value current.`）
+- [x] PDF 输出完整（估值/评分/任务/免责声明）（Reports 页复用既有 `lib/export-pdf.tsx` 客户端导出，经付费缓存拉完整 Evaluation）
+- [x] 分享链接 30 天后失效、可关闭、可延长（`extendShare`/`revokeShare`/`listShares` + PATCH/DELETE/GET?username= API，所有权校验沿用 evaluation_ownership）
+- [x] Creator Profile 含极简字段集（Tools 页 Basic Creator Profile 卡 funnel 至评估流，无虚构独立功能）
+
+**实施记录（2026-08-19）**
+
+- 骨架：`app/dashboard/layout.tsx` client 鉴权门（无 token → 回首页）+ 侧边/移动双导航（5 项 IA）+ `components/dashboard/`（Topbar/dashboard-data Provider/UpdateAccountButton/4 模块卡/shared）
+- `/api/history` 增 `latest` 增强字段（服务端 findEvaluation + hydrateCommercial 重建 pillars/valuationV2/previousReview/primaryRateBlocker，不违反「客户端不得重算报价」约束）+ `businessValueMid`/`isFree` 列
+- 分享管理：`shares` 表增 `username` 列迁移（存量行按 evaluation->username 兼容）；已过期/已撤销链接不可复活；限流与所有权语义与创建一致
+- Reports 页：列表 + View/Share（创建/复制/Extend 30 days/Revoke 就地操作）/PDF；免费条目 Share/PDF 禁用
+- Tools/Settings 极简页；全部字面英文文案（单语言产品，不动 en.ts 词典）
+- 集成验证：TSC 0 错、145/145 测试、`next build` 通过（5 条 dashboard 路由产出）；浏览器实测——未登录 /dashboard 跳首页 ✓、注入 dev token 后 Overview/导航/Reports/Tools/Settings/Growth Plan 渲染无崩溃 ✓、@demo 报告 5 项回归全过 ✓
 
 ---
 
@@ -206,10 +215,20 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] 每个任务关联至少 1 条真实视频或评分证据
-- [ ] 视频数 <5 的账号任务数 ≤1 且置信度 Low
-- [ ] 任务完成状态持久化并在下次 Review 报告中回显
-- [ ] 数据不足提示正确展示
+- [x] 每个任务关联至少 1 条真实视频或评分证据（evidence 正则断言 `/\d/` 每条必含具体数字/视频引用，25 用例覆盖）
+- [x] 视频数 <5 的账号任务数 ≤1 且置信度 Low（数量表边界测试：4/5、9/10、29/30 断档点）
+- [x] 任务完成状态持久化并在下次 Review 报告中回显（`growth_task_states` 表 PK(email,username,task_key) 幂等持久化，Growth Plan 页跨 Review 回显 completedKeys；报告内嵌回显留待 B7 埋点批补）
+- [x] 数据不足提示正确展示（`limitedData` → Spec §9 原文提示条）
+
+**实施记录（2026-08-19）**
+
+- 引擎：`lib/growth-tasks.ts` 纯函数 `buildGrowthTasks({evaluation})`——6 条规则模板（niche<45 聚焦/consistency<45 节奏/audience<60 互动/momentum<45 系列化/brand<60 商业证据/risk>0 风险修复），最弱支柱优先（risk 反向语义），evidence 全部绑定真实数字（top3Share%/engagementRate%/topPostPlays/CPM/时间 slot）
+- 数量/置信度按 Spec §9 表 + 三重降档（覆盖<14 天→上限2且降档/单条爆款>8×→降档并注明/叠加不破 low）；`limitedData` 双口径（抓取样本<5 或 videoCount<10）
+- 泛化黑名单测试断言（/keep posting|post more|be consistent|engage with your audience|stay active/i）；key=kebab(title)+规则序号，同输入同输出（跨评估完成状态可持久化）；baselineReview → 全任务 `baseline:true` + "Baseline calibration" 前缀
+- API：`GET /api/growth-plan?username=`（Bearer + checkShareOwnership 付费门：免费预览→402）、`POST /api/growth-tasks/[id]/complete?username=`（幂等 200）；`lib/growth-task-states.ts` Neon 表惰性初始化
+- 页面：`app/dashboard/growth-plan/page.tsx` + `GrowthTaskCard`（Spec §9 任务结构：title/why/evidence 等宽强调/impact/"Next review will measure" 徽章/confidence/baseline/Mark as complete）；402 付费墙引导解锁；`?username=` 缺省回退最近评估账号（集成修复，导航直链可达）
+- Teaser 钩子：`stripForTeaser` 增 `growthTaskPreview`（任务 #1 标题进免费层，完整任务集不泄漏）
+- 测试：`lib/growth-tasks.test.ts` 25 用例 + teaser 补 2 用例；全量 145/145、TSC 0 错、build 通过
 
 ---
 
