@@ -77,6 +77,11 @@ describe('stripForTeaser', () => {
     expect(bv?.summary).toBeUndefined()
   })
 
+  it('legacy report without valuationV2 keeps original range untouched', () => {
+    // baseEvaluation has no valuationV2（旧缓存报告）→ 原样透传
+    expect((t.businessValue as { totalValue: { low: number } })?.totalValue.low).toBe(18400)
+  })
+
   it('keeps commercialSnapshot SUBSET (band/confidence/blocker only)', () => {
     const c = t.commercialSnapshot as unknown as Record<string, unknown>
     expect(c.readinessBand).toBe('Growth Value')
@@ -99,5 +104,24 @@ describe('stripForTeaser', () => {
     for (const key of ['dimensions', 'metrics', 'peerBenchmark', 'summary', 'verdict', 'advice', 'priceAdvice']) {
       expect(locked[key]).toBeUndefined()
     }
+  })
+})
+
+describe('stripForTeaser valuation v2 range (Spec §7.3 band width)', () => {
+  const withBand = (band: 'medium_high' | 'medium' | 'medium_low' | 'low') =>
+    stripForTeaser({
+      ...baseEvaluation,
+      valuationV2: { band, riskScore: 10, riskDiscountPct: 8, range: { low: 1, mid: 22000, high: 999999 } },
+    } as Evaluation)
+
+  it('recomputes low/high from mid by band width (low confidence ±30%)', () => {
+    const total = withBand('low').businessValue!.totalValue
+    expect(total).toEqual({ low: 15400, mid: 22000, high: 28600 })
+  })
+
+  it('low-confidence range is visibly wider than medium_high', () => {
+    const lo = withBand('low').businessValue!.totalValue
+    const hi = withBand('medium_high').businessValue!.totalValue
+    expect(lo.high - lo.low).toBeGreaterThan((hi.high - hi.low) * 1.5)
   })
 })

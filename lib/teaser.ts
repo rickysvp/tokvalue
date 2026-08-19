@@ -1,5 +1,6 @@
 // lib/teaser.ts
 import type { Evaluation, Post } from '@/types'
+import { valuationRangeOf } from './pillar'
 
 /**
  * Teaser 免费边界（Spec §3.3）——纯函数，供 evaluate 路由 FREE 路径裁剪响应。
@@ -71,7 +72,12 @@ export function stripForTeaser(evaluation: Evaluation): TeaserPayload {
     score: evaluation.score,
     tier: evaluation.tier,
     businessValue: evaluation.businessValue
-      ? { totalValue: evaluation.businessValue.totalValue }
+      ? {
+          // Spec §7.3：区间宽度按置信度 band 重算（低置信更宽）；旧报告无 valuationV2 → 原样透传
+          totalValue: evaluation.valuationV2
+            ? valuationRangeOf(evaluation.businessValue.totalValue.mid, evaluation.valuationV2.band)
+            : evaluation.businessValue.totalValue,
+        }
       : undefined,
     commercialSnapshot: teaserSnap,
     riskFlags: primaryBlocker ? [primaryBlocker] : [],
