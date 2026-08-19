@@ -588,3 +588,29 @@ export interface RecentEvaluation {
   businessValueHigh: number
   computedAt: string
 }
+
+// ========== B6：Growth Plan 规则模板任务引擎（Spec §9） ==========
+
+export type TaskConfidence = 'low' | 'medium_low' | 'medium' | 'medium_high'
+
+export interface GrowthTask {
+  /** 稳定 slug（title kebab-case + 规则序号）；完成状态按 key 持久化 */
+  key: string
+  title: string
+  whyThisMatters: string
+  /** 必须含具体数字或视频引用（禁泛化建议） */
+  evidence: string
+  /** 影响哪些支柱 */
+  expectedImpact: string
+  /** "Next review will measure: X" */
+  measureTarget: PillarKey[]
+  confidence: TaskConfidence
+  /** 首评标注 Baseline calibration */
+  baseline?: boolean
+}
+
+export interface GrowthPlanV2 {
+  tasks: GrowthTask[]
+  /** 视频数不足（Spec §9 数据不足提示由展示层渲染） */
+  limitedData: boolean
+}
