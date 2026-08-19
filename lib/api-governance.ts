@@ -204,3 +204,54 @@ export async function getCostSummary(): Promise<{
     freePaused: isOverBudget(todayUsd, monthUsd, cfg),
   }
 }
+
+// ── 供应商熔断 ──
+// 连续失败 ≥ BREAKER_FAILURE_THRESHOLD → 熔断冷却 nextCooldownMs()；
+// 成功一次即清零。DB 故障 fail-open（不熔断任何供应商）。
+
+export async function recordProviderOutcome(host: string, ok: boolean): Promise<void> {
+  const s = await getSql()
+  if (!s) return
+  try {
+    if (ok) {
+      await s`
+        INSERT INTO provider_health (host, consecutive_failures, open_until, updated_at)
+        VALUES (${host}, 0, NULL, NOW())
+        ON CONFLICT (host) DO UPDATE SET consecutive_failures = 0, open_until = NULL, updated_at = NOW()
+      `
+      return
+    }
+    const rows = await s`
+      INSERT INTO provider_health (host, consecutive_failures, updated_at)
+      VALUES (${host}, 1, NOW())
+      ON CONFLICT (host) DO UPDATE SET
+        consecutive_failures = provider_health.consecutive_failures + 1,
+        updated_at = NOW()
+      RETURNING consecutive_failures
+    `
+    const failures = Number(rows[0]?.consecutive_failures || 0)
+    if (failures >= BREAKER_FAILURE_THRESHOLD) {
+      const cooldown = nextCooldownMs(failures)
+      await s`
+        UPDATE provider_health
+        SET open_until = NOW() + (${cooldown}::bigint * interval '1 millisecond')
+        WHERE host = ${host}
+      `
+    }
+  } catch (err) {
+    console.warn('[api-governance] recordProviderOutcome failed (non-fatal):', err instanceof Error ? err.message : String(err))
+  }
+}
+
+export async function isProviderCircuitOpen(host: string): Promise<boolean> {
+  const s = await getSql()
+  if (!s) return false
+  try {
+    const rows = await s`SELECT open_until FROM provider_health WHERE host = ${host}`
+    const until = rows[0]?.open_until
+    if (!until) return false
+    return new Date(String(until)).getTime() > Date.now()
+  } catch {
+    return false // fail-open
+  }
+}

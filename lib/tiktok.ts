@@ -1,4 +1,11 @@
 import { RawProfile, Post, SearchUserResult } from '@/types'
+import { recordApiCall, recordProviderOutcome, isProviderCircuitOpen, readCostPerCallUsd } from '@/lib/api-governance'
+
+/** 评估链路审计上下文：随 fetchProfile 传入，落到 api_call_logs（review_id / purchase_type 归属） */
+export interface AuditCtx {
+  reviewId?: string
+  purchaseType?: string
+}
 
 /** 重试配置 */
 const MAX_RETRIES = 2          // 每个 key 最多重试 2 次（共 3 次尝试）
@@ -319,104 +326,122 @@ async function apiCallSingle(
   path: string,
   body: Record<string, unknown> | undefined,
   label: string,
-  options: { timeoutMs?: number; throwOnError?: boolean } = {}
+  options: { timeoutMs?: number; throwOnError?: boolean; audit?: AuditCtx } = {}
 ): Promise<Record<string, unknown>> {
+  const fnStart = Date.now()
+  let callOk = false
   const { host, apiKey } = provider
-  const { timeoutMs = 15000, throwOnError = true } = options
+  const { timeoutMs = 15000, throwOnError = true, audit } = options
   const url = `https://${host}${path}`
   const providerTag = host
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const start = Date.now()
-    let res: Response
-    try {
-      const opts: RequestInit = {
-        method,
-        headers: apiHeaders(host, apiKey),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(timeoutMs),
-      }
-      if (method === 'POST' && body) {
-        opts.body = JSON.stringify(body)
-      }
-      res = await fetch(url, opts)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
-      const isNetwork = isTimeout || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED') || msg.includes('EAI_AGAIN') || msg.includes('EPIPE')
+  try {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const start = Date.now()
+      let res: Response
+      try {
+        const opts: RequestInit = {
+          method,
+          headers: apiHeaders(host, apiKey),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(timeoutMs),
+        }
+        if (method === 'POST' && body) {
+          opts.body = JSON.stringify(body)
+        }
+        res = await fetch(url, opts)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+        const isNetwork = isTimeout || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED') || msg.includes('EAI_AGAIN') || msg.includes('EPIPE')
 
-      if (isNetwork) {
-        const code = isTimeout ? 'Request timed out' : `Network error: ${msg}`
-        console.warn(`[tiktok] ${label} ${providerTag} attempt#${attempt + 1} network error: ${msg}`)
+        if (isNetwork) {
+          const code = isTimeout ? 'Request timed out' : `Network error: ${msg}`
+          console.warn(`[tiktok] ${label} ${providerTag} attempt#${attempt + 1} network error: ${msg}`)
+          if (attempt < MAX_RETRIES) {
+            await sleep(RETRY_DELAYS[attempt])
+            continue
+          }
+          throw new TikTokApiError(code, 'NETWORK_ERROR', 502)
+        }
+        throw err  // 未知异常不重试
+      }
+
+      // 限流/配额：抛错，由上层切换 provider
+      if (res.status === 429 || res.status === 403) {
+        console.warn(`[tiktok] ${label} ${providerTag} attempt#${attempt + 1} HTTP ${res.status} (rate/quota)`)
+        throw new TikTokApiError('Rate limited', 'RATE_LIMIT', 429)
+      }
+
+      const text = await res.text()
+      const duration = Date.now() - start
+
+      if (!res.ok) {
+        console.error(`[tiktok] ${label} ${providerTag} HTTP ${res.status} (${duration}ms):`, text.slice(0, 300))
+        // 5xx 服务端错误可重试
+        if (res.status >= 500 && attempt < MAX_RETRIES) {
+          await sleep(RETRY_DELAYS[attempt])
+          continue
+        }
+        if (!throwOnError) return {}
+        throw new TikTokApiError(`API HTTP ${res.status}`, 'API_ERROR', 500)
+      }
+
+      let json: unknown
+      try {
+        json = JSON.parse(text)
+      } catch {
+        console.error(`[tiktok] ${label} ${providerTag} invalid JSON (${duration}ms):`, text.slice(0, 200))
         if (attempt < MAX_RETRIES) {
           await sleep(RETRY_DELAYS[attempt])
           continue
         }
-        throw new TikTokApiError(code, 'NETWORK_ERROR', 502)
-      }
-      throw err  // 未知异常不重试
-    }
-
-    // 限流/配额：抛错，由上层切换 provider
-    if (res.status === 429 || res.status === 403) {
-      console.warn(`[tiktok] ${label} ${providerTag} attempt#${attempt + 1} HTTP ${res.status} (rate/quota)`)
-      throw new TikTokApiError('Rate limited', 'RATE_LIMIT', 429)
-    }
-
-    const text = await res.text()
-    const duration = Date.now() - start
-
-    if (!res.ok) {
-      console.error(`[tiktok] ${label} ${providerTag} HTTP ${res.status} (${duration}ms):`, text.slice(0, 300))
-      // 5xx 服务端错误可重试
-      if (res.status >= 500 && attempt < MAX_RETRIES) {
-        await sleep(RETRY_DELAYS[attempt])
-        continue
-      }
-      if (!throwOnError) return {}
-      throw new TikTokApiError(`API HTTP ${res.status}`, 'API_ERROR', 500)
-    }
-
-    let json: unknown
-    try {
-      json = JSON.parse(text)
-    } catch {
-      console.error(`[tiktok] ${label} ${providerTag} invalid JSON (${duration}ms):`, text.slice(0, 200))
-      if (attempt < MAX_RETRIES) {
-        await sleep(RETRY_DELAYS[attempt])
-        continue
-      }
-      if (!throwOnError) return {}
-      throw new TikTokApiError('Invalid API response', 'API_ERROR', 500)
-    }
-
-    const root = json as Record<string, unknown>
-
-    // 错误格式：{ detail: "User xxx does not exist" } 或 { message: "..." }
-    const detailMsg = typeof root.detail === 'string' ? root.detail : ''
-    const errMsg = typeof root.message === 'string' ? root.message : detailMsg
-
-    if (errMsg) {
-      if (/does not exist|not found|no user|user not found|invalid/i.test(errMsg)) {
         if (!throwOnError) return {}
-        throw new TikTokApiError(errMsg, 'USER_NOT_FOUND', 404)
+        throw new TikTokApiError('Invalid API response', 'API_ERROR', 500)
       }
-      if (/rate limit|quota|too many/i.test(errMsg)) {
-        console.warn(`[tiktok] ${label} ${providerTag} response rate limit`)
-        throw new TikTokApiError(errMsg, 'RATE_LIMIT', 429)
+
+      const root = json as Record<string, unknown>
+
+      // 错误格式：{ detail: "User xxx does not exist" } 或 { message: "..." }
+      const detailMsg = typeof root.detail === 'string' ? root.detail : ''
+      const errMsg = typeof root.message === 'string' ? root.message : detailMsg
+
+      if (errMsg) {
+        if (/does not exist|not found|no user|user not found|invalid/i.test(errMsg)) {
+          if (!throwOnError) return {}
+          callOk = true // provider HTTP 往返正常，业务性 404 不计熔断
+          throw new TikTokApiError(errMsg, 'USER_NOT_FOUND', 404)
+        }
+        if (/rate limit|quota|too many/i.test(errMsg)) {
+          console.warn(`[tiktok] ${label} ${providerTag} response rate limit`)
+          throw new TikTokApiError(errMsg, 'RATE_LIMIT', 429)
+        }
+        if (/endpoint.*does not exist/i.test(errMsg)) {
+          console.error(`[tiktok] ${label} ${providerTag} endpoint error:`, errMsg)
+          if (!throwOnError) return {}
+          throw new TikTokApiError(errMsg, 'API_ERROR', 500)
+        }
       }
-      if (/endpoint.*does not exist/i.test(errMsg)) {
-        console.error(`[tiktok] ${label} ${providerTag} endpoint error:`, errMsg)
-        if (!throwOnError) return {}
-        throw new TikTokApiError(errMsg, 'API_ERROR', 500)
-      }
+
+      console.log(`[tiktok] ${label} ${providerTag} OK (${duration}ms)`)
+      callOk = true
+      return root
     }
 
-    console.log(`[tiktok] ${label} ${providerTag} OK (${duration}ms)`)
-    return root
+    throw new TikTokApiError('Request failed after retries', 'API_ERROR', 500)
+  } finally {
+    const durationMs = Date.now() - fnStart
+    recordProviderOutcome(host, callOk).catch(() => {})
+    recordApiCall({
+      host,
+      endpoint: label,
+      ok: callOk,
+      durationMs,
+      costUsd: callOk ? readCostPerCallUsd() : 0,
+      reviewId: audit?.reviewId ?? null,
+      purchaseType: audit?.purchaseType ?? null,
+    }).catch(() => {})
   }
-
-  throw new TikTokApiError('Request failed after retries', 'API_ERROR', 500)
 }
 
 // ========== Provider 适配器 ==========
@@ -424,16 +449,16 @@ async function apiCallSingle(
 interface ProviderAdapter {
   name: string
   /** 获取用户资料（含视频），返回标准 RawProfile */
-  fetchProfile(username: string, provider: ProviderConfig): Promise<RawProfile>
+  fetchProfile(username: string, provider: ProviderConfig, audit?: AuditCtx): Promise<RawProfile>
 }
 
 // --- tiktok-api6 适配器（POST 请求，当前默认） ---
 const API6_ADAPTER: ProviderAdapter = {
   name: 'tiktok-api6',
-  async fetchProfile(username, provider) {
+  async fetchProfile(username, provider, audit) {
     const [info, posts] = await Promise.all([
-      apiCallSingle(provider, 'POST', '/user/details', { username }, 'user/details', { timeoutMs: 20000 }),
-      fetchPostsApi6(username, provider),
+      apiCallSingle(provider, 'POST', '/user/details', { username }, 'user/details', { timeoutMs: 20000, audit }),
+      fetchPostsApi6(username, provider, audit),
     ])
 
     const followerCount = toNumber(pickField(info, 'followers', 'follower_count', 'followerCount'))
@@ -464,9 +489,9 @@ const API6_ADAPTER: ProviderAdapter = {
 // --- tiktok-api23 适配器（GET 请求） ---
 const API23_ADAPTER: ProviderAdapter = {
   name: 'tiktok-api23',
-  async fetchProfile(username, provider) {
+  async fetchProfile(username, provider, audit) {
     const path = `/api/user/info?uniqueId=${encodeURIComponent(username)}`
-    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/info', { timeoutMs: 20000 })
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/info', { timeoutMs: 20000, audit })
     const userInfo = root.userInfo as Record<string, unknown> | undefined
     if (!userInfo) throw new TikTokApiError('Empty response', 'API_ERROR', 500)
     const user = (userInfo.user as Record<string, unknown>) || {}
@@ -483,7 +508,7 @@ const API23_ADAPTER: ProviderAdapter = {
     }
 
     // 视频端点需要 secUid
-    const posts = await fetchPostsApi23(username, secUid, provider)
+    const posts = await fetchPostsApi23(username, secUid, provider, audit)
     const postsFetched = posts.length > 0
     return {
       username, nickname, followerCount,
@@ -502,9 +527,9 @@ const API23_ADAPTER: ProviderAdapter = {
 // --- tiktok-scraper7 适配器（GET 请求） ---
 const SCRAPER7_ADAPTER: ProviderAdapter = {
   name: 'tiktok-scraper7',
-  async fetchProfile(username, provider) {
+  async fetchProfile(username, provider, audit) {
     const path = `/user/info?unique_id=${encodeURIComponent(username)}`
-    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/info', { timeoutMs: 20000 })
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/info', { timeoutMs: 20000, audit })
     const data = root.data as Record<string, unknown> | undefined
     if (!data) throw new TikTokApiError('Empty response', 'API_ERROR', 500)
     const user = (data.user as Record<string, unknown>) || {}
@@ -520,7 +545,7 @@ const SCRAPER7_ADAPTER: ProviderAdapter = {
       throw new TikTokApiError('User has empty stats', 'USER_NOT_FOUND', 404)
     }
 
-    const posts = await fetchPostsScraper7(username, provider)
+    const posts = await fetchPostsScraper7(username, provider, audit)
     const postsFetched = posts.length > 0
     return {
       username, nickname, followerCount,
@@ -545,13 +570,21 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
 
 // ========== fetchProfile：多 provider 遍历 ==========
 
-export async function fetchProfile(inputUsername: string): Promise<RawProfile> {
+export async function fetchProfile(inputUsername: string, audit?: AuditCtx): Promise<RawProfile> {
   const username = normalizeUsername(inputUsername)
   if (!username) throw new TikTokApiError('Empty username', 'INVALID_USERNAME', 400)
 
-  const providers = getProviders()
-  if (providers.length === 0) {
+  const all = getProviders()
+  if (all.length === 0) {
     throw new TikTokApiError('RAPIDAPI_KEY not configured', 'MISSING_API_KEY', 503)
+  }
+
+  // ── B2 熔断过滤：跳过 open_until 未到期的供应商；全部熔断时 fail-open 放行 ──
+  const openFlags = await Promise.all(all.map(p => isProviderCircuitOpen(p.host)))
+  let providers = all.filter((_, i) => !openFlags[i])
+  if (providers.length === 0) {
+    console.warn('[tiktok] all providers circuit-open — failing open')
+    providers = all
   }
 
   let lastError: unknown = null
@@ -564,7 +597,24 @@ export async function fetchProfile(inputUsername: string): Promise<RawProfile> {
     }
     try {
       console.log(`[tiktok] trying ${adapter.name} (${provider.host})`)
-      return await adapter.fetchProfile(username, provider)
+      const t0 = Date.now()
+      const profile = await adapter.fetchProfile(username, provider, audit)
+      // profile 级汇总审计（字段缺失观测）：dataQuality / postCount / secUid 是否齐全
+      recordApiCall({
+        host: provider.host,
+        endpoint: 'profile_summary',
+        ok: true,
+        durationMs: Date.now() - t0,
+        costUsd: 0,
+        reviewId: audit?.reviewId ?? null,
+        purchaseType: audit?.purchaseType ?? null,
+        meta: {
+          dataQuality: profile.dataQuality,
+          postCount: profile.posts?.length ?? 0,
+          secUidPresent: !!profile.secUid,
+        },
+      }).catch(() => {})
+      return profile
     } catch (err) {
       // USER_NOT_FOUND 不切换 provider
       if (err instanceof TikTokApiError && err.code === 'USER_NOT_FOUND') throw err
@@ -579,9 +629,9 @@ export async function fetchProfile(inputUsername: string): Promise<RawProfile> {
 // ========== 各 host 的视频获取函数 ==========
 
 // tiktok-api6: POST /user/videos
-async function fetchPostsApi6(username: string, provider: ProviderConfig): Promise<Post[]> {
+async function fetchPostsApi6(username: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
   try {
-    const root = await apiCallSingle(provider, 'POST', '/user/videos', { username, count: 30, cursor: 0 }, 'user/videos', { timeoutMs: 12000 })
+    const root = await apiCallSingle(provider, 'POST', '/user/videos', { username, count: 30, cursor: 0 }, 'user/videos', { timeoutMs: 12000, audit })
     const items = Array.isArray(root.videos) ? root.videos : []
     return items.map((v: unknown): Post => {
       const item = (v && typeof v === 'object') ? (v as Record<string, unknown>) : {}
@@ -603,11 +653,11 @@ async function fetchPostsApi6(username: string, provider: ProviderConfig): Promi
 }
 
 // tiktok-api23: GET /api/user/posts?uniqueId=xxx&secUid=yyy
-async function fetchPostsApi23(username: string, secUid: string, provider: ProviderConfig): Promise<Post[]> {
+async function fetchPostsApi23(username: string, secUid: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
   if (!secUid) return []
   try {
     const path = `/api/user/posts?uniqueId=${encodeURIComponent(username)}&secUid=${encodeURIComponent(secUid)}&count=30`
-    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/posts', { timeoutMs: 12000 })
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/posts', { timeoutMs: 12000, audit })
     const rootData = root.data as Record<string, unknown> | undefined
     const items: unknown[] = Array.isArray(root.videos) ? root.videos : (Array.isArray(rootData?.videos) ? rootData!.videos : [])
     return items.map((v: unknown): Post => {
@@ -630,10 +680,10 @@ async function fetchPostsApi23(username: string, secUid: string, provider: Provi
 }
 
 // tiktok-scraper7: GET /user/posts?unique_id=xxx
-async function fetchPostsScraper7(username: string, provider: ProviderConfig): Promise<Post[]> {
+async function fetchPostsScraper7(username: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
   try {
     const path = `/user/posts?unique_id=${encodeURIComponent(username)}&count=30`
-    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/posts', { timeoutMs: 12000 })
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/posts', { timeoutMs: 12000, audit })
     const rootData = root.data as Record<string, unknown> | undefined
     const items: unknown[] = Array.isArray(rootData?.videos) ? rootData!.videos : []
     return items.map((v: unknown): Post => {
