@@ -79,7 +79,7 @@ describe('scoreProfile', () => {
     const evaluation = scoreProfile(buildProfile({ posts: [] }), { now })
     expect(evaluation.score).toBeGreaterThanOrEqual(0)
     expect(evaluation.score).toBeLessThanOrEqual(100)
-    expect(evaluation.riskFlags.some(r => r.label === 'Insufficient Data')).toBe(true)
+    expect(evaluation.riskFlags.some(r => r.label === 'Too few videos to score')).toBe(true)
   })
 
   // ===== 分层估值模型测试 =====

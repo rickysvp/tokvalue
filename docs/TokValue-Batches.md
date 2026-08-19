@@ -85,11 +85,16 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] 同一账号 24h 内第二次 Review：API 调用数 = 0
-- [ ] 新邮箱 + 已免费分析过的 username → 免费生成被拒，付费/缓存路径可用
-- [ ] 同 IP 第 3 次免费生成 → 429
-- [ ] 调低预算阈值 → 免费暂停、付费正常
-- [ ] 单次 Review 成本记录可查（admin 日志）
+- [x] 同一账号 24h 内第二次 Review：API 调用数 = 0（`getFreshSnapshot` 命中跳过 `fetchProfile`；集成测试验证 round-trip + TTL）
+- [x] 新邮箱 + 已免费分析过的 username → 免费生成被拒，付费/缓存路径可用（`free_review_grants` 归一化辅闸，`@User.Name-x` 变体归并；集成测试验证原子消耗）
+- [x] 同 IP 第 3 次免费生成 → 429（主闸 `FREE_ALLOWANCE_LIMIT` 2→1，复用现有 `free_rate_limits` IP 兜底）
+- [x] 调低预算阈值 → 免费暂停、付费正常（`isFreeBudgetExceeded` 日 $10/月 $150，evaluate FREE 路径前置检查返回 503 `FREE_BUDGET_PAUSED`，付费路径不受影响）
+- [x] 单次 Review 成本记录可查（admin 日志 `GET /api/tiktokmaster/logs?source=api`，含 `api_call_logs` 明细 + 日/月成本汇总）
+
+**实施状态（2026-08-19）**：Task 1–8 完成。
+交付物：`lib/username-normalize.ts`（归一化纯函数 + 单测）、`lib/api-governance.ts`（成本记账 + 预算闸 + 供应商熔断 `provider_health`）、`lib/snapshots.ts`（24h 快照 `account_snapshots`，sec_uid 主键）、`lib/free-grants.ts`（username 辅闸，fail-open）、`lib/tiktok.ts`（逐 provider 审计 + 熔断过滤 + fail-open）、`app/api/evaluate/route.ts`（PAID/FREE 双路径接线）、admin `?source=api` 日志端点、`vitest.config.ts`（`@/` 别名）。
+验证：88 单测全绿 + TSC 干净 + 真实 Neon 集成测试 3/3（快照 round-trip/TTL、辅闸归一化归并+原子消耗、成本账本+预算闸；本机走 `undici EnvHttpProxyAgent` 代理连 Neon，测试为临时文件已删，复验方式见 `docs/superpowers/plans/2026-08-19-b2-cost-gates.md`）。
+注：主闸邮箱唯一沿用现有 session 体系；`REVIEW_STATE_MACHINE` flag 仍默认关闭（B1 约定）。
 
 ---
 
