@@ -352,8 +352,8 @@ export async function getUsageCountByEmail(email: string): Promise<number> {
 
 // ── Free evaluation allowance（免费评估额度：每邮箱终身 2 次）──
 
-// 免费评估额度：每邮箱终身 2 次
-export const FREE_ALLOWANCE_LIMIT = 2
+// 免费评估额度：每邮箱终身 1 次
+export const FREE_ALLOWANCE_LIMIT = 1
 
 let freeAllowanceInitPromise: Promise<void> | null = null
 

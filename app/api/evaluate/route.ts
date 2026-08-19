@@ -13,6 +13,10 @@ import { getClientIp } from '@/lib/ip'
 import { createOrGetReview, transitionReview, failReview, reconcileInFlight, type AccountReviewRow } from '@/lib/reviews'
 import { recordUsageEvent } from '@/lib/usage-events'
 import { isTerminalReview, type ReviewStatus } from '@/lib/review-state'
+import { getFreshSnapshot, upsertSnapshot } from '@/lib/snapshots'
+import { hasFreeGrant, consumeFreeGrant } from '@/lib/free-grants'
+import { isFreeBudgetExceeded } from '@/lib/api-governance'
+import type { RawProfile } from '@/types'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -280,8 +284,19 @@ export async function POST(req: NextRequest) {
           await advance('fetching_data')
         }
 
-        const profile = await fetchProfile(normalized)
-        await advance('data_saved')
+        // ── B2: 24h 快照优先——命中跳过 RapidAPI（照常扣费）；force 刷新则跳过快照 ──
+        let profile: RawProfile
+        let dataRefreshedHoursAgo: number | undefined
+        const snap = forceRefresh ? null : await getFreshSnapshot(normalized)
+        if (snap) {
+          profile = snap.profile
+          dataRefreshedHoursAgo = Math.floor(snap.ageHours)
+          await advance('data_saved')
+        } else {
+          profile = await fetchProfile(normalized, { reviewId: reviewRow?.id ?? undefined, purchaseType: 'credits' })
+          await advance('data_saved')
+          await upsertSnapshot(profile)
+        }
 
         recordEventFromRequest(req, {
           event_type: 'evaluate_start',
@@ -319,7 +334,12 @@ export async function POST(req: NextRequest) {
           metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
         }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
 
-        return NextResponse.json({ ...evaluation, isFree: false, ...(reviewRow ? { review_id: reviewRow.id } : {}) })
+        return NextResponse.json({
+          ...evaluation,
+          isFree: false,
+          ...(reviewRow ? { review_id: reviewRow.id } : {}),
+          ...(dataRefreshedHoursAgo !== undefined ? { dataRefreshedHoursAgo } : {}),
+        })
       }
     }
 
@@ -372,6 +392,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── B2: 免费预算闸——日/月 API 成本触达阈值 → 暂停免费生成（付费不受影响）──
+    if (await isFreeBudgetExceeded()) {
+      recordEventFromRequest(req, {
+        event_type: 'api_error',
+        path: '/api/evaluate',
+        username: normalized,
+        metadata: { error_code: 'FREE_BUDGET_PAUSED', ip: clientIp },
+      }).catch(() => {})
+      return NextResponse.json(
+        { error: 'Free evaluations are temporarily paused due to high demand. Please try again later or upgrade to unlock yours now.', code: 'FREE_BUDGET_PAUSED' },
+        { status: 503 }
+      )
+    }
+
     // ── B1: 免费路径幂等 + in-flight 锁（有 userEmail 时）。
     // 置于额度扣减之前：conflict 409 时不耗免费额度（幂等检查先于锁定额度）──
     if (reviewStateMachineEnabled() && userEmail) {
@@ -393,6 +427,21 @@ export async function POST(req: NextRequest) {
           eventType: res.kind === 'created' ? 'review_started' : 'review_reused',
           purchaseType: 'free_trial', status: reviewRow.status,
         })
+      }
+    }
+
+    // ── B2 辅闸预检：该 username 已被免费生成过 → 直接拒（付费路径不受影响；
+    // 本邮箱 24h 免费缓存命中已在更早处 return）──
+    if (!IS_DEV || userEmail) {
+      if (await hasFreeGrant(normalized)) {
+        if (reviewStateMachineEnabled() && reviewRow && !isTerminalReview(reviewRow.status)) {
+          await failReview(reviewRow.id, 'free_username_grant_used').catch(() => {})
+          reviewRow = null
+        }
+        return NextResponse.json(
+          { error: 'This account has already been analyzed with a free review. Upgrade to unlock a fresh one.', code: 'FREE_USERNAME_USED' },
+          { status: 403 }
+        )
       }
     }
 
@@ -430,7 +479,24 @@ export async function POST(req: NextRequest) {
       await advance('fetching_data')
     }
 
-    const profile = await fetchProfile(normalized)
+    // ── B2: 快照优先——24h 内拉取过的账号直接复用，不调 RapidAPI、不耗辅闸 ──
+    let profile: RawProfile | null = (await getFreshSnapshot(normalized))?.profile ?? null
+    if (!profile) {
+      // ── B2 辅闸原子消耗：并发下仅一个请求拿到该 username 的免费名额 ──
+      const grant = await consumeFreeGrant(normalized, userEmail || undefined)
+      if (!grant.ok) {
+        if (reviewRow) {
+          await failReview(reviewRow.id, 'free_username_grant_used').catch(() => {})
+          reviewRow = null
+        }
+        return NextResponse.json(
+          { error: 'This account has already been analyzed with a free review. Upgrade to unlock a fresh one.', code: 'FREE_USERNAME_USED' },
+          { status: 403 }
+        )
+      }
+      profile = await fetchProfile(normalized, { reviewId: reviewRow?.id ?? undefined, purchaseType: 'free_trial' })
+      await upsertSnapshot(profile)
+    }
     await advance('data_saved')
     await advance('analyzing') // 免费路径 scoreProfile 即全部计算
 
