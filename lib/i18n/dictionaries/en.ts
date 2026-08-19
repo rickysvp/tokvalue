@@ -814,6 +814,16 @@ const en = {
       subtitle: 'Six pillars behind your score. Tap any card for details.',
       improve: 'How to improve',
     },
+    deal: {
+      title: 'Price Your Next Deal',
+      subtitle: 'Negotiation-ready rates for one branded video.',
+      opening: 'Opening Ask',
+      fairRange: 'Fair Range',
+      floor: 'Walk-Away Floor',
+      assumptions: 'Assumes',
+      notIncluded: 'Not included',
+      factors: 'What moves your rate',
+    },
   },
 
   // ── Tier Labels ──
