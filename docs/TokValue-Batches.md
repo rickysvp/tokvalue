@@ -246,10 +246,21 @@ M4 收尾（全量切换）
 
 **验收标准**
 
-- [ ] 每个页面页脚含数据来源声明；估值页含免责声明
-- [ ] 对账任务连续 7 天零差异
-- [ ] 两封邮件触发正确
-- [ ] flag 移除后全流程回归通过
+- [x] 每个页面页脚含数据来源声明；估值页含免责声明（首页/评估页 SiteFooter 底栏既有 "Data sourced from public third-party APIs" + TikTok 商标声明；B7 补 dashboard 全路由 footer 同源声明；估值免责 VALUATION_DISCLAIMER + ValuationMethodology 既有；浏览器实测首页文案可见 ✓）
+- [x] 对账任务连续 7 天零差异（机制就绪：`lib/reconcile.ts` 每日跑 → `reconcile_results` 落库 + 不一致 `sendAdminAlert`；cron 每日 02:00 UTC；「连续 7 天」属上线后观察指标，Vercel 部署后起算）
+- [x] 两封邮件触发正确（Review 完成：付费评估成功保存后 fire-and-forget `sendReviewCompletedEmail`，快照命中/免费/幂等重放不重发；Day-10 召回：`/api/cron/recall` 扫 [10d,11d) 窗口 + 回访排除 + recall_log 30 天幂等，15 用例覆盖窗口边界/排除规则）
+- [x] flag 移除后全流程回归通过（`reviewStateMachineEnabled()` 及全部条件分支删除，状态机幂等+锁+三段式 quota 成为唯一路径，旧"原样返还"代码块删除；TSC 0 错 + 160/160 测试 + build 通过 + @demo 浏览器回归 5 项全过）
+
+**实施记录（2026-08-19）**
+
+- 合规：`lib/tiktok.ts` 导出 `TikTokProviderAdapter`（Spec §3 formalize，B2 已有内部接口仅补导出）；dashboard layout 底部数据来源声明；ToS 禁倒卖/禁自动化采集条款与估值页免责声明核查确认已达标（未改动）
+- 邮件：`lib/email.ts`（Resend 封装 + 深色品牌模板壳：Review 完成/召回/ Admin 告警三模板，RESEND_API_KEY 未配置 log-skip 绝不阻断）；evaluate route 付费成功钩子（缓存命中不重发）
+- 召回：`lib/recall.ts`（`selectRecallCandidates` 纯函数 + `runRecall`；最新事件判定天然覆盖回访排除；`recall_log` 30 天冷却）+ `/api/cron/recall`
+- 对账：`lib/reconcile.ts`（①余额对账：单条 GROUP BY 全量聚合 vs checkCreditConsistency 同公式同 ±1 容差；②昨日口径：usage_events.quota_consumed vs credit_usage_logs.consume 行数；`reconcile_results` 每日落库，不一致告警 ADMIN_EMAIL）+ `/api/cron/reconcile`；cron 路由 Bearer CRON_SECRET 鉴权（未配置放行+warn 便于 dev）
+- 埋点（Spec §15 对齐）：EventType + 白名单新增 12 事件；`lib/track-client.ts` 抽取共用客户端 tracker（EvaluatePage 内联实现收敛）；客户端 10 落点（email_verified/tiktok_username_submitted/dashboard_viewed/growth_plan_viewed/growth_task_viewed/growth_task_completed/report_viewed[会话防重]/report_downloaded×2/report_shared×3/pricing_viewed[IO 可见一次]）；服务端 3 落点（cache_hit 付费+免费快照/second_review_started）；B8 域暂缓（subscription_*/discount_code/portal/payment_failed/creator_profile_*）与语义等价沿用（account_found→evaluate_done、full_unlocked→unlock_completed、signup_completed→email_verified）已注明
+- flag 移除：evaluate route 状态机唯一化（付费/免费/catch 三域条件清零，旧无状态路径删除；非 postgres 环境 createOrGetReview unavailable 自然降级不变）
+- vercel.json：reconcile 每日 02:00 + recall 02:30（UTC）
+- 验证：TSC 0 错 / 160/160（+15 recall）/ build 通过 / @demo 回归 5 项全过 / report_viewed 埋点 Network 实测发出 / 10 新事件 track 白名单 curl 全 200 / cron 路由 JSON 行为正确；⚠️ 本机网络当日 Neon 不可达（代理+直连均 000），cron 的 DB 落库与邮件实发待部署环境验证，纯逻辑已由单测覆盖（B2 起多次记录的已知环境限制）
 
 ---
 

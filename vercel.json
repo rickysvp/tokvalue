@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/recall",
+      "schedule": "30 2 * * *"
+    }
+  ]
+}
