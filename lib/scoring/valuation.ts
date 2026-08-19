@@ -292,7 +292,7 @@ export function calcIpBrandValue(
   const playFanRatio = followers > 0 ? effectiveAvgPlays / followers : 0
   const playPenaltyMult = calcPlayFanPenaltyMultiplier(playFanRatio)
   const value = Math.round(brandDealAnnual * tierMultiple * brandingBonus * riskDiscount * playPenaltyMult)
-  const detail = `Brand Deal Annual $${Math.round(brandDealAnnual).toLocaleString()} × ${tier} IP multiple ${tierMultiple}x × Branding signals ${brandingBonus.toFixed(2)}x × Risk discount ${riskDiscount.toFixed(2)}x${playPenaltyMult < 1.0 ? ` × Play-Fan penalty ${playPenaltyMult.toFixed(2)}x` : ''}`
+  const detail = `Starts from $${Math.round(brandDealAnnual).toLocaleString()}/year in brand deals, multiplied by your brand's transferable value (${tierMultiple.toFixed(1)}x for your tier), branding strength (${brandingBonus.toFixed(2)}x) and adjusted for account risk${playPenaltyMult < 1.0 ? ` and limited views vs follower count (${playPenaltyMult.toFixed(2)}x)` : ''}`
 
   return { value, detail }
 }
@@ -443,7 +443,7 @@ export function calcCreatorFundIncome(
     low: Math.round(mid * low),
     mid: Math.round(mid),
     high: Math.round(mid * high),
-    detail: `Monthly mature views ${Math.round(monthlyMatureViews).toLocaleString()} × RPM $${rpm.toFixed(3)}`,
+    detail: `About ${Math.round(monthlyMatureViews).toLocaleString()} qualified views/month, paid at roughly $${rpm.toFixed(3)} per 1K views (Creator Rewards rate for your region)`,
   }
 }
 
@@ -465,7 +465,7 @@ export function calcSubscriptionIncome(
     mid: Math.round(mid),
     high: Math.round(mid * high),
     eligible: true,
-    detail: `Est. ${Math.round(activeSubs)} subscribers × $${SUBSCRIPTION_AVG_PRICE}/month (creator cut 50%)`,
+    detail: `An estimated ${Math.round(activeSubs).toLocaleString()} subscribers paying $${SUBSCRIPTION_AVG_PRICE}/month (you keep 50%)`,
   }
 }
 
@@ -496,7 +496,7 @@ export function calcTikTokShopIncome(
     mid: Math.round(mid),
     high: Math.round(mid * high),
     eligible: true,
-    detail: `Est. ${Math.round(orders)} orders/month × $${shopConfig.aov} AOV × ${(shopConfig.commission * 100).toFixed(0)}% commission`,
+    detail: `An estimated ${Math.round(orders).toLocaleString()} orders/month at $${shopConfig.aov} average order value, earning you ${(shopConfig.commission * 100).toFixed(0)}% commission`,
   }
 }
 
@@ -580,7 +580,7 @@ export function calcAmazonAssociatesIncome(
     mid: Math.round(mid),
     high: Math.round(mid * high),
     eligible: true,
-    detail: `Est. ${Math.round(orders)} orders/mo × $${config.aov} AOV × ${(config.commission * 100).toFixed(1)}% commission (signal ${signalMultiplier.toFixed(2)}x)`,
+    detail: `An estimated ${Math.round(orders).toLocaleString()} orders/month at $${config.aov} average order value, earning ${(config.commission * 100).toFixed(1)}% commission${signalMultiplier !== 1 ? ` (${signalMultiplier > 1 ? 'higher' : 'lower'} because of your product-link activity)` : ''}`,
   }
 }
 
@@ -622,7 +622,7 @@ export function calcShopifyDtcIncome(
     mid: Math.round(mid),
     high: Math.round(mid * high),
     eligible: true,
-    detail: `Est. ${Math.round(orders)} orders/mo × $${config.aov} AOV × ${(config.margin * 100).toFixed(0)}% margin (signal ${signalMultiplier.toFixed(2)}x)`,
+    detail: `An estimated ${Math.round(orders).toLocaleString()} orders/month at $${config.aov} average order value with ${(config.margin * 100).toFixed(0)}% product margin${signalMultiplier !== 1 ? ` (${signalMultiplier > 1 ? 'higher' : 'lower'} because of your storefront activity)` : ''}`,
   }
 }
 
@@ -665,7 +665,7 @@ export function calcLiveCommerceGmv(
     mid: Math.round(mid),
     high: Math.round(mid * high),
     eligible: true,
-    detail: `${Math.round(liveViewers).toLocaleString()} live viewers × ${(config.conversionRate * 100).toFixed(1)}% CR × $${config.aov} AOV × ${(config.commission * 100).toFixed(0)}% commission × ${Math.min(liveFrequency, 4).toFixed(1)} sessions/mo`,
+    detail: `About ${Math.round(liveViewers).toLocaleString()} LIVE viewers per session, with roughly ${(config.conversionRate * 100).toFixed(1)}% buying at $${config.aov} average order value (${(config.commission * 100).toFixed(0)}% commission), across ~${Math.min(liveFrequency, 4).toFixed(1)} sessions/month`,
   }
 }
 
@@ -703,7 +703,7 @@ export function calcContentAssetValue(input: ContentAssetInput): ContentAssetRes
   const value = grossWithBonus * discountFactor * riskDiscount
   return {
     value: Math.round(value),
-    detail: `${effectiveVideoCount} videos × Avg Plays ${Math.round(effectiveAvgPlays).toLocaleString()} × Content CPM $${contentCpm.toFixed(1)} × Discount Rate ${(discountFactor * 100).toFixed(0)}%${viralBonus > 0 ? ` × Viral Bonus +${(viralBonus * 100).toFixed(0)}%` : ''} × Risk Discount ${(riskDiscount * 100).toFixed(0)}%`,
+    detail: `Your ${effectiveVideoCount} videos averaging ${Math.round(effectiveAvgPlays).toLocaleString()} views each, valued like ad-equivalent media at $${contentCpm.toFixed(1)} per 1K views, discounted ${(100 - discountFactor * 100).toFixed(0)}% for reuse value${viralBonus > 0 ? ` with a +${(viralBonus * 100).toFixed(0)}% bonus for proven viral hits` : ''}${riskDiscount < 1 ? ` and adjusted for account risk` : ''}`,
   }
 }
 
@@ -769,7 +769,7 @@ export function calcFollowerAssetValue(input: FollowerAssetInput): FollowerAsset
 
   return {
     value: Math.round(value),
-    detail: `${Math.round(realFollowers).toLocaleString()} real followers × $${baseRate.toFixed(3)}/fan × ^${FOLLOWER_POWER_LAW_EXPONENT} power law × Category ${categoryMult.toFixed(1)}x × Engagement ${engagementFactor.toFixed(2)} × Risk ${riskDiscount.toFixed(2)} × Commercial Proximity ${commercialProximityMult.toFixed(2)}x × Play-Fan Factor ${playFanFactor.toFixed(2)}x${isZombieAccount ? ' × Zombie-Account 0.05x' : ''}`,
+    detail: `Your ${Math.round(realFollowers).toLocaleString()} real followers valued at market rates for your niche (${categoryMult.toFixed(1)}x), scaled for audience size${engagementFactor !== 1 ? `, ${engagementFactor > 1 ? 'boosted' : 'reduced'} by your engagement (${engagementFactor.toFixed(2)}x)` : ''}, and adjusted for brand-fit and views-per-follower${isZombieAccount ? ' — heavily discounted because follower activity signals are near zero' : ''}`,
   }
 }
 
@@ -816,7 +816,7 @@ export function calcMonetizationCapability(input: MonetizationCapInput): Monetiz
 
   return {
     value: Math.round(value),
-    detail: `Monthly Income $${Math.round(monthlyIncomeMid).toLocaleString()} × ${valuationPeriod} month period × ${(DISCOUNT_RATE * 100).toFixed(0)}% discount rate × ${(survivalRate * 100).toFixed(0)}% survival rate × Growth Multiplier ${growthMultiplier.toFixed(2)} × Risk Discount ${riskDiscount.toFixed(2)}`,
+    detail: `${valuationPeriod} months of your current income ($${Math.round(monthlyIncomeMid).toLocaleString()}/month across all channels), discounted heavily because creator income is volatile — only ${(survivalRate * 100).toFixed(0)}% odds it stays at this level${growthMultiplier !== 1 ? `, ${growthMultiplier > 1 ? 'boosted' : 'reduced'} (${growthMultiplier.toFixed(2)}x) for your growth trend` : ''}`,
   }
 }
 
@@ -866,7 +866,7 @@ export function buildIncomeEstimate(input: BuildIncomeInput): IncomeEstimate {
       monthlyAmount: { low: brand.monthlyLow, mid: brand.monthlyMid, high: brand.monthlyHigh },
       percentage: 0,
       confidence: metrics.engagementRate >= 3 ? 'high' : 'medium',
-      detail: `${categoryLabel} CPM $${categoryCpm} × Avg Plays ${Math.round(metrics.effectiveAvgPlays).toLocaleString()} × Engagement Factor ${brand.detail.engagementMult.toFixed(1)} × ${regionLabel} Multiplier ${regionMult.toFixed(2)} × Tier Premium ${brand.detail.tierPremium.toFixed(1)}x, ~${brand.monthlyBrandPosts} posts/month${brand.detail.marketAnchored ? ' (Market-Anchored)' : ''}${brand.detail.followerCapAnchored ? ' (Follower-Cap Anchored)' : ''}`,
+      detail: `About ${brand.monthlyBrandPosts} sponsored post${brand.monthlyBrandPosts === 1 ? '' : 's'}/month at your market rate — based on ${Math.round(metrics.effectiveAvgPlays).toLocaleString()} avg views, ${categoryLabel} niche rates ($${categoryCpm} CPM)${brand.detail.engagementMult !== 1 ? `, ${brand.detail.engagementMult > 1 ? 'premium engagement' : 'softer engagement'} (${brand.detail.engagementMult.toFixed(1)}x)` : ''} and ${regionLabel} market pricing${brand.detail.tierPremium > 1 ? `, with a ${brand.detail.tierPremium.toFixed(1)}x top-tier premium` : ''}`,
     },
     {
       source: 'creator_program', label: 'Creator Program', icon: '🎬',

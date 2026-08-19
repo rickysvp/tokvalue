@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
 import { getUtm } from '@/lib/utm'
 import { ScoreGauge } from '@/components/ScoreGauge'
-import { Search, Loader2, History, Download, TrendingUp, DollarSign, BadgeCheck, MapPin, Tag, Clock, UserCheck, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, BarChart3 } from 'lucide-react'
+import { Search, Loader2, History, Download, TrendingUp, DollarSign, BadgeCheck, MapPin, Tag, Clock, UserCheck, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, BarChart3, FlaskConical } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import { MonetizationChecklist } from '@/components/sections/MonetizationChecklist'
 import { PaidWallModal } from '@/components/PaidWallModal'
@@ -689,6 +689,12 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
             {/* Tab Navigation — PMF 决策页顺序 */}
             <div ref={tabsRef} className="scroll-mt-24">
+              {result.mock && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300/90">
+                  <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+                  <span><span className="font-semibold">Sample report</span> — illustrative data for a fictional fitness creator. Evaluate your own handle for real numbers.</span>
+                </div>
+              )}
               <ReportTabs active={activeTab} onChange={setActiveTab} isPremium={isPremium} />
             </div>
 

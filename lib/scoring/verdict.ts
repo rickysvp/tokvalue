@@ -115,10 +115,8 @@ export interface PriceAdviceInput {
 export function buildPriceAdvice(input: PriceAdviceInput): string {
   const { perVideoLow, perVideoMid, perVideoHigh, effectiveAvgPlays, categoryLabel, cpm, engagementMult, regionLabel, regionMult, risks } = input
   const playsN = formatPlays(effectiveAvgPlays)
-  const em = engagementMult.toFixed(1)
-  const rm = regionMult.toFixed(2)
 
-  let text = `Market rate reference: $${perVideoLow.toLocaleString()} – $${perVideoHigh.toLocaleString()} per sponsored video (median $${perVideoMid.toLocaleString()}). Based on: mature avg plays ${playsN} × ${categoryLabel} CPM $${cpm} × engagement factor ${em} × ${regionLabel} multiplier ${rm}. Adjust ±20-30% based on content production cost, exclusivity terms, and usage duration.`
+  let text = `Market rate: $${perVideoLow.toLocaleString()} – $${perVideoHigh.toLocaleString()} per sponsored video (typical: $${perVideoMid.toLocaleString()}). Based on your ${playsN} average views, ${categoryLabel} niche rates, ${engagementMult >= 1 ? 'strong' : 'softer'} engagement and ${regionLabel} market pricing. Adjust ±20-30% for production cost, exclusivity and usage rights.`
 
   const highRisks = risks.filter(r => r.level === 'high')
   if (highRisks.length > 0) {
@@ -168,7 +166,7 @@ export function buildVerdict(input: VerdictInput): { verdict: string; advice: st
     ? `$${(businessValueMid / 1_000).toFixed(0)}K`
     : `$${Math.round(businessValueMid)}`
 
-  const verdict = `${nickname} — Tier ${tier} (${score}pts), ${engagementLabel}. Estimated business value: ${bvFormatted}. ${TIER_TEXT[tier] || ''}${healthLabel}.`
+  const verdict = `${nickname} scores ${score}/100 with ${engagementLabel} — estimated account value ${bvFormatted}. ${TIER_TEXT[tier] || ''}${healthLabel}.`
 
   const hasHighRisk = risks.some(r => r.level === 'high')
   let advice = ''
@@ -178,15 +176,15 @@ export function buildVerdict(input: VerdictInput): { verdict: string; advice: st
     advice = `High-risk signals detected: ${riskLabels}. Address these risks before pursuing partnerships or monetization.`
   } else if (tier === 'S' || tier === 'A') {
     if (metrics.playGrowth > 20) {
-      advice = 'Account is in a growth surge — commercial value is rising. Creator: maintain posting cadence and explore additional revenue streams. Brands: lock in partnerships now while rates are competitive.'
+      advice = 'Your account is in a growth surge and your commercial value is rising. Maintain your posting cadence, and start exploring additional revenue streams while rates trend up.'
     } else {
-      advice = 'Excellent overall quality with high commercial value. Creator: optimize your brand partnership pricing structure. Brands: ensure content alignment with your brand identity before booking.'
+      advice = 'Excellent overall quality with high commercial value. Next step: optimize your brand partnership pricing structure — your metrics justify premium rates.'
     }
   } else if (tier === 'B') {
     const weakAreas: { key: keyof DimensionScores; label: string }[] = [
       { key: 'engagement', label: 'engagement rate' },
       { key: 'content', label: 'content virality' },
-      { key: 'stability', label: 'traffic stability' },
+      { key: 'stability', label: 'view consistency' },
       { key: 'reach', label: 'reach' },
       { key: 'authenticity', label: 'follower authenticity' },
       { key: 'momentum', label: 'growth momentum' },
@@ -197,13 +195,13 @@ export function buildVerdict(input: VerdictInput): { verdict: string; advice: st
       .filter(a => a.score < 55)
       .sort((a, b) => a.score - b.score)[0]
     const focus = weakest?.label || 'overall content quality'
-    advice = `Solid commercial potential with room to grow. Creator: prioritize improving ${focus}. Brands: negotiate based on current engagement rate of ${metrics.engagementRate.toFixed(1)}% and play volatility CV of ${metrics.cvPlays.toFixed(2)}.`
+    advice = `Solid commercial potential with room to grow. Prioritize improving your ${focus} — it is the biggest lever on your rates (current engagement: ${metrics.engagementRate.toFixed(1)}%).`
   } else if (tier === 'C') {
-    advice = 'Average performance metrics. Creator: focus on improving completion rate and engagement quality before pursuing paid partnerships. Brands: wait for data improvement before committing.'
+    advice = 'Average performance metrics. Focus on improving completion rate and engagement quality before pursuing paid partnerships — your rate depends on them.'
   } else if (tier === 'D') {
-    advice = 'Multiple dimensions need improvement. Creator: audit account health and optimize content quality. Brands: not recommended for partnership at this stage.'
+    advice = 'Multiple dimensions need improvement. Audit your account health and optimize content quality first — monetization will follow.'
   } else {
-    advice = 'Minimal commercial value in current state. Creator: consider rebuilding content strategy from scratch. Brands: strongly not recommended for partnership.'
+    advice = 'Minimal commercial value in the current state. Consider rebuilding your content strategy from scratch with a clear niche.'
   }
 
   return { verdict, advice }
@@ -230,28 +228,31 @@ export function buildSummary(input: SummaryInput): ReportSummary {
   for (let i = 0; i < sorted.length && strengths.length < 3; i++) {
     const [key, val] = sorted[i]
     if (val >= 70) {
-      strengths.push(`${DIM_LABELS[key].strength} (${val}pts)`)
+      strengths.push(`${DIM_LABELS[key].strength} (${val}/100)`)
     }
   }
 
   for (let i = sorted.length - 1; i >= 0 && weaknesses.length < 3; i--) {
     const [key, val] = sorted[i]
     if (val < 40) {
-      weaknesses.push(`${DIM_LABELS[key].weakness} (${val}pts)`)
+      weaknesses.push(`${DIM_LABELS[key].weakness} (${val}/100)`)
     }
   }
 
-  let targetAudience = ''
+  // targetAudience：描述「看这个账号的人是谁」（Spec v2 创作者视角），而非给两类人的建议
+  const catLabel0 = categories.length ? categories.slice(0, 2).join(' & ') : 'general lifestyle'
+  const engWord = metrics.engagementRate >= 6 ? 'highly engaged' : metrics.engagementRate >= 3 ? 'engaged' : 'casual'
+  let targetAudience: string
   if (tier === 'S' || tier === 'A') {
-    targetAudience = 'Brands (worth premium partnerships), Creators (high value, can raise rates)'
+    targetAudience = `${engWord.charAt(0).toUpperCase() + engWord.slice(1)} viewers interested in ${catLabel0.toLowerCase()} — an audience brands pay premium rates to reach`
   } else if (tier === 'B') {
-    targetAudience = 'Brands (moderate budget partnerships), Creators (clear growth path)'
+    targetAudience = `${engWord.charAt(0).toUpperCase() + engWord.slice(1)} viewers interested in ${catLabel0.toLowerCase()} — solid fit for mid-budget brand campaigns`
   } else if (tier === 'C') {
-    targetAudience = 'Creators (focus on improving content & engagement, not yet brand-ready)'
+    targetAudience = `Viewers interested in ${catLabel0.toLowerCase()} — engagement is still building, so focus on audience growth before pitching brands`
   } else if (tier === 'D') {
-    targetAudience = 'Creators (audit account issues & optimize content, not partnership-ready)'
+    targetAudience = `A small, early audience interested in ${catLabel0.toLowerCase()} — fix content and account issues before monetizing`
   } else {
-    targetAudience = 'Creators (consider rebuilding from scratch, not partnership-ready)'
+    targetAudience = `A very small audience with weak engagement — rebuild your content niche before thinking about monetization`
   }
 
   let bestAction = ''
@@ -262,7 +263,7 @@ export function buildSummary(input: SummaryInput): ReportSummary {
   } else if (dims.monetization < 40) {
     bestAction = 'Consistently publish niche content to reach key monetization thresholds'
   } else if (metrics.playGrowth > 20 && metrics.engagementRate >= 3) {
-    bestAction = 'Account is trending up — creator: accelerate posting & explore new revenue streams. Brands: lock in now.'
+    bestAction = 'Your account is trending up — accelerate posting and explore new revenue streams while momentum lasts'
   } else {
     bestAction = 'Maintain current cadence, focus on improving content quality and brand alignment'
   }
@@ -273,7 +274,8 @@ export function buildSummary(input: SummaryInput): ReportSummary {
     : businessValueMid >= 1_000
     ? `$${(businessValueMid / 1_000).toFixed(0)}K`
     : `$${Math.round(businessValueMid)}`
-  const headline = `Tier ${tier} | ${catLabel} | Business Value ${bvFormatted} | Top ${percentile}% in Peer Group`
+  // percentile 语义 = 超过同龄组百分之多少（66 → 优于 66% 同行，即 Top 34%）
+  const headline = `${catLabel} creator, ${bvFormatted} estimated account value — performs better than ${percentile}% of similar accounts`
 
   return { headline, strengths, weaknesses, targetAudience, bestAction }
 }

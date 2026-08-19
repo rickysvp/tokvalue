@@ -121,8 +121,8 @@ describe('buildSummary', () => {
       dims: baseDims, metrics: baseMetrics, tier: 'A', tierReason: '优质变现账号',
       categories: ['健身运动'], percentile: 74, businessValueMid: 200_000,
     })
-    expect(summary.headline).toContain('Tier A')
     expect(summary.headline).toContain('健身运动')
     expect(summary.headline).toContain('74%')
+    expect(summary.headline).toContain('$200K')
   })
 })

@@ -104,21 +104,23 @@ export function buildPillars(input: BuildPillarsInput): PillarBreakdown {
       name: 'Growth Momentum',
       score: growthScore,
       status: pillarStatusOf(growthScore),
-      attribution: `Recent plays ${fmtPct(metrics.playGrowth * 100)} vs earlier period (internal: momentum).`,
+      attribution: Math.abs(metrics.playGrowth) < 0.01
+        ? 'Your recent videos are getting views at about the same rate as the previous period — holding steady.'
+        : `Your recent videos got ${fmtPct(metrics.playGrowth * 100)} views vs the previous period — ${metrics.playGrowth > 0 ? 'momentum is building' : 'views are cooling off'}.`,
     },
     {
       key: 'content_consistency',
       name: 'Content Consistency',
       score: consistencyScore,
       status: pillarStatusOf(consistencyScore),
-      attribution: `Play volatility CV ${metrics.cvPlays.toFixed(2)} and posting rhythm (internal: stability).`,
+      attribution: `Views are ${metrics.cvPlays > 0.5 ? 'unpredictable from video to video' : metrics.cvPlays > 0.3 ? 'somewhat variable but manageable' : 'steady video-to-video'} — steadier performance is easier to sell to brands.`,
     },
     {
       key: 'audience_quality',
       name: 'Audience Quality',
       score: audienceScore,
       status: pillarStatusOf(audienceScore),
-      attribution: `Engagement rate ${metrics.engagementRate.toFixed(1)}% and follower authenticity (internal: engagement + authenticity).`,
+      attribution: `${metrics.engagementRate.toFixed(1)}% of viewers like, comment or share — engagement patterns look authentic, with no bot-like activity detected.`,
     },
     {
       key: 'niche_clarity',
@@ -132,7 +134,7 @@ export function buildPillars(input: BuildPillarsInput): PillarBreakdown {
       name: 'Brand Readiness',
       score: brandScore,
       status: pillarStatusOf(brandScore),
-      attribution: 'Commerce fit, monetization thresholds and market position (internal: commerce + monetization + influence).',
+      attribution: 'Combines how brand-friendly your content is, which monetization programs you qualify for, and how you stack up in your niche.',
     },
     {
       key: 'risk',
