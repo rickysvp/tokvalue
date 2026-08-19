@@ -250,6 +250,16 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         return
       }
 
+      // @demo-free — demo data in free/teaser state (QA preview)
+      if (target === '@demo-free' || target === 'demo-free') {
+        setResult(DEMO_RESULT)
+        setIsPremium(false)
+        setError('')
+        setLoading(false)
+        setIsLoading(false)
+        return
+      }
+
       const token = getSessionToken()
       if (!token) {
         // Free mode — call API directly (no auth required)
