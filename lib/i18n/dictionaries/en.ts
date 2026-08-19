@@ -838,6 +838,14 @@ const en = {
       riskScore: 'Risk Score',
       healthChecks: 'Health checks',
     },
+    plan: {
+      title: 'Raise Your Value in 30 Days',
+      subtitle: 'Four weeks of focused actions, built from your data.',
+      week: 'Week',
+      goal: 'Goal',
+      doneWhen: 'Done when',
+      effort: 'hrs',
+    },
   },
 
   // ── Tier Labels ──
