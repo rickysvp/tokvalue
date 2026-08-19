@@ -25,7 +25,7 @@ export function VerdictHero({ result, dict, isPremium }: {
   const tierColor = valueTierColor(result.tier)
 
   return (
-    <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <section id="verdict-hero" className="scroll-mt-24 rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       {/* 账号行 */}
       <div className="flex items-center gap-4">
         {result.avatar ? (

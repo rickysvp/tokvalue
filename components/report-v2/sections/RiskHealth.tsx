@@ -18,7 +18,7 @@ export function RiskHealth({ result, dict }: { result: Evaluation; dict: EnDict 
 
   return (
     <section>
-      <SectionHeader index={6} title={r.title} subtitle={r.subtitle} id="risk-health" />
+      <SectionHeader index={11} title={r.title} subtitle={r.subtitle} id="risk-health" />
       <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-[#111827]">{r.riskScore}</span>

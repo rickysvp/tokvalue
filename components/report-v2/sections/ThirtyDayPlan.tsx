@@ -30,7 +30,7 @@ export function ThirtyDayPlan({ result, dict }: { result: Evaluation; dict: EnDi
 
   return (
     <section>
-      <SectionHeader index={7} title={p.title} subtitle={p.subtitle} id="thirty-day-plan" />
+      <SectionHeader index={12} title={p.title} subtitle={p.subtitle} id="thirty-day-plan" />
       <div className="relative space-y-4 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-[#E5E7EB]">
         {plan.tasks.map(task => (
           <div key={task.week} className="relative pl-8">

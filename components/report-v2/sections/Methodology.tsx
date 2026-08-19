@@ -10,7 +10,7 @@ export function Methodology({ dict }: { dict: EnDict }) {
   const m = dict.reportV2.method
   return (
     <section>
-      <SectionHeader index={9} title={m.title} id="methodology" />
+      <SectionHeader index={14} title={m.title} id="methodology" />
       <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <button type="button" onClick={() => setOpen(v => !v)} className="flex w-full items-center justify-between text-left">
           <span className="text-sm font-medium text-[#1d4ed8]">{m.title}</span>

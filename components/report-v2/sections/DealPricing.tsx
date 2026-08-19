@@ -18,7 +18,7 @@ export function DealPricing({ result, dict }: { result: Evaluation; dict: EnDict
 
   return (
     <section>
-      <SectionHeader index={4} title={d.title} subtitle={d.subtitle} id="deal-pricing" />
+      <SectionHeader index={6} title={d.title} subtitle={d.subtitle} id="deal-pricing" />
       <div className="grid gap-3 sm:grid-cols-3">
         {cards.map(c => (
           <div key={c.label} className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">

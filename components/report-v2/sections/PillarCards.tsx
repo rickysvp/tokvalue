@@ -45,7 +45,7 @@ export function PillarCards({ result, dict }: { result: Evaluation; dict: EnDict
 
   return (
     <section ref={ref}>
-      <SectionHeader index={3} title={p.title} subtitle={p.subtitle} id="pillars" />
+      <SectionHeader index={4} title={p.title} subtitle={p.subtitle} id="pillars" />
       <div className="grid gap-3 sm:grid-cols-2">
         {pillars.map(pillar => {
           const color = STATUS_COLOR[pillar.status] ?? '#64748b'

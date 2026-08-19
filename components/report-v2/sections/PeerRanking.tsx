@@ -9,7 +9,7 @@ export function PeerRanking({ result, dict }: { result: Evaluation; dict: EnDict
   const rows = result.peerRanking.rankingBreakdown
   return (
     <section>
-      <SectionHeader index={5} title={p.title} subtitle={p.subtitle} id="peer-ranking" />
+      <SectionHeader index={8} title={p.title} subtitle={p.subtitle} id="peer-ranking" />
       <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="space-y-5">
           {rows.map(row => (

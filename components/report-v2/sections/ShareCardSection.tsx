@@ -34,7 +34,7 @@ export function ShareCardSection({ result, dict, isPremium, labels }: {
 
   return (
     <section>
-      <SectionHeader index={8} title={labels.title} subtitle={labels.subtitle} id="share-card" />
+      <SectionHeader index={13} title={labels.title} subtitle={labels.subtitle} id="share-card" />
       <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <canvas ref={canvasRef} className="w-full rounded-xl border border-[#E5E7EB]" style={{ aspectRatio: '1200/630' }} />
         <div className="mt-4 flex justify-center">
