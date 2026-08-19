@@ -131,9 +131,32 @@ export async function createOrGetReview(
       WHERE email = ${key} AND username = ${username} AND idempotency_key = ${idempotencyKey}
     `
     const row = rowToReview(existing[0] as Record<string, unknown>)
-    return row.status === 'completed'
-      ? { kind: 'reused', review: row }
-      : { kind: 'conflict', review: row }
+    if (row.status === 'completed') {
+      return { kind: 'reused', review: row }
+    }
+    if (row.status === 'failed') {
+      // 失败行允许重试：原子复用同一幂等键复活为 requested（终态守卫防并发双活）。
+      // 场景：paid credits 耗尽降级 free（行被 fail 后同幂等键重入）、用户失败后重试。
+      const revived = await s`
+        UPDATE account_reviews
+        SET status = 'requested', state_entered_at = NOW(),
+            purchase_type = ${purchaseType},
+            access_level = ${purchaseType === 'free_trial' ? 'teaser' : 'full'},
+            failure_reason = NULL
+        WHERE id = ${row.id} AND status = 'failed'
+        RETURNING *
+      `
+      if (revived && revived.length > 0) {
+        return { kind: 'created', review: rowToReview(revived[0] as Record<string, unknown>) }
+      }
+      // 并发已复活：读最新状态再判定
+      const fresh = await s`SELECT * FROM account_reviews WHERE id = ${row.id}`
+      const freshRow = rowToReview(fresh[0] as Record<string, unknown>)
+      return freshRow.status === 'completed'
+        ? { kind: 'reused', review: freshRow }
+        : { kind: 'conflict', review: freshRow }
+    }
+    return { kind: 'conflict', review: row }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.includes('idx_account_reviews_inflight')) {

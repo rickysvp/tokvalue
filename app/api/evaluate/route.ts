@@ -10,6 +10,9 @@ import { consumeCredit, refundCredit, consumeFreeAllowance } from '@/lib/credits
 import { getServerDict } from '@/lib/i18n/server'
 import { recordEventFromRequest, recordFreeEvaluate } from '@/lib/analytics'
 import { getClientIp } from '@/lib/ip'
+import { createOrGetReview, transitionReview, failReview, reconcileInFlight, type AccountReviewRow } from '@/lib/reviews'
+import { recordUsageEvent } from '@/lib/usage-events'
+import { isTerminalReview, type ReviewStatus } from '@/lib/review-state'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +20,11 @@ export const dynamic = 'force-dynamic'
 // 合并 utm 到事件 metadata（服务端归因）
 function withUtm(meta: Record<string, unknown>, utm?: Record<string, unknown>): Record<string, unknown> {
   return utm && Object.keys(utm).length > 0 ? { ...meta, utm } : meta
+}
+
+/** B1 状态机开关：默认关闭 = 行为与旧版完全一致 */
+function reviewStateMachineEnabled(): boolean {
+  return process.env.REVIEW_STATE_MACHINE === 'true'
 }
 
 function buildSnapshot(evaluation: Evaluation) {
@@ -153,6 +161,13 @@ export async function POST(req: NextRequest) {
   // 免费额度扣减结果（用于埋点；null = 未经过额度扣减，如 dev 无 token）
   let freeAllowance: { used: number; limit: number } | null = null
 
+  // ── B1 review 状态机上下文（flag 关闭时恒为 null，走旧路径）──
+  let reviewRow: AccountReviewRow | null = null
+  let reviewQuotaReserved = false // credits 已预扣且未落定（用于 catch 精确返还）
+  const advance = async (to: ReviewStatus) => {
+    if (reviewRow) await transitionReview(reviewRow.id, to)
+  }
+
   try {
     const body = await req.json().catch(() => ({}))
     const username = String(body.username || '').trim()
@@ -204,6 +219,36 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ── B1: 幂等 + in-flight 锁（仅 flag 开启时）──
+      if (reviewStateMachineEnabled()) {
+        await reconcileInFlight(userEmail, normalized) // 先清理超时僵尸
+        const idemKey = typeof body.idempotency_key === 'string' && body.idempotency_key
+          ? body.idempotency_key.slice(0, 64)
+          : crypto.randomUUID() // 客户端未传则本次请求内生成（无跨请求幂等，行为同旧版）
+        const res = await createOrGetReview(userEmail, normalized, idemKey, 'credits')
+        if (res.kind === 'conflict') {
+          return NextResponse.json(
+            { error: 'A review for this account is already in progress.', code: 'REVIEW_IN_FLIGHT', review_id: res.review.id },
+            { status: 409 }
+          )
+        }
+        if (res.kind === 'reused' && res.review.status === 'completed') {
+          // 幂等重放：直接返回已完成的报告，不重复扣费
+          const cached = await findEvaluation(normalized)
+          if (cached) {
+            return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, review_id: res.review.id })
+          }
+        }
+        if (res.kind === 'created' || res.kind === 'reused') {
+          reviewRow = res.review
+          await recordUsageEvent({
+            email: userEmail, username: normalized, reviewId: reviewRow.id,
+            eventType: res.kind === 'created' ? 'review_started' : 'review_reused',
+            purchaseType: 'credits', status: reviewRow.status,
+          })
+        }
+      }
+
       const consumeResult = await consumeCredit(userEmail, normalized)
       if (!consumeResult.ok) {
         if (consumeResult.reason !== 'NO_CREDITS' && consumeResult.reason !== 'NOT_FOUND') {
@@ -216,10 +261,27 @@ export async function POST(req: NextRequest) {
         // credits=0 的已验证用户：不再直接 402，跳出付费分支落入免费额度流程
         //（保留 userEmail，免费 24h 缓存检查 / 邮箱终身额度判定照走）
         isPaidMode = false
+        // B1 修复：降级前释放已创建的 credits review 行（未预扣额度，无需返还），
+        // 否则 in-flight 锁会把随后的免费路径卡成 409
+        if (reviewRow) {
+          await failReview(reviewRow.id, 'downgraded_to_free_no_credits')
+          reviewRow = null
+        }
       }
 
       if (isPaidMode) {
+        if (reviewRow) {
+          reviewRow = (await transitionReview(reviewRow.id, 'quota_reserved')) ?? reviewRow
+          reviewQuotaReserved = true
+          await recordUsageEvent({
+            email: userEmail, username: normalized, reviewId: reviewRow.id,
+            eventType: 'quota_reserved', purchaseType: 'credits', status: 'quota_reserved',
+          })
+          await advance('fetching_data')
+        }
+
         const profile = await fetchProfile(normalized)
+        await advance('data_saved')
 
         recordEventFromRequest(req, {
           event_type: 'evaluate_start',
@@ -228,12 +290,28 @@ export async function POST(req: NextRequest) {
         }).catch(err => console.warn('[evaluate] recordEvent(start) failed:', err))
 
         let evaluation = scoreProfile(profile)
+        await advance('analyzing')
         evaluation = await enrichWithAI(evaluation, lang)
         // 持久化头像：下载 TikTok CDN 图 → 转 base64 WebP（避免 24h 过期）
         evaluation.avatarData = (await fetchAndEncodeAvatar(evaluation.avatar)) ?? undefined
+        await advance('report_generating')
 
         await saveEvaluation(evaluation, { evaluatedBy: userEmail, isFree: false })
         await upsertOwnership(userEmail, normalized, { isFree: false })
+
+        if (reviewRow) {
+          reviewRow = (await transitionReview(reviewRow.id, 'completed')) ?? reviewRow
+          reviewQuotaReserved = false
+          await recordUsageEvent({
+            email: userEmail, username: normalized, reviewId: reviewRow.id,
+            eventType: 'quota_consumed', purchaseType: 'credits', status: 'completed',
+          })
+          await recordUsageEvent({
+            email: userEmail, username: normalized, reviewId: reviewRow.id,
+            eventType: 'review_completed', purchaseType: 'credits', status: 'completed',
+            meta: { score: evaluation.score, tier: evaluation.tier },
+          })
+        }
 
         recordEventFromRequest(req, {
           event_type: 'evaluate_done',
@@ -241,7 +319,7 @@ export async function POST(req: NextRequest) {
           metadata: { score: evaluation.score, tier: evaluation.tier, cached: false },
         }).catch(err => console.warn('[evaluate] recordEvent(done) failed:', err))
 
-        return NextResponse.json({ ...evaluation, isFree: false })
+        return NextResponse.json({ ...evaluation, isFree: false, ...(reviewRow ? { review_id: reviewRow.id } : {}) })
       }
     }
 
@@ -272,7 +350,7 @@ export async function POST(req: NextRequest) {
         metadata: { score: freeCached.score, tier: freeCached.tier, cached: true, free: true },
       }).catch(err => console.warn('[evaluate] recordEvent(free-cached) failed:', err))
       // 免费缓存命中同样只下发白名单字段（缓存中是全量数据，必须裁剪）
-      return NextResponse.json({ ...stripForFreeMode(hydrateCommercial(freeCached)), cached: true })
+      return NextResponse.json({ ...stripForFreeMode(hydrateCommercial(freeCached)), cached: true, ...(reviewRow ? { review_id: reviewRow.id } : {}) })
     }
 
     // IP-based daily rate limit
@@ -294,12 +372,41 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── B1: 免费路径幂等 + in-flight 锁（有 userEmail 时）。
+    // 置于额度扣减之前：conflict 409 时不耗免费额度（幂等检查先于锁定额度）──
+    if (reviewStateMachineEnabled() && userEmail) {
+      await reconcileInFlight(userEmail, normalized)
+      const idemKey = typeof body.idempotency_key === 'string' && body.idempotency_key
+        ? body.idempotency_key.slice(0, 64)
+        : crypto.randomUUID()
+      const res = await createOrGetReview(userEmail, normalized, idemKey, 'free_trial')
+      if (res.kind === 'conflict') {
+        return NextResponse.json(
+          { error: 'A review for this account is already in progress.', code: 'REVIEW_IN_FLIGHT', review_id: res.review.id },
+          { status: 409 }
+        )
+      }
+      if (res.kind === 'created' || res.kind === 'reused') {
+        reviewRow = res.review
+        await recordUsageEvent({
+          email: userEmail, username: normalized, reviewId: reviewRow.id,
+          eventType: res.kind === 'created' ? 'review_started' : 'review_reused',
+          purchaseType: 'free_trial', status: reviewRow.status,
+        })
+      }
+    }
+
     // 邮箱免费额度判定（IP 限流之后、fetchProfile 之前；24h 缓存命中已在更早处 return，不耗额度）
     // prod 下走到这里必有 userEmail（无 token 已被上方 NEED_VERIFY 挡掉，付费降级保留 userEmail）；
     // dev + 无 token 时跳过额度检查
     if (!IS_DEV) {
       const allowance = await consumeFreeAllowance(userEmail)
       if (!allowance.ok) {
+        // B1 修复：额度耗尽时释放已创建的 review 行，避免 in-flight 锁残留
+        if (reviewRow) {
+          await failReview(reviewRow.id, 'free_allowance_exhausted')
+          reviewRow = null
+        }
         return NextResponse.json(
           {
             error: `You've used all ${allowance.limit} free evaluations. Upgrade to unlock more.`,
@@ -317,7 +424,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (reviewRow) {
+      // 免费额度已在上方 consumeFreeAllowance 原子扣减
+      await advance('quota_reserved')
+      await advance('fetching_data')
+    }
+
     const profile = await fetchProfile(normalized)
+    await advance('data_saved')
+    await advance('analyzing') // 免费路径 scoreProfile 即全部计算
 
     recordEventFromRequest(req, {
       event_type: 'evaluate_start',
@@ -340,6 +455,14 @@ export async function POST(req: NextRequest) {
     }
     await upsertOwnership(userEmail, normalized, { isFree: true })
 
+    if (reviewRow) {
+      reviewRow = (await transitionReview(reviewRow.id, 'completed')) ?? reviewRow
+      await recordUsageEvent({
+        email: userEmail, username: normalized, reviewId: reviewRow.id,
+        eventType: 'quota_consumed', purchaseType: 'free_trial', status: 'completed',
+      })
+    }
+
     recordEventFromRequest(req, {
       event_type: 'evaluate_done',
       username: normalized,
@@ -356,11 +479,29 @@ export async function POST(req: NextRequest) {
     console.log(`[evaluate] FREE | user=${normalized} | tier=${evaluation.tier} | score=${evaluation.score} | ip=${clientIp}`)
 
     // 免费模式只下发白名单字段（数据库已存全量，付费升级后可取回完整报告）
-    return NextResponse.json(stripForFreeMode(evaluation))
+    return NextResponse.json({ ...stripForFreeMode(evaluation), ...(reviewRow ? { review_id: reviewRow.id } : {}) })
 
   } catch (err) {
-    // ── Refund for paid mode ──
-    if (userEmail && !isFreeMode) {
+    // ── B1: 精确返还——只有「review 行存在且仍活跃」才 fail + refund，
+    // 修复旧路径"consume 之前出错也返还"的多退边界 ──
+    if (reviewStateMachineEnabled() && reviewRow && !isTerminalReview(reviewRow.status)) {
+      try {
+        const detail = err instanceof Error ? err.message : String(err)
+        const failed = await failReview(reviewRow.id, detail)
+        if (failed && failed.purchase_type === 'credits' && reviewQuotaReserved) {
+          await refundCredit(failed.email)
+          await recordUsageEvent({
+            email: failed.email, username: failed.username, reviewId: failed.id,
+            eventType: 'quota_released', purchaseType: failed.purchase_type,
+            status: 'failed', meta: { reason: detail.slice(0, 200) },
+          })
+        }
+      } catch (cleanupErr) {
+        // 清理失败不吞原始错误（reconcile 惰性对账兜底释放）
+        console.error('[evaluate] B1 fail/refund cleanup failed:', cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr))
+      }
+    } else if (!reviewStateMachineEnabled() && userEmail && !isFreeMode) {
+      // flag 关闭：保留旧行为（原样返还）
       refundCredit(userEmail).catch(e =>
         console.error('[evaluate] refund failed:', e instanceof Error ? e.message : String(e))
       )
