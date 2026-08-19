@@ -446,6 +446,9 @@ async function apiCallSingle(
 
 // ========== Provider 适配器 ==========
 
+// Spec §3 合规：对外导出的 provider 适配器接口（formalize 为 TikTokProviderAdapter）
+export type TikTokProviderAdapter = ProviderAdapter
+
 interface ProviderAdapter {
   name: string
   /** 获取用户资料（含视频），返回标准 RawProfile */

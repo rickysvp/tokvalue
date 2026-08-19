@@ -45,6 +45,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Topbar />
             <DashboardNavMobile />
             <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+            {/* B7 合规：dashboard 全路由数据来源声明（与 SiteFooter 底栏一致） */}
+            <footer className="border-t border-neutral-900 px-4 py-4 text-center text-[11px] text-neutral-600 sm:px-6 lg:px-8">
+              <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-center gap-2">
+                <span>TikTok® is a registered trademark of ByteDance Ltd.</span>
+                <span className="hidden text-neutral-800 sm:inline">·</span>
+                <span>Data sourced from public third-party APIs — estimates are not financial advice.</span>
+              </div>
+            </footer>
           </div>
         </div>
       </div>
