@@ -1,7 +1,7 @@
 // lib/teaser.test.ts
 import { describe, it, expect } from 'vitest'
 import { stripForTeaser, topPostsByPlays } from './teaser'
-import type { Evaluation, Post } from '../types'
+import type { Evaluation, PillarBreakdown, PillarKey, Post } from '../types'
 
 const post = (id: string, playCount: number): Post => ({
   id, playCount, likeCount: 10, commentCount: 1, shareCount: 1,
@@ -123,5 +123,43 @@ describe('stripForTeaser valuation v2 range (Spec §7.3 band width)', () => {
     const lo = withBand('low').businessValue!.totalValue
     const hi = withBand('medium_high').businessValue!.totalValue
     expect(lo.high - lo.low).toBeGreaterThan((hi.high - hi.low) * 1.5)
+  })
+})
+
+describe('stripForTeaser growthTaskPreview (B6 hook)', () => {
+  // 支柱 fixture：除 niche_clarity 可调外，其余全部高于任务触发阈值；risk=0 且 riskFlags=[] → 仅规则 1 可能触发
+  const pillarFixture = (nicheClarity: number): PillarBreakdown => ({
+    pillars: ([
+      'growth_momentum', 'content_consistency', 'audience_quality',
+      'niche_clarity', 'brand_readiness', 'risk',
+    ] as PillarKey[]).map(key => ({
+      key,
+      name: key,
+      score: key === 'niche_clarity' ? nicheClarity : key === 'risk' ? 0 : 75,
+      status: 'On track' as const,
+      attribution: 'test fixture',
+    })),
+  })
+
+  it('free teaser keeps task #1 title as growthTaskPreview — title only, locked task fields stay out', () => {
+    const t = stripForTeaser({
+      ...baseEvaluation,
+      riskFlags: [],
+      pillars: pillarFixture(30),
+    } as Evaluation)
+    expect(t.growthTaskPreview).toBe('Focus your next 10 videos on your top 3 hashtag themes')
+    // 仅标题入 teaser：完整 Growth Plan（why/evidence/impact）不得泄漏
+    const leaked = t as unknown as Record<string, unknown>
+    expect(leaked.growthPlan).toBeUndefined()
+    expect(leaked.growthTasks).toBeUndefined()
+  })
+
+  it('no qualifying task (all pillars strong) → growthTaskPreview is undefined', () => {
+    const t = stripForTeaser({
+      ...baseEvaluation,
+      riskFlags: [],
+      pillars: pillarFixture(75),
+    } as Evaluation)
+    expect(t.growthTaskPreview).toBeUndefined()
   })
 })

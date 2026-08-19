@@ -1,6 +1,7 @@
 // lib/teaser.ts
 import type { Evaluation, Post } from '@/types'
 import { valuationRangeOf } from './pillar'
+import { buildGrowthTasks } from './growth-tasks'
 
 /**
  * Teaser 免费边界（Spec §3.3）——纯函数，供 evaluate 路由 FREE 路径裁剪响应。
@@ -26,6 +27,8 @@ export interface TeaserBusinessValue {
 export type TeaserPayload = Partial<Omit<Evaluation, 'businessValue' | 'commercialSnapshot'>> & {
   businessValue?: TeaserBusinessValue
   commercialSnapshot?: TeaserCommercialSnapshot
+  /** B6 钩子：Growth Plan 任务 #1 标题（仅标题，why/evidence/impact 等付费内容不入 teaser） */
+  growthTaskPreview?: string
   isFree: true
   access_level: 'teaser'
 }
@@ -48,6 +51,15 @@ export function stripForTeaser(evaluation: Evaluation): TeaserPayload {
         dataConfidence: snap.dataConfidence,
         primaryRateBlocker: snap.primaryRateBlocker,
       }
+    : undefined
+
+  // ── B6 钩子：任务 #1 标题预览（仅标题；无支柱数据或无任务时不设）──
+  // buildGrowthTasks 为纯函数（零 LLM/零副作用），无循环依赖：
+  // teaser → growth-tasks → pillar；teaser → pillar。
+  const hasPillarData =
+    (evaluation.pillars?.pillars?.length ?? 0) > 0 || !!evaluation.dimensions
+  const growthTaskPreview = hasPillarData
+    ? buildGrowthTasks({ evaluation }).tasks[0]?.title
     : undefined
 
   return {
@@ -85,5 +97,6 @@ export function stripForTeaser(evaluation: Evaluation): TeaserPayload {
     commercialSnapshot: teaserSnap,
     riskFlags: primaryBlocker ? [primaryBlocker] : [],
     posts: topPostsByPlays(evaluation.posts, 3),
+    growthTaskPreview,
   }
 }
