@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, Lock, Loader2, Target } from 'lucide-react'
 import { TIER_COLORS } from '@/lib/tier'
 import { getSessionToken } from '@/lib/credits-client'
+import { trackEvent } from '@/lib/track-client'
 import { GrowthTaskCard } from '@/components/dashboard/GrowthTaskCard'
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
 import type { GrowthTask } from '@/types'
@@ -73,6 +74,8 @@ function GrowthPlanContent() {
         if (!alive || !data || !Array.isArray(data.tasks)) return
         setCompletedKeys(Array.isArray(data.completedKeys) ? data.completedKeys : [])
         setState({ kind: 'ready', data })
+        // B7 Spec §15：growth plan 拉取成功曝光
+        trackEvent('growth_plan_viewed', { username })
       })
       .catch(() => {
         if (alive) setState({ kind: 'error' })
@@ -95,6 +98,8 @@ function GrowthPlanContent() {
         },
       )
       if (!res.ok) throw new Error('complete failed')
+      // B7 Spec §15：任务完成成功（complete API 200 后）
+      trackEvent('growth_task_completed', { task_key: task.key, username })
       setCompletedKeys(prev => (prev.includes(task.key) ? prev : [...prev, task.key]))
     },
     [username],
@@ -201,6 +206,7 @@ function GrowthPlanContent() {
               task={task}
               completed={completedKeys.includes(task.key)}
               onComplete={handleComplete}
+              username={username}
             />
           ))}
         </div>

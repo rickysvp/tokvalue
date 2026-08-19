@@ -6,9 +6,10 @@
 // Mark as complete（POST 后置完成态 √）。
 // 风格与 components/dashboard 既有卡片一致：dark 底 / rounded-2xl / border-neutral-800，色值读 TIER_COLORS。
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Gauge, Loader2, Target } from 'lucide-react'
 import { TIER_COLORS } from '@/lib/tier'
+import { trackEvent } from '@/lib/track-client'
 import { CONFIDENCE_LABELS, withAlpha } from './shared'
 import type { GrowthTask, PillarKey, TaskConfidence } from '@/types'
 
@@ -33,17 +34,30 @@ export function GrowthTaskCard({
   task,
   completed,
   onComplete,
+  username,
 }: {
   task: GrowthTask
   /** 已完成（growth_task_states 命中或刚 POST 成功） */
   completed: boolean
   /** 完成回调（页面持有 completedKeys 状态）；抛错时卡片保持未完成 */
   onComplete: (task: GrowthTask) => Promise<void>
+  /** 评估账号（埋点 metadata 用） */
+  username: string
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
   const accent = CONFIDENCE_ACCENTS[task.confidence]
   const measureLabel = task.measureTarget.map(k => PILLAR_NAMES[k]).join(', ')
+
+  // B7 Spec §15：任务卡查看（Why this matters / evidence 为常驻展示，卡片渲染即视为查看，每卡一次）
+  const viewedRef = useRef(false)
+  useEffect(() => {
+    if (viewedRef.current) return
+    viewedRef.current = true
+    trackEvent('growth_task_viewed', { task_key: task.key, username })
+    // 仅挂载时执行一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleComplete() {
     if (completed || busy) return

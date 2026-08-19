@@ -5,8 +5,10 @@
 // ① 商业价值卡 ② 本周核心问题+最多3任务 ③ 额度卡 ④ 6 支柱简览。
 // 无历史评估 → 空态引导首次评估。数据来自 DashboardDataProvider（layout 注入）。
 
+import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { TIER_COLORS } from '@/lib/tier'
+import { trackEvent } from '@/lib/track-client'
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
 import { ValueCard } from '@/components/dashboard/ValueCard'
 import { FocusCard } from '@/components/dashboard/FocusCard'
@@ -17,6 +19,16 @@ import { formatReviewDate } from '@/components/dashboard/shared'
 
 export default function DashboardOverviewPage() {
   const { latest, loading } = useDashboardData()
+
+  // B7 Spec §15：dashboard 挂载曝光（每次挂载一次；latest 已就绪时附 username）
+  const viewedRef = useRef(false)
+  useEffect(() => {
+    if (viewedRef.current) return
+    viewedRef.current = true
+    trackEvent('dashboard_viewed', latest ? { username: latest.username } : undefined)
+    // 仅挂载时执行一次（latest 为挂载时刻快照）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) {
     return (

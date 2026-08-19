@@ -39,25 +39,7 @@ import { ShareCardModal } from '@/components/ShareCardModal'
 import { RatingPrompt } from '@/components/RatingPrompt'
 import { DEMO_RESULT } from '@/lib/demo-data'
 import type { TabId } from '@/components/ReportTabs'
-
-function trackEvent(event_type: string, metadata?: Record<string, unknown>) {
-  const utm = getUtm()
-  const body = JSON.stringify({
-    event_type,
-    path: typeof window !== 'undefined' ? window.location.pathname : '/',
-    metadata: { ...(metadata || {}), ...(utm ? { utm } : {}) },
-    referrer: typeof window !== 'undefined' ? (document.referrer || '') : '',
-  })
-  fetch('/api/track', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    keepalive: true,
-  }).catch(err => {
-    console.warn(`[analytics] trackEvent ${event_type} failed:`, err)
-    try { navigator.sendBeacon('/api/track', body) } catch {}
-  })
-}
+import { trackEvent } from '@/lib/track-client'
 
 export function EvaluatePage({ username }: { username: string }) {
   return (
@@ -208,6 +190,24 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     trackEvent('teaser_viewed', { username: result.username, tier: result.tier })
   }, [result, isPremium])
 
+  // B7 Spec §15：完整报告渲染曝光（付费/teaser 均计，每会话每 username 一次）
+  const reportViewedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!result?.username) return
+    const key = `tv_report_viewed:${result.username}`
+    let seen = false
+    try {
+      seen = sessionStorage.getItem(key) !== null
+    } catch {
+      // sessionStorage 不可用（隐私模式）→ 降级 ref 防重（仅本次挂载）
+      seen = reportViewedRef.current === result.username
+    }
+    if (seen) return
+    try { sessionStorage.setItem(key, '1') } catch {}
+    reportViewedRef.current = result.username
+    trackEvent('report_viewed', { username: result.username, is_premium: isPremium })
+  }, [result, isPremium])
+
   // Check if current result is already tracked
   useEffect(() => {
     if (result) {
@@ -225,6 +225,8 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   async function handleExportPdf() {
     if (!result || !reportRef.current) return
     setShowExportMenu(false)
+    // B7 Spec §15：PDF 下载点击
+    trackEvent('report_downloaded', { username: result.username, format: 'pdf' })
     try {
       await downloadPdf(result, reportRef.current)
     } catch (err) {
@@ -247,6 +249,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     try {
       const target = (name ?? username).trim()
       if (!target) return
+
+      // B7 Spec §15：评估表单提交（免费/付费/重评统一入口）
+      trackEvent('tiktok_username_submitted', { username: target })
 
       // @demo special case — show full report as product demo
       if (target === '@demo' || target === 'demo') {

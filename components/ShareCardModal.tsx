@@ -8,6 +8,7 @@ import type { Evaluation } from '@/types'
 import { useI18n } from '@/lib/i18n'
 import { formatNumber } from '@/lib/format'
 import { getSessionToken } from '@/lib/credits-client'
+import { trackEvent } from '@/lib/track-client'
 import { TOKVALUE_LOGO_BASE64 } from '@/lib/logo-base64'
 import { TIER_COLORS } from '@/lib/tier'
 import { valueTierOf } from '@/lib/pillar'
@@ -50,7 +51,10 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
           body: JSON.stringify({ username: result.username }),
         })
         const data = await res.json()
-        if (!cancelled && res.ok && data.shareUrl) setShareUrl(data.shareUrl)
+        if (!cancelled && res.ok && data.shareUrl) {
+          setShareUrl(data.shareUrl)
+          trackEvent('report_shared', { username: result.username })
+        }
       } catch (err) {
         console.error('[share-card] create link failed:', err)
       }

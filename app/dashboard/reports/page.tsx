@@ -11,6 +11,7 @@ import {
 import { tierColor } from '@/lib/tier'
 import { valueTierOf } from '@/lib/pillar'
 import { downloadPdf } from '@/lib/export-pdf'
+import { trackEvent } from '@/lib/track-client'
 import { getSessionToken, getActiveEmail } from '@/lib/credits-client'
 import type { Evaluation } from '@/types'
 
@@ -180,6 +181,8 @@ export default function ReportsPage() {
         setShareError(prev => ({ ...prev, [username]: data.error || 'Failed to create share link.' }))
         return
       }
+      // B7 Spec §15：share 链接创建成功
+      trackEvent('report_shared', { username })
       setShareError(prev => ({ ...prev, [username]: '' }))
       await fetchShares(username)
     } catch {
@@ -250,6 +253,8 @@ export default function ReportsPage() {
     if (!token || !pdfRef.current) return
     setPdfBusy(item.username)
     setPdfError(null)
+    // B7 Spec §15：PDF 下载点击
+    trackEvent('report_downloaded', { username: item.username, format: 'pdf' })
     try {
       const res = await fetch('/api/evaluate', {
         method: 'POST',

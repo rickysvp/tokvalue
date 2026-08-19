@@ -17,6 +17,12 @@ export type EventType = 'page_view' | 'search' | 'evaluate_start' | 'evaluate_do
   | 'free_evaluate'
   | 'checkout_start' | 'checkout_success' | 'credit_claim' | 'share_create'
   | 'teaser_viewed' | 'paywall_viewed' | 'unlock_completed'
+  // B7 Spec §15 埋点对齐（WS-C）：客户端事件
+  | 'email_verified' | 'tiktok_username_submitted' | 'dashboard_viewed'
+  | 'growth_plan_viewed' | 'growth_task_viewed' | 'growth_task_completed'
+  | 'report_viewed' | 'report_downloaded' | 'report_shared' | 'pricing_viewed'
+  // B7 服务端事件（本批仅类型，evaluate route 接线由 WS-A/集成完成）
+  | 'cache_hit' | 'second_review_started'
 
 export interface AnalyticsEvent {
   id?: number

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Copy, Check, Mail, Send, Loader2, Link2 } from 'lucide-react'
 import { getSessionToken } from '@/lib/credits-client'
+import { trackEvent } from '@/lib/track-client'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -33,6 +34,8 @@ export function ShareModal({ isOpen, onClose, username }: ShareModalProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to create share link')
+      // B7 Spec §15：share 链接创建成功
+      trackEvent('report_shared', { username })
       setShareUrl(data.shareUrl)
     } catch (err) {
       console.error('[share-link] failed:', err)

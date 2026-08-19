@@ -35,6 +35,19 @@ const TRACK_EVENT_TYPES: readonly string[] = [
   'paywall_viewed',
   'unlock_completed',
   'deal_toolkit_unlock_clicked',
+  // B7 Spec §15 埋点对齐（WS-C）：客户端事件
+  // （cache_hit / second_review_started 为服务端事件，由 evaluate route 直接
+  //  调 recordEventFromRequest 写入，不进客户端白名单）
+  'email_verified',
+  'tiktok_username_submitted',
+  'dashboard_viewed',
+  'growth_plan_viewed',
+  'growth_task_viewed',
+  'growth_task_completed',
+  'report_viewed',
+  'report_downloaded',
+  'report_shared',
+  'pricing_viewed',
 ]
 
 /**

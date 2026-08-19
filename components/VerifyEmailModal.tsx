@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useI18n, t } from '@/lib/i18n'
 import { getUtm } from '@/lib/utm'
+import { trackEvent } from '@/lib/track-client'
 import type { CreditBalance, CreditPackage } from '@/lib/credits'
 import { CREDIT_PACKAGES } from '@/lib/credits'
 import {
@@ -258,6 +259,9 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
       })
       const data = await res.json().catch(() => ({ error: dict.verifyEmail.verifyFailed }))
       if (!res.ok) throw new Error(data.error || dict.verifyEmail.verifyFailed)
+
+      // B7 Spec §15：验证码验证成功（拿到 session token 后，returning/新用户共用点）
+      trackEvent('email_verified', { email: email.trim(), mode }, { email: email.trim() })
 
       clearPendingEmail()
       setActiveEmail(email.trim())

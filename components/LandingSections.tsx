@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   DollarSign,
@@ -11,6 +11,7 @@ import {
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import { CREDIT_PACKAGES, savePct } from '@/lib/credits'
 import { t } from '@/lib/i18n'
+import { trackEvent } from '@/lib/track-client'
 import { CtaButton } from './CtaButton'
 
 // ── Types ──
@@ -82,8 +83,34 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
       .map(p => [p.id, p] as const)
   )
 
+  // B7 Spec §15：pricing 区可见曝光（IntersectionObserver，每次挂载最多一次）
+  const sectionRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      // 环境不支持（老浏览器/SSR）→ 直接按挂载计
+      trackEvent('pricing_viewed')
+      return
+    }
+    let fired = false
+    const observer = new IntersectionObserver(
+      entries => {
+        if (fired) return
+        if (entries.some(e => e.isIntersecting)) {
+          fired = true
+          trackEvent('pricing_viewed')
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.15 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section id="pricing" className="py-20 relative">
+    <section id="pricing" ref={sectionRef} className="py-20 relative">
       {/* 背景光斑：定价区强化氛围 */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[640px] h-[320px] bg-[#FF0050]/[0.07] rounded-full blur-3xl" />
