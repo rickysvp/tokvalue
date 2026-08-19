@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createShare, getShare, checkShareRateLimit, checkShareOwnership } from '@/lib/share-store'
+import { createShare, getShare, extendShare, revokeShare, listShares, checkShareRateLimit, checkShareOwnership } from '@/lib/share-store'
 import { findEvaluation } from '@/lib/db'
 import { verifySessionToken, getBearerToken } from '@/lib/auth'
 import { recordEventFromRequest } from '@/lib/analytics'
@@ -69,10 +69,28 @@ export async function POST(req: NextRequest) {
 }
 
 // GET /api/share?id=xxx — get a shared evaluation by ID
-// 只返回白名单裁剪后的分享快照（不含付费模块数据），过期返回 410
+// 只返回白名单裁剪后的分享快照（不含付费模块数据），过期返回 410（公开，分享页使用）
+// GET /api/share?username=xxx — list the caller's active share links for an account（Bearer 鉴权）
 export async function GET(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get('id')
+    const username = req.nextUrl.searchParams.get('username')
+
+    // ── ?username=：列当前用户该账号的活跃分享（鉴权 + 所有权在 listShares 内校验）──
+    if (!id && username) {
+      const token = getBearerToken(req)
+      if (!token) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      const payload = await verifySessionToken(token)
+      if (!payload) {
+        return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+      }
+
+      const shares = await listShares(payload.email, username)
+      return NextResponse.json({ shares }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+    }
+
     if (!id) {
       return NextResponse.json({ error: 'Share ID is required' }, { status: 400 })
     }
@@ -90,5 +108,76 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error('[share] GET error:', err)
     return NextResponse.json({ error: 'Failed to get share' }, { status: 500 })
+  }
+}
+
+// PATCH /api/share?id=xxx — extend a share link by 30 days
+// 鉴权 + 所有权校验（evaluation_ownership，is_free=false），已过期/已撤销的链接不可复活
+export async function PATCH(req: NextRequest) {
+  try {
+    const token = getBearerToken(req)
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    const payload = await verifySessionToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+    }
+
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Share ID is required' }, { status: 400 })
+    }
+
+    const body = await req.json().catch(() => ({}))
+    if (body?.action !== 'extend') {
+      return NextResponse.json({ error: 'Unsupported action' }, { status: 400 })
+    }
+
+    const result = await extendShare(id, payload.email)
+    if (!result.ok) {
+      if (result.reason === 'forbidden') {
+        return NextResponse.json({ error: 'You can only share paid evaluations you purchased' }, { status: 403 })
+      }
+      return NextResponse.json({ error: 'Share not found or expired' }, { status: 404 })
+    }
+
+    return NextResponse.json({ id, expiresAt: result.expiresAt })
+  } catch (err) {
+    console.error('[share] PATCH error:', err)
+    return NextResponse.json({ error: 'Failed to extend share link' }, { status: 500 })
+  }
+}
+
+// DELETE /api/share?id=xxx — revoke a share link immediately
+// 鉴权 + 所有权校验（evaluation_ownership，is_free=false）
+export async function DELETE(req: NextRequest) {
+  try {
+    const token = getBearerToken(req)
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    const payload = await verifySessionToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+    }
+
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Share ID is required' }, { status: 400 })
+    }
+
+    const result = await revokeShare(id, payload.email)
+    if (!result.ok) {
+      if (result.reason === 'forbidden') {
+        return NextResponse.json({ error: 'You can only share paid evaluations you purchased' }, { status: 403 })
+      }
+      return NextResponse.json({ error: 'Share not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ id, revoked: true })
+  } catch (err) {
+    console.error('[share] DELETE error:', err)
+    return NextResponse.json({ error: 'Failed to revoke share link' }, { status: 500 })
   }
 }

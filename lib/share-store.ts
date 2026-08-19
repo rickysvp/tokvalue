@@ -40,6 +40,8 @@ async function initTable(): Promise<void> {
       await s`CREATE INDEX IF NOT EXISTS idx_shares_created ON shares(created_at)`
       // Migration: 分享链接过期时间；存量记录无 expires_at 时按 created_at + 30 天计算
       await s`ALTER TABLE shares ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`
+      // Migration: 分享归属账号（延期/撤销/列表按 username 定位）；存量行 username 为 NULL 时按 evaluation.username 判断
+      await s`ALTER TABLE shares ADD COLUMN IF NOT EXISTS username TEXT`
       // 分享创建限流表（模式同 db.ts 的 free_rate_limits：email + date_key + count）
       await s`
         CREATE TABLE IF NOT EXISTS share_rate_limits (
@@ -288,13 +290,14 @@ export async function createShare(evaluation: Evaluation): Promise<string> {
 
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 
-  // 只存白名单快照（付费模块不入库），并写入过期时间
+  // 只存白名单快照（付费模块不入库），并写入过期时间与归属账号
   const snapshot = toShareSnapshot(evaluation)
   const expiresAt = new Date(Date.now() + SHARE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const username = snapshot.username.trim().replace(/^@/, '').toLowerCase()
 
   await s`
-    INSERT INTO shares (id, evaluation, created_at, expires_at)
-    VALUES (${id}, ${JSON.stringify(snapshot)}::jsonb, NOW(), ${expiresAt}::timestamptz)
+    INSERT INTO shares (id, username, evaluation, created_at, expires_at)
+    VALUES (${id}, ${username}, ${JSON.stringify(snapshot)}::jsonb, NOW(), ${expiresAt}::timestamptz)
   `
 
   return id
@@ -319,6 +322,109 @@ export async function getShare(id: string): Promise<{ evaluation: Evaluation; ex
   const expired = new Date(String(rows[0].effective_expires_at)).getTime() <= Date.now()
   const snapshot = toShareSnapshot((rows[0].evaluation as Partial<Evaluation>) || {})
   return { evaluation: ensureEvaluationFields(snapshot), expired }
+}
+
+// ── 分享管理（B5b Reports 页：延期 / 撤销 / 列表）──
+
+/** 分享行 → 归属 username：新记录读 username 列；存量行 username 为 NULL 时按 evaluation.username 判断 */
+function shareRowUsername(row: { username?: string | null; evaluation: unknown }): string {
+  const fromColumn = row.username ? String(row.username).trim().replace(/^@/, '').toLowerCase() : ''
+  if (fromColumn) return fromColumn
+  const evalUsername = (row.evaluation as Partial<Evaluation> | null)?.username
+  return evalUsername ? evalUsername.trim().replace(/^@/, '').toLowerCase() : ''
+}
+
+/**
+ * 延期分享链接：expires_at = NOW() + 30 天。
+ * 所有权校验同 createShare（evaluation_ownership，is_free=false）；已过期/已撤销的分享不可复活。
+ */
+export async function extendShare(
+  id: string,
+  email: string,
+): Promise<{ ok: true; expiresAt: string } | { ok: false; reason: 'not_found' | 'forbidden' }> {
+  await initTable()
+  const s = await getSql()
+
+  const rows = await s`
+    SELECT username, evaluation,
+           COALESCE(expires_at, created_at + INTERVAL '30 days') AS effective_expires_at
+    FROM shares WHERE id = ${id}
+  `
+  const row = rows[0] as { username?: string | null; evaluation: unknown; effective_expires_at?: unknown } | undefined
+  if (!row) return { ok: false, reason: 'not_found' }
+  // 已过期/已撤销的链接不可延期复活
+  if (new Date(String(row.effective_expires_at)).getTime() <= Date.now()) {
+    return { ok: false, reason: 'not_found' }
+  }
+
+  const username = shareRowUsername(row)
+  if (!username) return { ok: false, reason: 'not_found' }
+
+  const ownership = await checkShareOwnership(username, email)
+  if (ownership !== 'ok') return { ok: false, reason: ownership }
+
+  const expiresAt = new Date(Date.now() + SHARE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  await s`UPDATE shares SET expires_at = ${expiresAt}::timestamptz WHERE id = ${id}`
+  return { ok: true, expiresAt }
+}
+
+/**
+ * 撤销分享链接：expires_at = NOW()（立即失效，幂等）。
+ * 所有权校验同 createShare（evaluation_ownership，is_free=false）。
+ */
+export async function revokeShare(
+  id: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; reason: 'not_found' | 'forbidden' }> {
+  await initTable()
+  const s = await getSql()
+
+  const rows = await s`SELECT username, evaluation FROM shares WHERE id = ${id}`
+  const row = rows[0] as { username?: string | null; evaluation: unknown } | undefined
+  if (!row) return { ok: false, reason: 'not_found' }
+
+  const username = shareRowUsername(row)
+  if (!username) return { ok: false, reason: 'not_found' }
+
+  const ownership = await checkShareOwnership(username, email)
+  if (ownership !== 'ok') return { ok: false, reason: ownership }
+
+  await s`UPDATE shares SET expires_at = NOW() WHERE id = ${id}`
+  return { ok: true }
+}
+
+export interface ShareListItem {
+  id: string
+  createdAt: string
+  expiresAt: string
+}
+
+/**
+ * 列出该用户该账号的活跃分享（未过期）。
+ * 所有权校验同 createShare：仅付费拥有该账号的用户可见（否则返回空列表）。
+ */
+export async function listShares(email: string, username: string): Promise<ShareListItem[]> {
+  await initTable()
+  const s = await getSql()
+
+  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+  const ownership = await checkShareOwnership(normalized, email)
+  if (ownership !== 'ok') return []
+
+  const rows = await s`
+    SELECT id, created_at,
+           COALESCE(expires_at, created_at + INTERVAL '30 days') AS effective_expires_at
+    FROM shares
+    WHERE (username = ${normalized} OR (username IS NULL AND lower(evaluation->>'username') = ${normalized}))
+      AND COALESCE(expires_at, created_at + INTERVAL '30 days') > NOW()
+    ORDER BY created_at DESC
+  `
+
+  return (rows as Array<Record<string, unknown>>).map(r => ({
+    id: String(r.id),
+    createdAt: String(r.created_at),
+    expiresAt: String(r.effective_expires_at),
+  }))
 }
 
 // Clean expired shares (older than 30 days) — called periodically
