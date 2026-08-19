@@ -172,7 +172,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
   useEffect(() => {
     if (showPaidWallModal && !paywallViewTrackedRef.current) {
       paywallViewTrackedRef.current = true
-      trackEvent('deal_toolkit_paywall_viewed', {
+      trackEvent('paywall_viewed', {
         username: result?.username || pendingUsername.current || username,
         mode: paidWallMode,
       })
@@ -195,52 +195,6 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
       suggestedRate: [result.commercialSnapshot.suggestedRateRange.low, result.commercialSnapshot.suggestedRateRange.high],
     })
   }, [result, isPremium])
-
-  // Handle unlock
-  async function handleUnlock() {
-    if (!result) return
-    const token = getSessionToken()
-    if (!token) {
-      // Not logged in — redirect to auth flow via PaidWall
-      setPaidWallMode('unlock')
-      setShowPaidWallModal(true)
-      return
-    }
-    setIsUnlocking(true)
-    trackEvent('upgrade_click', { username: result.username })
-    try {
-      // Call upgrade endpoint to enrich free evaluation with AI
-      const res = await fetch('/api/evaluate/upgrade', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ username: result.username }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        if (res.status === 402) {
-          setNeedPurchase(true)
-          setPaidWallMode('unlock')
-          setShowPaidWallModal(true)
-        } else {
-          toast(data.error || dict.errors.evaluationFailed)
-        }
-        return
-      }
-      // Refresh with full result
-      setResult(data)
-      setIsPremium(true)
-      setIsLoggedIn(true)
-      toast('Report unlocked! 🎉')
-      setCreditBalance(prev => prev ? { ...prev, credits: Math.max(0, prev.credits - 1) } : null)
-    } catch {
-      toast(dict.errors.networkError)
-    } finally {
-      setIsUnlocking(false)
-    }
-  }
 
   // Check if current result is already tracked
   useEffect(() => {
@@ -428,6 +382,64 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     const target = pendingUsername.current
     if (target) handleEvaluate(target)
   }, [handleEvaluate])
+
+  // 解锁内容区锚点（解锁成功后平滑滚动至此，避免直接跳到底部）
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+
+  // Handle unlock
+  async function handleUnlock() {
+    if (!result) return
+    const token = getSessionToken()
+    if (!token) {
+      // Not logged in — redirect to auth flow via PaidWall
+      setPaidWallMode('unlock')
+      setShowPaidWallModal(true)
+      return
+    }
+    setIsUnlocking(true)
+    trackEvent('upgrade_click', { username: result.username })
+    try {
+      // Call upgrade endpoint to enrich free evaluation with AI
+      const res = await fetch('/api/evaluate/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: result.username }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (res.status === 402) {
+          setNeedPurchase(true)
+          setPaidWallMode('unlock')
+          setShowPaidWallModal(true)
+        } else if (res.status === 404) {
+          // 无 Teaser 报告可升级（快照过期/从未免费评估）→ 带 token 发起新完整付费 Review
+          toast('Starting your full review…')
+          handleEvaluate(result.username)
+        } else {
+          toast(data.error || dict.errors.evaluationFailed)
+        }
+        return
+      }
+      // Refresh with full result
+      setResult(data)
+      setIsPremium(true)
+      setIsLoggedIn(true)
+      toast('Report unlocked! 🎉')
+      setCreditBalance(prev => prev ? { ...prev, credits: Math.max(0, prev.credits - 1) } : null)
+      trackEvent('unlock_completed', { username: result.username })
+      // 平滑滚动至解锁内容区顶部（报告 tabs），下一帧等 full 渲染挂载
+      requestAnimationFrame(() => {
+        tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    } catch {
+      toast(dict.errors.networkError)
+    } finally {
+      setIsUnlocking(false)
+    }
+  }
 
 
   const handleEvaluatingComplete = useCallback(() => {
@@ -659,7 +671,9 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
             </div>
 
             {/* Tab Navigation — PMF 决策页顺序 */}
-            <ReportTabs active={activeTab} onChange={setActiveTab} isPremium={isPremium} />
+            <div ref={tabsRef} className="scroll-mt-24">
+              <ReportTabs active={activeTab} onChange={setActiveTab} isPremium={isPremium} />
+            </div>
 
             {/* Free tier badge */}
             {!isPremium && result && (
