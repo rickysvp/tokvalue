@@ -802,6 +802,13 @@ const en = {
         percentile: 'Your position among similar-size accounts in your niche.',
       },
     },
+    value: {
+      title: 'Account Value',
+      subtitle: 'What your account is worth, and what it is made of.',
+      riskAdjustment: 'Risk adjustment',
+      howEstimated: 'How this is estimated',
+      components: 'Value breakdown',
+    },
   },
 
   // ── Tier Labels ──
