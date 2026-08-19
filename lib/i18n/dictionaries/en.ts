@@ -917,6 +917,17 @@ const en = {
       noneDetected: 'No risk signals detected in public data.',
       riskScore: 'Risk Score',
       healthChecks: 'Health checks',
+      healthTitle: 'Account Health',
+      shadowban: 'Shadowban risk',
+      shadowbanLevel: {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+      },
+      noSignals: 'No shadowban signals detected.',
+      fakeFollowers: 'Estimated fake followers',
+      engagementAuthenticity: 'Engagement authenticity',
+      reasoning: 'Why',
     },
     plan: {
       title: 'Raise Your Value in 30 Days',
