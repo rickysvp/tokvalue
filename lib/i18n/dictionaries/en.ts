@@ -853,6 +853,14 @@ const en = {
       notIncluded: 'Not included',
       factors: 'What moves your rate',
     },
+    roadmap: {
+      title: '12-Month Revenue Roadmap',
+      subtitle: 'Milestones that grow your income step by step.',
+      current: 'Now',
+      total12: '12-month potential',
+      month: 'Month',
+      unlocks: 'Unlocks',
+    },
     peer: {
       title: 'How You Compare',
       subtitle: 'You vs. similar-size creators in your niche.',
