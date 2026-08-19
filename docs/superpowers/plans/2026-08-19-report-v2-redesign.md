@@ -1476,3 +1476,93 @@ git push
 - **占位符**：无 TBD/TODO；AccountValue howEstimated 文案为完整英文段落（非占位）
 - **类型一致性**：`valueTierOf/valueTierColor` 来自 lib/pillar.ts（已存在）；`dict.reportV2.*` 命名空间统一；`Evaluation` 可缺省字段（pillars/dealPricing/thirtyDayPlan/valuationV2）均有 null-guard
 - **已知实现注意**：① PillarBar 需传入状态色（Task 6 注明）② percentile 语义在浏览器确认 ③ 删组件前全局 grep 引用
+
+---
+
+# Phase 2: 深度内容回填（v1.13.0 后追加，2026-08-19 确认）
+
+**Goal:** 将旧版报告的深度数据（10 维雷达、8 渠道收入、12 月路线图、Top 视频/趋势/内容策略、品牌匹配/商业准备度、账号健康明细）以 v2 浅色叙事设计语言加回，报告从 9 sections 扩到 14 sections，并新增 sticky 锚点导航。
+
+**已确认决策：** 全部数据字段在 `Evaluation`（types.ts L109-149）中完整存在，本阶段零数据层改动，纯呈现层。
+
+**新 section 清单与插入位置（最终顺序）：**
+
+| # | id | 组件 | 数据源 |
+|---|---|---|---|
+| 1 | verdict-hero | VerdictHero（现有） | summary/valuationV2 |
+| 2 | account-value | AccountValue（现有） | businessValue |
+| 3 | dimension-radar | 新 DimensionRadar | dimensions（10 维）|
+| 4 | pillars | PillarCards（现有） | pillars |
+| 5 | income | 新 IncomeOpportunities | incomeEstimate.breakdown（8 渠道）|
+| 6 | deal-pricing | DealPricing（现有） | dealPricing |
+| 7 | revenue-roadmap | 新 RevenueRoadmapSection | revenueRoadmap.projections |
+| 8 | peer-ranking | PeerRanking（现有） | peerRanking |
+| 9 | growth-content | 新 GrowthContent | topPosts/trendAnalysis/contentStrategy |
+| 10 | brand-commerce | 新 BrandCommerce | brandMatching/commerceReadiness |
+| 11 | risk-health | RiskHealth（增强） | riskFlags/accountHealth |
+| 12 | thirty-day-plan | ThirtyDayPlan（现有） | thirtyDayPlan |
+| 13 | share-card | ShareCardSection（现有） | — |
+| 14 | methodology | Methodology（现有） | — |
+
+**配套：** ReportShell 加 sticky 锚点导航（ReportNav）：桌面左侧竖排固定（fixed），移动端顶部横滚 pill 条；IntersectionObserver 高亮当前 section；新 section 全部套 TeaserMask（share-card/methodology 除外，维持现状）。
+
+### Task 15: 雷达图几何纯函数（TDD）
+
+**Files:** Create `components/report-v2/radar-geometry.ts` + `radar-geometry.test.ts`
+
+核心契约（先写失败测试再实现）：
+
+```typescript
+export interface RadarPoint { x: number; y: number }
+// radarPolygonPoints(scores, cx, cy, radius)：第 i 轴角度 = -90° + 360°/n * i；
+// r = radius * clamp(score,0,100)/100；返回 {x: cx + r·cosθ, y: cy + r·sinθ}
+// radarAxisAnchors(count, cx, cy, radius)：满半径的轴端点（放 label 用）
+```
+
+测试断言：首轴在正上方（x=cx, y=cy-r）；score=100 时点在轴端；score 越界 clamp；n 轴均匀分布。测试通过后 commit `feat(report-v2): radar geometry pure functions with tests`。
+
+### Task 16: DimensionRadar section
+
+**Files:** Create `components/report-v2/sections/DimensionRadar.tsx`；Modify en.ts（reportV2.radar）
+
+数据：result.dimensions（10 维）。布局：左 SVG 雷达（viewBox 240×240，cx=cy=120，radius=100；网格 3 圈 = scores 全 33/66/100 的多边形描边 #E5E7EB；轴线同色；数据多边形 fill rgba(29,78,216,0.15) + stroke #1d4ed8），右维度分数列表（名称+分数条+数值）。en.ts radar.labels 用用户可见名（Reach/Engagement/Content/Authenticity/Momentum/Consistency/Brand Fit/Monetization/Health/Influence）。commit `feat(report-v2): DimensionRadar section with SVG radar`。
+
+### Task 17: IncomeOpportunities section
+
+**Files:** Create `components/report-v2/sections/IncomeOpportunities.tsx`；Modify en.ts（reportV2.income）
+
+数据：result.incomeEstimate（monthlyTotal 区间 + breakdown 8 渠道 + categoryLabel/regionLabel）。布局：顶部月度总额卡（大数字区间 + niche/region pill）；渠道列表每行：label + monthlyAmount.mid + percentage 条 + confidence pill（high 绿 #15803d/medium 蓝 #1d4ed8/low 灰 #6B7280）+ detail。commit `feat(report-v2): IncomeOpportunities section`。
+
+### Task 18: RevenueRoadmapSection
+
+**Files:** Create `components/report-v2/sections/RevenueRoadmapSection.tsx`；Modify en.ts（reportV2.roadmap）
+
+数据：result.revenueRoadmap（currentMonthly/projections[]/total12Month）。布局：顶部 Now → 12-month 两卡；竖向里程碑时间线（复用 ThirtyDayPlan 视觉：左线+圆点），每节点 Month N + label + revenue 区间 + milestone + unlocks ✓ 列表。commit `feat(report-v2): RevenueRoadmap section`。
+
+### Task 19: GrowthContent section
+
+**Files:** Create `components/report-v2/sections/GrowthContent.tsx`；Modify en.ts（reportV2.growth）
+
+数据：result.topPosts（前 3）、result.trendAnalysis.topics、result.contentStrategy。布局三块：Top Videos（desc 截断 60 字 + Views/Likes/Shares）；Trending pills（growth% 正绿负红）；Content Strategy 折叠（pillars/hashtags/optimalSchedule/collabIdeas）。commit `feat(report-v2): GrowthContent section`。
+
+### Task 20: BrandCommerce section
+
+**Files:** Create `components/report-v2/sections/BrandCommerce.tsx`；Modify en.ts（reportV2.brand）
+
+数据：result.brandMatching.matches、result.commerceReadiness（overallScore/tier/summary/channels/productMatches/recommendation）。布局：准备度卡（大数字 + tier 徽章 + summary + recommendation）；品牌匹配列表（brand + dealValue + fitReason）；渠道适配条（channel + fit 标签 + score 条）；产品匹配折叠。commit `feat(report-v2): BrandCommerce section`。
+
+### Task 21: RiskHealth 增强
+
+**Files:** Modify `components/report-v2/sections/RiskHealth.tsx`；en.ts（reportV2.risk 追加）
+
+新增 Account Health 子卡：shadowban 风险（low 绿/medium 金/high 红 + signals 列表）、fakeFollowerEstimate 数字、engagementAuthenticity 分数条、healthReasoning 小字。commit `feat(report-v2): RiskHealth account health detail block`。
+
+### Task 22: ReportNav + ReportShell 接线
+
+**Files:** Create `components/report-v2/ReportNav.tsx`；Modify ReportShell.tsx + 各 section SectionHeader index
+
+ReportNav：桌面 `hidden lg:flex fixed left-6 top-1/3 z-30 flex-col gap-1` 竖排、移动 `lg:hidden sticky top-16 z-30 overflow-x-auto flex gap-2` pill 条；IntersectionObserver rootMargin '-40% 0px -55%' 高亮。ReportShell 按 14-section 表重排，新 section 套 TeaserMask。en.ts reportV2.nav（12 个短 label）。验证 tsc + vitest 全量。commit `feat(report-v2): wire 14-section shell with ReportNav`。
+
+### Task 23: 浏览器验收（Phase 2）
+
+demo 付费态（14 sections 顺序/雷达/8 渠道/路线图/Top 视频/品牌/健康明细/导航两形态/锚点高亮）+ demo-free 免费态（新 section 遮罩、nav 可见）+ 控制台无红错。修复后最终 commit + push。
