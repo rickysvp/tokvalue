@@ -809,6 +809,23 @@ const en = {
       howEstimated: 'How this is estimated',
       components: 'Value breakdown',
     },
+    radar: {
+      title: 'Score Radar',
+      subtitle: 'Your account profile across all 10 dimensions.',
+      caption: 'The shaded area is your performance footprint — wider is stronger.',
+      labels: {
+        reach: 'Reach',
+        engagement: 'Engagement',
+        content: 'Content',
+        authenticity: 'Authenticity',
+        momentum: 'Momentum',
+        stability: 'Consistency',
+        commerce: 'Brand Fit',
+        monetization: 'Monetization',
+        health: 'Health',
+        influence: 'Influence',
+      },
+    },
     pillars: {
       title: 'What Drives Your Value',
       subtitle: 'Six pillars behind your score. Tap any card for details.',
