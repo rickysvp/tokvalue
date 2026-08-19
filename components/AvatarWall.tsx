@@ -3,16 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Users, Heart, MapPin, BadgeCheck, TrendingUp } from 'lucide-react'
 import type { RecentEvaluation } from '@/types'
-
-const TIER_COLORS: Record<string, string> = {
-  S: '#FF0050',
-  A: '#E8A840',
-  B: '#00F2EA',
-  C: '#22c55e',
-  D: '#8B5CF6',
-  E: '#6B7280',
-  F: '#6B7280',
-}
+import { TIER_COLORS } from '@/lib/tier'
+import { valueTierOf } from '@/lib/pillar'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -26,25 +18,16 @@ function fmtUsd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`
 }
 
-/** 等级圆环（紧凑版，用于卡片） */
-function TierBadge({ tier, size = 40 }: { tier: string; size?: number }) {
-  const color = TIER_COLORS[tier] || '#E8A840'
-  const stroke = 3
-  const radius = (size - stroke) / 2
+/** 价值层级徽章（Spec §7.2：S–F 字母对外换 4 档层级词；色值读 TIER_COLORS） */
+function TierBadge({ tier }: { tier: string }) {
+  const color = TIER_COLORS[tier] || '#FF0050'
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} fill="transparent" />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          stroke={color} strokeWidth={stroke} fill="transparent" strokeLinecap="round"
-          strokeDasharray={`${2 * Math.PI * radius * 0.82} ${2 * Math.PI * radius}`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-extrabold uppercase leading-none" style={{ fontSize: size * 0.42, color }}>{tier}</span>
-      </div>
-    </div>
+    <span
+      className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-bold leading-tight whitespace-nowrap"
+      style={{ color, borderColor: `${color}55`, backgroundColor: `${color}14` }}
+    >
+      {valueTierOf(tier)}
+    </span>
   )
 }
 
@@ -231,7 +214,7 @@ export function AvatarWall() {
 }
 
 function HoverCard({ acc }: { acc: RecentEvaluation }) {
-  const color = TIER_COLORS[acc.tier] || '#E8A840'
+  const color = TIER_COLORS[acc.tier] || '#FF0050'
   return (
     <div className="relative w-60 rounded-2xl border border-neutral-800 bg-[#141414] shadow-2xl shadow-black/70 overflow-hidden">
       {/* 顶部渐变光带（按等级着色） */}
@@ -272,7 +255,7 @@ function HoverCard({ acc }: { acc: RecentEvaluation }) {
               <p className="text-[11px] text-neutral-500 truncate">@{acc.username}</p>
             </div>
           </div>
-          <TierBadge tier={acc.tier} size={36} />
+          <TierBadge tier={acc.tier} />
         </div>
 
         {/* 行 2：品类标签 */}
@@ -332,7 +315,7 @@ function AvatarCircle({
   onMove: (x: number, y: number) => void
   onLeave: () => void
 }) {
-  const color = TIER_COLORS[acc.tier] || '#E8A840'
+  const color = TIER_COLORS[acc.tier] || '#FF0050'
   return (
     <div
       className={`relative shrink-0${demo ? ' opacity-80' : ''}`}

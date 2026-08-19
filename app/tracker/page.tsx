@@ -14,6 +14,7 @@ import {
   Star, Target, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import { useI18n, t } from '@/lib/i18n'
+import { valueTierOf } from '@/lib/pillar'
 
 export default function TrackerPage() {
   const { dict } = useI18n()
@@ -187,13 +188,13 @@ export default function TrackerPage() {
                 {/* Score + Value */}
                 <div className="text-right shrink-0">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold ${
+                    <span className={`inline-flex items-center justify-center rounded-md px-2 py-1 text-[10px] font-bold ${
                       evaluation.tier === 'S' || evaluation.tier === 'A' ? 'bg-green-500/20 text-green-400' :
                       evaluation.tier === 'B' ? 'bg-[#00F2EA]/20 text-[#00F2EA]' :
                       evaluation.tier === 'C' ? 'bg-amber-500/20 text-amber-400' :
                       'bg-red-500/20 text-red-400'
                     }`}>
-                      {evaluation.tier}
+                      {valueTierOf(evaluation.tier)}
                     </span>
                     <span className="text-2xl font-bold tabular-nums">{evaluation.score}</span>
                   </div>
@@ -387,10 +388,10 @@ function SingleView({ evaluation }: { evaluation: TrackedEvaluation }) {
           <div className="text-xs text-neutral-500 mb-1">{dict.tracker.score}</div>
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold tabular-nums">{evaluation.score}</span>
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
+            <span className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
               evaluation.tier === 'S' || evaluation.tier === 'A' ? 'bg-green-500/20 text-green-400' :
               evaluation.tier === 'B' ? 'bg-[#00F2EA]/20 text-[#00F2EA]' : 'bg-amber-500/20 text-amber-400'
-            }`}>{evaluation.tier}</span>
+            }`}>{valueTierOf(evaluation.tier).replace(' Value', '')}</span>
           </div>
         </div>
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">

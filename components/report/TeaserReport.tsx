@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/i18n'
 import { formatNumber, formatUsd } from '@/lib/format'
 import { SectionHeader } from '@/components/SectionHeader'
 import { TIER_COLORS } from '@/lib/tier'
+import { valueTierOf } from '@/lib/pillar'
 import {
   Star, ShieldAlert, Play, ThumbsUp, Lock, Check, ChevronRight,
   DollarSign, BarChart3, TrendingDown, TrendingUp, Sparkles, FileDown, Target,
@@ -55,7 +56,7 @@ export function TeaserReport({ result, onUnlock }: TeaserReportProps) {
   const tierColor = TIER_COLORS[result.tier] || '#ffffff'
   const freeHooks = [
     { label: 'Estimated value range', value: bv ? `${formatUsd(bv.totalValue.low)} – ${formatUsd(bv.totalValue.high)}` : '—' },
-    { label: 'Value tier', value: band || result.tier },
+    { label: 'Value tier', value: band || valueTierOf(result.tier) },
     { label: 'Biggest growth blocker', value: blocker?.label || '—' },
   ]
 

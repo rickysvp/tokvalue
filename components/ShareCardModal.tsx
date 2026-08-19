@@ -9,6 +9,8 @@ import { useI18n } from '@/lib/i18n'
 import { formatNumber } from '@/lib/format'
 import { getSessionToken } from '@/lib/credits-client'
 import { TOKVALUE_LOGO_BASE64 } from '@/lib/logo-base64'
+import { TIER_COLORS } from '@/lib/tier'
+import { valueTierOf } from '@/lib/pillar'
 
 
 
@@ -208,16 +210,18 @@ export function ShareCardModal({ isOpen, onClose, result }: ShareCardModalProps)
                     </div>
                     <div className="text-[#8B8792] text-[14px]">@{result.username}</div>
                   </div>
-                  {/* Tier Badge - no circle, larger text */}
-                  <div className="flex-shrink-0">
-                    <span 
-                      className="text-[56px] font-black leading-none"
-                      style={{ 
-                        color: '#FF0050',
-                        textShadow: '0 0 30px rgba(255,0,80,0.5)',
+                  {/* Value tier badge — 4-tier word (Spec §7.2) */}
+                  <div className="flex-shrink-0 flex flex-col items-end leading-none">
+                    <span className="text-[9px] tracking-[0.22em] text-[#5C5866] uppercase mb-1.5">Value Tier</span>
+                    <span
+                      className="font-black capitalize"
+                      style={{
+                        color: TIER_COLORS[result.tier] || '#FF0050',
+                        fontSize: valueTierOf(result.tier).replace(' Value', '').length > 7 ? 34 : 42,
+                        textShadow: `0 0 24px ${(TIER_COLORS[result.tier] || '#FF0050')}66`,
                       }}
                     >
-                      {result.tier}
+                      {valueTierOf(result.tier).replace(' Value', '')}
                     </span>
                   </div>
                 </div>

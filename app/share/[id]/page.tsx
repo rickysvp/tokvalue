@@ -40,35 +40,45 @@ function fmtUsdRange(low: number, high: number): string {
   return `${fmtUsd(low)} – ${fmtUsd(high)}`
 }
 
-// ── Tier mapping: S/A/B → Premium, C/D → Growth, E/F → Developing ──
+// ── Tier mapping (Spec §7.2): S/A → Premium, B/C → Growth, D/E → Developing, F → Early ──
 
 function getValueTier(tier: string) {
-  if (tier === 'S' || tier === 'A' || tier === 'B') {
+  if (tier === 'S' || tier === 'A') {
     return {
       label: 'Premium Value',
       desc: 'Exceptional commercial potential',
-      color: '#00F2EA',
-      bgColor: 'rgba(0, 242, 234, 0.1)',
-      borderColor: 'rgba(0, 242, 234, 0.3)',
-      icon: Trophy,
-    }
-  }
-  if (tier === 'C' || tier === 'D') {
-    return {
-      label: 'Growth Value',
-      desc: 'Strong monetization trajectory',
       color: '#FF0050',
       bgColor: 'rgba(255, 0, 80, 0.1)',
       borderColor: 'rgba(255, 0, 80, 0.3)',
+      icon: Trophy,
+    }
+  }
+  if (tier === 'B' || tier === 'C') {
+    return {
+      label: 'Growth Value',
+      desc: 'Strong monetization trajectory',
+      color: '#00F2EA',
+      bgColor: 'rgba(0, 242, 234, 0.1)',
+      borderColor: 'rgba(0, 242, 234, 0.3)',
       icon: TrendingUp,
     }
   }
+  if (tier === 'D' || tier === 'E') {
+    return {
+      label: 'Developing Value',
+      desc: 'Solid foundation with upside',
+      color: '#f97316',
+      bgColor: 'rgba(249, 115, 22, 0.1)',
+      borderColor: 'rgba(249, 115, 22, 0.3)',
+      icon: Sparkles,
+    }
+  }
   return {
-    label: 'Developing Value',
-    desc: 'Solid foundation with upside',
-    color: '#a855f7',
-    bgColor: 'rgba(168, 85, 247, 0.1)',
-    borderColor: 'rgba(168, 85, 247, 0.3)',
+    label: 'Early Value',
+    desc: 'Early-stage account building its foundation',
+    color: '#ffffff',
+    bgColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     icon: Sparkles,
   }
 }

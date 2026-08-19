@@ -774,13 +774,14 @@ const en = {
 
   // ── Tier Labels ──
   tiers: {
-    S: 'Premium Value · Exceptional Commercial Potential',
-    A: 'High Value · Strong Brand Partnership Ready',
-    B: 'Established Value · Competitive Market Position',
-    C: 'Developing Value · Growth Opportunity',
-    D: 'Emerging Value · Foundation Building',
-    E: 'Limited Value · Strategic Rebuild Needed',
-    F: 'Inactive Value · Account Restructuring Advised',
+    // Spec §7.2：S–F 字母标签对外替换为 4 档价值层级（历史报告旧标签不回写）
+    S: 'Premium Value',
+    A: 'Premium Value',
+    B: 'Growth Value',
+    C: 'Growth Value',
+    D: 'Developing Value',
+    E: 'Developing Value',
+    F: 'Early Value',
   },
 
   // ── Credit Packages ──

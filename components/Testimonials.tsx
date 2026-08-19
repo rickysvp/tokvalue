@@ -4,16 +4,8 @@ import { useState, useEffect } from 'react'
 import { Quote, BadgeCheck } from 'lucide-react'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
 import type { RecentEvaluation } from '@/types'
-
-const TIER_COLORS: Record<string, string> = {
-  S: '#FF0050',
-  A: '#E8A840',
-  B: '#00F2EA',
-  C: '#22c55e',
-  D: '#8B5CF6',
-  E: '#6B7280',
-  F: '#6B7280',
-}
+import { TIER_COLORS } from '@/lib/tier'
+import { valueTierOf } from '@/lib/pillar'
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -51,7 +43,7 @@ function pickQuote(pool: readonly string[], username: string, prev: string | nul
 
 /** 真实评估账号 + 轮换评价文案的评价卡 */
 function TestimonialCard({ acc, quote }: { acc: RecentEvaluation; quote: string }) {
-  const color = TIER_COLORS[acc.tier] || '#E8A840'
+  const color = TIER_COLORS[acc.tier] || '#FF0050'
   return (
     <figure className="mx-2.5 flex w-[330px] shrink-0 flex-col rounded-2xl border border-[#1F1D26] bg-[#0E0E14] p-5 transition-colors duration-300 hover:border-[#FF0050]/40">
       {/* identity — 真实评估账号数据 */}
@@ -82,10 +74,10 @@ function TestimonialCard({ acc, quote }: { acc: RecentEvaluation; quote: string 
           <div className="truncate text-xs text-neutral-500">@{acc.username}</div>
         </div>
         <div
-          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-extrabold"
+          className="ml-auto flex h-8 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-extrabold"
           style={{ borderColor: `${color}66`, color }}
         >
-          {acc.tier}
+          {valueTierOf(acc.tier).replace(' Value', '')}
         </div>
       </figcaption>
 

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Clock, Loader2, LogIn } from 'lucide-react'
 import { tierColor } from '@/lib/tier'
+import { valueTierOf } from '@/lib/pillar'
 import { getSessionToken, getActiveEmail, setActiveEmail, setSessionToken } from '@/lib/credits-client'
 
 interface HistoryItem {
@@ -172,7 +173,7 @@ export default function HistoryPage() {
                   className="text-sm font-semibold"
                   style={{ color: tierColor(item.tier) }}
                 >
-                  Tier {item.tier}
+                  {valueTierOf(item.tier)}
                 </div>
               </div>
             </Link>

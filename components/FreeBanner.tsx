@@ -2,6 +2,7 @@
 
 import { Sparkles, Lock } from 'lucide-react'
 import { CtaButton } from '@/components/CtaButton'
+import { valueTierOf } from '@/lib/pillar'
 
 interface FreeBannerProps {
   tier: string
@@ -23,7 +24,7 @@ export function FreeBanner({ tier, onUnlock }: FreeBannerProps) {
           FREE PREVIEW
         </span>
         <span className="text-sm text-neutral-400">
-          Tier <span className="font-bold text-white">{tier}</span> — Scores &amp; valuation are visible
+          <span className="font-bold text-white">{valueTierOf(tier)}</span> — Scores &amp; valuation are visible
         </span>
       </div>
       <CtaButton
