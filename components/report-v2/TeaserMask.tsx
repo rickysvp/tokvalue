@@ -1,7 +1,6 @@
 'use client'
 
 import { Lock } from 'lucide-react'
-import { useState } from 'react'
 
 /** 锁定判定：非 premium 时 section 显示首屏 + 遮罩 */
 export function shouldMaskSection(isPremium: boolean, sectionHasData: boolean): boolean {
@@ -13,7 +12,6 @@ export function TeaserMask({ locked, children, ctaText }: {
   children: React.ReactNode
   ctaText: string
 }) {
-  const [expanded, setExpanded] = useState(false)
   if (!locked) return <>{children}</>
   return (
     <div className="relative">
