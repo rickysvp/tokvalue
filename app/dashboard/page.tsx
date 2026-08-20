@@ -1,5 +1,5 @@
 'use client'
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { DashboardShell } from '@/components/dashboard-v2/DashboardShell'
 import { GreetingBar } from '@/components/dashboard-v2/home/GreetingBar'
 import { KPIRow } from '@/components/dashboard-v2/home/KPIRow'
@@ -8,6 +8,7 @@ import { TodayTasks, type DashboardTask } from '@/components/dashboard-v2/home/T
 import { PillarScorecard } from '@/components/dashboard-v2/home/PillarScorecard'
 import { ProgressStrip, type HistoryNode } from '@/components/dashboard-v2/home/ProgressStrip'
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
+import { trackEvent } from '@/lib/track-client'
 
 const TIER_WORD: Record<string, string> = {
   S: 'Premium Value',
@@ -20,6 +21,9 @@ const TIER_WORD: Record<string, string> = {
 }
 
 export default function DashboardHomePage() {
+  useEffect(() => {
+    trackEvent('dashboard_viewed', { page: 'home' })
+  }, [])
   const data = useDashboardData()
   const latest = data.latest
   const balance = data.balance

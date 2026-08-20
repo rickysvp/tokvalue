@@ -1,9 +1,10 @@
 'use client'
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { DashboardShell } from '@/components/dashboard-v2/DashboardShell'
 import { ProgressHeader } from '@/components/dashboard-v2/growth/ProgressHeader'
 import { WeekAccordion, type WeekTask } from '@/components/dashboard-v2/growth/WeekAccordion'
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
+import { trackEvent } from '@/lib/track-client'
 
 type PlanWeek = {
   focus: string
@@ -46,6 +47,9 @@ const FALLBACK_WEEKS: PlanWeek[] = [
 ]
 
 export default function DashboardGrowthPage() {
+  useEffect(() => {
+    trackEvent('dashboard_viewed', { page: 'growth' })
+  }, [])
   const data = useDashboardData()
   const latest = data.latest
   const balance = data.balance

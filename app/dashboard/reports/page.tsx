@@ -7,6 +7,7 @@ import { ReportsTable, type ReportRow } from '@/components/dashboard-v2/reports/
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
 import { getSessionToken } from '@/lib/credits-client'
 import { useRouter } from 'next/navigation'
+import { trackEvent } from '@/lib/track-client'
 
 const TIER_WORD: Record<string, string> = {
   S: 'Premium Value',
@@ -57,6 +58,9 @@ function fmtDate(iso: string): string {
 }
 
 export default function DashboardReportsPage() {
+  useEffect(() => {
+    trackEvent('dashboard_viewed', { page: 'reports' })
+  }, [])
   const router = useRouter()
   const data = useDashboardData()
   const balance = data.balance

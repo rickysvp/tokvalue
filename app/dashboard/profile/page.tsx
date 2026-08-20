@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard-v2/DashboardShell'
 import { AccountCard } from '@/components/dashboard-v2/profile/AccountCard'
@@ -8,8 +8,12 @@ import { PreferencesToggle } from '@/components/dashboard-v2/profile/Preferences
 import { DangerZone } from '@/components/dashboard-v2/profile/DangerZone'
 import { useDashboardData } from '@/components/dashboard/dashboard-data'
 import { setActiveEmail, setSessionToken } from '@/lib/credits-client'
+import { trackEvent } from '@/lib/track-client'
 
 export default function DashboardProfilePage() {
+  useEffect(() => {
+    trackEvent('dashboard_viewed', { page: 'profile' })
+  }, [])
   const router = useRouter()
   const data = useDashboardData()
   const balance = data.balance
