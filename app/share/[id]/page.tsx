@@ -194,7 +194,7 @@ export default function SharePage() {
           This share link&apos;s data is incomplete. Please evaluate the account again to generate a full report.
         </p>
         <Link
-          href={`/?u=${encodeURIComponent(result.username || '')}`}
+          href={`/evaluate/${encodeURIComponent(result.username || '')}`}
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#00F2EA] px-6 py-3 text-sm font-semibold text-black hover:bg-[#00d4cc] transition-colors"
         >
           Evaluate This Account
@@ -377,7 +377,7 @@ export default function SharePage() {
               <span className="text-white font-semibold">4</span>.
             </p>
             <Link
-              href={`/?u=${encodeURIComponent(result.username)}`}
+              href={`/evaluate/${encodeURIComponent(result.username)}`}
               className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-[#00F2EA] hover:underline whitespace-nowrap"
             >
               View full report <ArrowRight className="h-3.5 w-3.5" />
@@ -490,7 +490,7 @@ export default function SharePage() {
                 Evaluate Your Account <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href={`/?u=${encodeURIComponent(result.username)}`}
+                href={`/evaluate/${encodeURIComponent(result.username)}`}
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FF0050] to-[#00F2EA] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 View This Account&apos;s Full Report <ArrowRight className="h-4 w-4" />
@@ -785,7 +785,7 @@ export default function SharePage() {
               ))}
               {result.growthPlan.items.length > 4 && (
                 <Link
-                  href={`/?u=${encodeURIComponent(result.username)}`}
+                  href={`/evaluate/${encodeURIComponent(result.username)}`}
                   className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-neutral-700 text-xs text-neutral-500 hover:text-[#00F2EA] hover:border-[#00F2EA]/30 transition-colors"
                 >
                   +{result.growthPlan.items.length - 4} more actions in full report <ArrowRight className="h-3 w-3" />
@@ -821,7 +821,7 @@ export default function SharePage() {
               ))}
               {result.brandMatching.matches.length > 4 && (
                 <Link
-                  href={`/?u=${encodeURIComponent(result.username)}`}
+                  href={`/evaluate/${encodeURIComponent(result.username)}`}
                   className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-neutral-700 text-xs text-neutral-500 hover:text-[#00F2EA] hover:border-[#00F2EA]/30 transition-colors sm:col-span-2"
                 >
                   +{result.brandMatching.matches.length - 4} more matches in full report <ArrowRight className="h-3 w-3" />
@@ -864,7 +864,7 @@ export default function SharePage() {
                   ))}
                   {result.peerRanking.rankingBreakdown.length > 5 && (
                     <Link
-                      href={`/?u=${encodeURIComponent(result.username)}`}
+                      href={`/evaluate/${encodeURIComponent(result.username)}`}
                       className="flex items-center justify-center gap-1.5 mt-2 py-2 rounded-lg border border-dashed border-neutral-700 text-xs text-neutral-500 hover:text-[#00F2EA] hover:border-[#00F2EA]/30 transition-colors"
                     >
                       +{result.peerRanking.rankingBreakdown.length - 5} more metrics in full report <ArrowRight className="h-3 w-3" />
@@ -913,7 +913,7 @@ export default function SharePage() {
                 return (
                   <Link
                     key={i}
-                    href={`/?u=${encodeURIComponent(result.username)}`}
+                    href={`/evaluate/${encodeURIComponent(result.username)}`}
                     className="group relative rounded-xl border border-dashed border-neutral-700 bg-[#0f0f0f]/50 p-4 hover:border-[#00F2EA]/40 hover:bg-[#0f0f0f] transition-all"
                   >
                     <div className="flex items-start gap-3">

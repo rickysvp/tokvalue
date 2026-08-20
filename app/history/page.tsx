@@ -151,7 +151,7 @@ export default function HistoryPage() {
           {items.map(item => (
             <Link
               key={item.username}
-              href={`/?u=${item.username}`}
+              href={`/evaluate/${encodeURIComponent(item.username)}`}
               className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-[#141414] p-5 hover:border-[#00F2EA]/20 transition-colors"
             >
               <div className="flex items-center gap-4">

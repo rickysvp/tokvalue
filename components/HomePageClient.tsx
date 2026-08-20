@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Loader2, Lightbulb, Zap, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight, BarChart3 } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
@@ -26,6 +26,7 @@ import { Testimonials } from '@/components/Testimonials'
 export default function HomePage() {
   const { dict } = useI18n()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const { toast, toasts, dismiss } = useToast()
@@ -49,6 +50,16 @@ export default function HomePage() {
       fetchBalance(email).then(b => { if (b) { setCreditBalance(b) } }).finally(() => setBalanceLoading(false))
     }
   }, [])
+
+  // Legacy redirect: ?u=<username> → /evaluate/<username>（兼容旧链接/分享页/历史记录旧卡片）
+  // 依赖 searchParams 保证首次挂载 + 客户端路由变化都能捕获；用原生 location.replace 保证特殊字符可靠跳转
+  useEffect(() => {
+    const u = searchParams.get('u')
+    if (!u) return
+    const clean = u.trim().replace(/^@/, '')
+    if (!clean) return
+    window.location.replace(`/evaluate/${encodeURIComponent(clean)}`)
+  }, [searchParams])
 
   // Handle ?paid=success callback（guest checkout 回跳：认领积分并建立登录态）
   useEffect(() => {
