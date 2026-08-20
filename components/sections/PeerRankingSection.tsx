@@ -161,7 +161,7 @@ function MetricRow({
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-neutral-500 tabular-nums">{value}</span>
           <span className="text-xs font-semibold tabular-nums" style={{ color: barColor }}>
-            Top {Math.round(percentile)}%
+            Top {Math.max(1, 100 - Math.round(percentile))}%
           </span>
         </div>
       </div>
