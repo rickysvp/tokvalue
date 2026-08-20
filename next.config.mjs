@@ -10,6 +10,30 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.muscdn.com' },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/settings',
+        destination: '/dashboard/profile',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/settings/:path*',
+        destination: '/dashboard/profile',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/growth-plan',
+        destination: '/dashboard/growth',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/tools',
+        destination: '/dashboard',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     // 开发模式（HMR/React Refresh 依赖 unsafe-eval）不加 CSP，避免 hydration 崩溃；生产才加严格 CSP。
     const isDev = process.env.NODE_ENV === 'development'
