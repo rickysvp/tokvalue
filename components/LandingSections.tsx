@@ -75,8 +75,7 @@ function ClientFaqItem({ question, answer, defaultOpen = false }: {
 // ── Pricing ──
 
 export function PricingSection({ dict, interactive = true, checkoutLoading, onCheckout }: PricingSectionProps) {
-  const free = dict.home.pricing.freePlan as { name: string; desc: string; cta: string }
-  // 全部三个付费套餐（含 pack30 高价锚点），让 $29 更显划算
+  // 3 个一次性套餐（含 pack30 高价锚点），首推 First Report $3.99
   const paidPkgs = CREDIT_PACKAGES
   const plansById = new Map(
     (dict.home.pricing.plans as ReadonlyArray<{ id: string; name: string; desc: string; badge?: string; highlight?: boolean }>)
@@ -126,25 +125,8 @@ export function PricingSection({ dict, interactive = true, checkoutLoading, onCh
           <p className="max-w-xl mx-auto text-neutral-400 text-lg">{dict.home.pricing.subtitle}</p>
         </div>
 
-        {/* Free + 3 paid plans：推荐套餐（Growth）视觉放大 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch mb-8">
-          {/* Free */}
-          <div className="rounded-2xl border border-[#00F2EA]/20 bg-[#00F2EA]/[0.03] p-6 flex flex-col">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#00F2EA] mb-3">{free.name}</p>
-            <p className="text-sm text-neutral-400 mb-4 leading-relaxed">{free.desc}</p>
-            <div className="flex items-baseline gap-0.5 mb-4">
-              <span className="text-5xl font-black text-white tracking-tight">$0</span>
-            </div>
-            <p className="text-xs text-neutral-500 mb-5">No credit card required</p>
-            {interactive ? (
-              <a href="#hero" className="mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold border border-[#00F2EA]/30 text-[#00F2EA] hover:bg-[#00F2EA]/10 transition-all">
-                {free.cta}
-              </a>
-            ) : (
-              <Link href="/" className="mt-auto w-full block text-center rounded-xl py-2.5 text-sm font-semibold border border-[#00F2EA]/30 text-[#00F2EA]">{free.cta}</Link>
-            )}
-          </div>
-
+        {/* 3 个一次性套餐：首推套餐（First Report $3.99）视觉放大 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch mb-8">
           {/* Paid plans */}
           {paidPkgs.map((pkg) => {
             const plan = plansById.get(pkg.id)

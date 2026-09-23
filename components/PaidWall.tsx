@@ -46,7 +46,7 @@ export function PaidWall({ onUnlock, result, existingBalance, isUnlocking, balan
   const { dict } = useI18n()
   const isUnlockMode = mode === 'unlock'
   const [step, setStep] = useState<Step>('choose')
-  const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[1])
+  const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[0])
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

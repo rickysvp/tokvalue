@@ -6,8 +6,8 @@ const en = {
   // ── SEO / Metadata ──
   seo: {
     title: "What's Your TikTok Really Worth? — TokValue",
-    description: 'Most creators quietly underprice themselves. See your true commercial value, what\'s holding it back, and a 30-day plan to raise it. Free — just verify your email.',
-    shortDescription: 'See what your TikTok is really worth — and how to raise it. Free value snapshot, no credit card.',
+    description: 'Most creators quietly underprice themselves. See your true commercial value, what\'s holding it back, and a 30-day plan to raise it. First full report $3.99 — one-time, no subscription.',
+    shortDescription: 'See what your TikTok is really worth — and how to raise it. First full report $3.99, one-time.',
   },
 
   // ── Common / Shared ──
@@ -116,7 +116,7 @@ const en = {
       prompt: 'This could be {your} account — see what it\'s really worth.',
       your: 'your',
       cta: 'Evaluate My Account',
-      reassurance: 'Your first evaluation is free · Just verify your email · No credit card required',
+      reassurance: 'First full report $3.99 · One-time payment · No subscription',
     },
 
     howItWorks: {
@@ -146,7 +146,7 @@ const en = {
       title: 'Know your worth. Then grow it.',
       subtitle: 'Follower counts don\'t pay you. TokValue shows what your account is actually worth, what\'s quietly dragging it down, and what to fix first to raise it.',
       cta: "See What I'm Worth",
-      ctaHint: 'Your value score and top blocker — data-backed, free.',
+      ctaHint: 'Your value score, blockers, and 30-day plan — data-backed.',
       story: [
         {
           title: 'See your true value',
@@ -166,7 +166,7 @@ const en = {
       ],
     },
     pricing: {
-      title: 'Start free. Upgrade when you need more.',
+      title: 'Your first full report is just $3.99',
       subtitle: 'One-time payment. No subscription. No auto-renewal.',
       footer: ['No auto-renewal', 'Email-linked', 'Cross-device access'],
       freePlan: { name: 'Free', desc: 'Instant commercial snapshot — readiness score, suggested rate range, and your top rate blocker.', cta: 'Try Free' },
@@ -176,8 +176,8 @@ const en = {
       oneTime: 'One-time · No subscription',
       moneyBack: '7-day money-back guarantee',
       plans: [
-        { id: 'pack1', name: 'Single', desc: 'One Brand Deal Toolkit: exact deal price, all rate blockers, 30-day plan, full analysis + PDF.', highlight: false },
-        { id: 'pack6', name: 'Growth', desc: 'Six toolkits. Re-check your rate as your account grows and blockers clear. Best value per report.', highlight: true, badge: 'Best Value' },
+        { id: 'pack1', name: 'First Report', desc: 'Your first complete Brand Deal Toolkit: exact deal price, all rate blockers, 30-day plan, full analysis + PDF. One-time intro price.', highlight: true, badge: 'Intro Price' },
+        { id: 'pack6', name: 'Growth', desc: 'Six toolkits. Re-check your rate as your account grows and blockers clear. Best value per report.', highlight: false, badge: 'Best Value' },
         { id: 'pack30', name: 'Studio', desc: 'Thirty toolkits. For managers and teams advising multiple creator accounts.', highlight: false },
       ],
     },
@@ -224,16 +224,16 @@ const en = {
       badge: 'FAQ',
       questions: {
         q1: {
-          q: 'Do I have to pay?',
-          a: 'No. Your first look at any account is free: an overall assessment, value range, and a risk check. You only pay if you want the full report.',
+          q: 'How much does my first report cost?',
+          a: 'Your first complete Brand Deal Toolkit is $3.99 one-time. It includes your exact deal price, every rate blocker, a 30-day value plan, the full analysis, and PDF export. After that, you can buy more credits whenever you need.',
         },
         q2: {
-          q: 'How much does it cost?',
-          a: 'Three one-time options: $9 for 1 full report, $29 for 6, or $99 for 30. No subscription, no recurring charges. Pay once and the credits are yours.',
+          q: 'What are the other pricing options?',
+          a: 'One-time options: $3.99 for your first report, $9.99 for 6, or $29.99 for 30. No subscription, no recurring charges. Pay once and the credits are yours.',
         },
         q3: {
-          q: 'What does paying actually get me?',
-          a: 'The free snapshot shows your commercial readiness, a suggested rate range, your strongest lever, and your biggest rate blocker. Unlocking adds your exact deal numbers (opening rate, private minimum), every rate blocker with its price impact, a 30-day value plan, and the full analysis with PDF export — one-time $9.',
+          q: 'What does the report actually get me?',
+          a: 'Your exact opening rate, acceptable range, and private minimum; every rate blocker with its price impact; a 30-day value plan; and the full analysis with PDF export. One-time $3.99 for your first report.',
         },
         q4: {
           q: 'Is the number real? Can I trust it?',
@@ -286,7 +286,7 @@ const en = {
   paidWall: {
     badge: 'Brand Deal Toolkit',
     title: 'Unlock {username}\'s Deal Price & 30-Day Plan',
-    subtitle: 'Exact opening rate, private minimum, all rate blockers, and a 30-day value plan — one-time $9.',
+    subtitle: 'Exact opening rate, private minimum, all rate blockers, and a 30-day value plan — first report just $3.99 one-time.',
     // Unlock mode (for previously evaluated accounts)
     unlockTitle: 'Unlock {username}\'s Brand Deal Toolkit',
     unlockSubtitle: 'Your saved deal price, rate blockers, and 30-day plan are ready.',
@@ -333,7 +333,7 @@ const en = {
     ],
     // Package features
     packageFeatures: {
-      pack1: ['1 Brand Deal Toolkit', 'Deal price + all blockers + 30-day plan', 'PDF export'],
+      pack1: ['1 full Brand Deal Toolkit', 'Deal price + all blockers + 30-day plan', 'PDF export', 'Intro price for your first report'],
       pack6: ['6 Brand Deal Toolkits', 'Cross-device recovery', 'PDF export', 'Priority support'],
       pack30: ['30 Brand Deal Toolkits', 'Cross-device sync', 'PDF export', 'Early access + VIP support'],
     },
@@ -491,7 +491,7 @@ const en = {
       lockedAnalysisF1: 'All rate blockers with impact on your price',
       lockedAnalysisF2: '10-dimension radar and market position',
       lockedAnalysisF3: 'Brand matches and monetization readiness',
-      unlockCta: 'Unlock — $9 once',
+      unlockCta: 'Unlock — $3.99 once',
       unlockSub: 'One-time payment · deal price, 30-day plan, and full analysis',
     },
     stepLabels: {
@@ -986,7 +986,7 @@ const en = {
 
   // ── Credit Packages ──
   creditPackages: {
-    pack1: { label: 'Single', badge: undefined },
+    pack1: { label: 'First Report', badge: 'Intro Price' },
     pack6: { label: 'Growth', badge: 'Best Value' },
     pack30: { label: 'Studio', badge: undefined },
   },
@@ -1230,7 +1230,7 @@ const en = {
           credits: 'Evaluation credits',
           needMore: 'Need more?',
           buy: 'Buy more credits',
-          buySub: 'From $9 / 1-pack',
+          buySub: 'From $3.99 / first report',
           purchaseHistory: 'Purchase history',
           currentPlan: 'Current plan',
           payg: 'Pay-as-you-go · no active subscription',

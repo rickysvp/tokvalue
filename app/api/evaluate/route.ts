@@ -234,15 +234,16 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           )
         }
-        // credits=0 的已验证用户：不再直接 402，跳出付费分支落入免费额度流程
-        //（保留 userEmail，免费 24h 缓存检查 / 邮箱终身额度判定照走）
-        isPaidMode = false
-        // B1 修复：降级前释放已创建的 credits review 行（未预扣额度，无需返还），
-        // 否则 in-flight 锁会把随后的免费路径卡成 409
+        // credits=0：免费试用已下线，直接要求付费（不再降级到免费 Teaser 路径）
+        // 释放已创建的 credits review 行，避免 in-flight 锁残留
         if (reviewRow) {
-          await failReview(reviewRow.id, 'downgraded_to_free_no_credits')
+          await failReview(reviewRow.id, 'no_credits')
           reviewRow = null
         }
+        return NextResponse.json(
+          { error: getServerDict().api.errors.NO_CREDITS, code: 'NO_CREDITS' },
+          { status: 402 }
+        )
       }
 
       if (isPaidMode) {
@@ -340,12 +341,11 @@ export async function POST(req: NextRequest) {
     // 本地开发保留无 token 免费通道（开发便利）
     const IS_DEV = process.env.NODE_ENV === 'development'
 
-    // 免费评估需要已验证邮箱的 session（消灭纯游客白嫖；
-    // 到达此处的无 token 请求只可能是 dev 环境，或上方付费降级的已验证用户）
+    // 免费试用已下线：prod 下未登录直接评估 → 要求付费（前端弹付费墙，默认首单 $3.99）
     if (!token && !IS_DEV) {
       return NextResponse.json(
-        { error: 'Email verification required for free evaluations.', code: 'NEED_VERIFY' },
-        { status: 401 }
+        { error: 'Your first full report is $3.99 one-time. Purchase to unlock the complete evaluation.', code: 'PAYMENT_REQUIRED' },
+        { status: 402 }
       )
     }
 

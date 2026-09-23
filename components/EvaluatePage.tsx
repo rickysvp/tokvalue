@@ -262,57 +262,16 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
 
       const token = getSessionToken()
       if (!token) {
-        // Free mode — call API directly (no auth required)
+        // 免费试用已下线：未登录直接评估 → 立即弹付费墙（默认首单 $3.99），
+        // 不再先打一次 API 触发免费加载。@demo / @demo-free 为本地演示入口，直接放行。
         pendingUsername.current = target
-        setLoading(true)
+        setLoading(false)
         setError('')
         setResult(null)
-        setNeedPurchase(false)
+        setNeedPurchase(true)
         setIsLoading(false)
-        setEvaluatingModal({ open: true, status: 'evaluating' })
-
-        try {
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 45000)
-
-          const res = await fetch('/api/evaluate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: target, ...(getUtm() ? { utm: getUtm() } : {}) }),
-            signal: controller.signal,
-          })
-          clearTimeout(timeoutId)
-
-          const data = await res.json()
-          if (!res.ok) {
-            if (res.status === 401) {
-              // 后端要求邮箱验证（NEED_VERIFY）：关掉评估进度弹窗，转免费邮箱验证
-              setEvaluatingModal(prev => ({ ...prev, open: false }))
-              setFreeVerifyOpen(true)
-            } else if (res.status === 402) {
-              // 免费额度用完（FREE_LIMIT_EXHAUSTED）→ 与登录态 402 同待遇：转付费墙
-              setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
-              setPaidWallMode('evaluate')
-              setNeedPurchase(true)
-              setShowPaidWallModal(true)
-            } else {
-              setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: data.error || dict.errors.evaluationFailed }))
-              setError(data.error || dict.errors.evaluationFailed)
-            }
-          } else {
-            setEvaluatingModal(prev => ({ ...prev, status: 'completing' }))
-            setResult(data)
-            setIsPremium(!data.isFree)
-          }
-        } catch (err) {
-          const errMsg = err instanceof DOMException && err.name === 'AbortError'
-            ? dict.errors.requestTimeout : dict.errors.networkError
-          setEvaluatingModal(prev => ({ ...prev, status: 'error', errorMessage: errMsg }))
-          setError(errMsg)
-        } finally {
-          setLoading(false)
-          setIsLoading(false)
-        }
+        setPaidWallMode('evaluate')
+        setShowPaidWallModal(true)
         return
       }
 

@@ -32,10 +32,11 @@ export interface CreditPackage {
 const dict = getServerDict()
 
 // 套餐定义（perUnit 由 price/credits 动态派生，不再手算硬编码，保证与价格改动一致）
+// pack1 = 首单入门价 $3.99（替代原免费试用钩子），pack6/pack30 为复购加量
 const RAW_PACKAGES: Array<Omit<CreditPackage, 'perUnit'>> = [
-  { id: 'pack1', label: dict.creditPackages.pack1.label, credits: 1, price: 9 },
-  { id: 'pack6', label: dict.creditPackages.pack6.label, credits: 6, price: 29, badge: dict.creditPackages.pack6.badge, highlight: true },
-  { id: 'pack30', label: dict.creditPackages.pack30.label, credits: 30, price: 99 },
+  { id: 'pack1', label: dict.creditPackages.pack1.label, credits: 1, price: 3.99, badge: dict.creditPackages.pack1.badge, highlight: true },
+  { id: 'pack6', label: dict.creditPackages.pack6.label, credits: 6, price: 9.99, badge: dict.creditPackages.pack6.badge, highlight: true },
+  { id: 'pack30', label: dict.creditPackages.pack30.label, credits: 30, price: 29.99 },
 ]
 
 export const CREDIT_PACKAGES: CreditPackage[] = RAW_PACKAGES.map(p => ({

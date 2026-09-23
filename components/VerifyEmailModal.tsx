@@ -36,7 +36,7 @@ export function VerifyEmailModal({ isOpen, onClose, onUnlock, existingBalance, m
   const isUnlockMode = mode === 'unlock'
   const isFreeMode = mode === 'free'
   const [step, setStep] = useState<Step>('choose')
-  const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[1])
+  const [selectedPkg, setSelectedPkg] = useState<CreditPackage>(CREDIT_PACKAGES[0])
   const [email, setEmail] = useState('')
   const [code, setCode] = useState<string[]>(['', '', '', '', '', ''])
   const [devCode, setDevCode] = useState<string | null>(null)
