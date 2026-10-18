@@ -91,6 +91,7 @@ const en = {
     referralCta: 'Earn 40%',
     referralCtaHint: 'Share your link, earn 40% commission',
     pricing: 'Pricing',
+    marketplace: 'Marketplace',
     blog: 'Blog',
     howItWorks: 'How It Works',
     verifyEmail: 'Verify Email',
@@ -1178,6 +1179,30 @@ const en = {
     emptyCta: 'Check a TikTok Account',
     tier: 'Tier',
     brandScore: 'Brand Score',
+  },
+
+  // ── Account Marketplace ──
+  marketplace: {
+    title: 'Account Marketplace',
+    subtitle: 'Verified valuations. Direct contact. You negotiate the deal.',
+    listForSale: 'List This Account for Sale',
+    requiresPaidReport: 'A paid full report is required to list an account.',
+    askingPrice: 'Asking Price (USD)',
+    description: 'Why is this account worth buying?',
+    contactEmail: 'Contact Email',
+    socialChannel: 'Social Channel (optional)',
+    socialHandle: 'Handle / ID',
+    publish: 'Publish Listing',
+    myListings: 'My Listings',
+    myUnlocks: 'My Unlocks',
+    unlockContact: 'Unlock Contact — $3.99',
+    unlocked: 'Contact Unlocked',
+    valuedAsOf: 'Valued as of',
+    reportListing: 'Report listing',
+    noListings: 'No accounts listed yet. Be the first.',
+    disclaimer: 'TokValue does not facilitate transactions. Verify ownership and transfer the account at your own risk.',
+    withdraw: 'Withdraw',
+    markSold: 'Mark as Sold',
   },
 
   // ── Dashboard v2 ──
