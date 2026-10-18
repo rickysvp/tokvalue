@@ -239,6 +239,15 @@ export async function getUnlocksByEmail(email: string): Promise<Array<{ listingI
   }))
 }
 
+// 登记资格硬约束：evaluation_ownership 中存在 (email, username) 且 upgraded_at 非空（已升级付费完整报告）
+export async function hasPaidReport(email: string, username: string): Promise<boolean> {
+  await ensureInit()
+  const s = await getSql()
+  const rows = await s`
+    SELECT upgraded_at FROM evaluation_ownership WHERE email = ${email} AND username = ${username} LIMIT 1` as Array<{ upgraded_at: unknown }>
+  return rows.length > 0 && rows[0].upgraded_at != null
+}
+
 export async function addReport(listingId: string, reporterEmail: string, reason: string | null): Promise<{ reported: boolean; removed: boolean }> {
   await ensureInit()
   const s = await getSql()
