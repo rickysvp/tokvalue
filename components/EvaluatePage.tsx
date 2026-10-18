@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
 import { getUtm } from '@/lib/utm'
-import { Search, Loader2, History, Download, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, FlaskConical } from 'lucide-react'
+import { Search, Loader2, History, Download, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, FlaskConical, Store } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import { PaidWallModal } from '@/components/PaidWallModal'
 import { EvaluatingModal, type EvaluatingStatus } from '@/components/EvaluatingModal'
@@ -750,6 +750,7 @@ function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, o
         {/* Navigation */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
           {[
+            { label: dict.nav.marketplace, href: '/marketplace', icon: Store },
             { label: dict.nav.blog, href: '/blog', icon: BookOpen },
           ].map(item => (
             <Link
