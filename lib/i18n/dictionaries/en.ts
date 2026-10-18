@@ -1212,6 +1212,7 @@ const en = {
     followers: 'Followers',
     engagement: 'Engagement',
     valuation: 'Valuation',
+    dealPrice: 'Deal Price',
     contactHidden: 'Seller contact hidden',
     emailPlaceholder: 'your@email.com',
     emailLabel: 'Email',

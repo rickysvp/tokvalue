@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     const payload = await verifySessionToken(token)
     if (!payload?.email) return NextResponse.json({ error: 'Invalid session', code: 'UNAUTHORIZED' }, { status: 401 })
     const items = await getListingsBySeller(payload.email.toLowerCase().trim())
-    return NextResponse.json({ items: items.map(l => toPublicListing(l, false)) })
+    return NextResponse.json({ items: items.map(l => toPublicListing(l, false, true)) })
   }
   const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') || '1', 10) || 1)
   const pageSize = Math.min(48, Math.max(1, parseInt(req.nextUrl.searchParams.get('pageSize') || '24', 10) || 24))
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const listing = await createListing(input, buildSnapshot(evaluation), email)
-    return NextResponse.json({ ok: true, listing: toPublicListing(listing, false) }, { status: 201 })
+    return NextResponse.json({ ok: true, listing: toPublicListing(listing, false, true) }, { status: 201 })
   } catch (err) {
     if (err instanceof Error && err.message === 'LISTING_EXISTS_FOR_USERNAME') {
       return NextResponse.json({ error: 'This account is already listed', code: 'LISTING_EXISTS' }, { status: 409 })

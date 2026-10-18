@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const email = await authEmail(req)
   const isSeller = !!email && email === listing.sellerEmail
   const unlocked = !!email && (isSeller || (await isUnlocked(listing.id, email)))
-  const pub = toPublicListing(listing, !isSeller)
+  const pub = toPublicListing(listing, !isSeller, unlocked)
   return NextResponse.json({
     listing: pub,
     unlocked,
@@ -56,5 +56,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const updated = await updateListing(id, email, patch)
   if (!updated) return NextResponse.json({ error: 'Update failed', code: 'UPDATE_FAILED' }, { status: 500 })
-  return NextResponse.json({ ok: true, listing: toPublicListing(updated, false) })
+  return NextResponse.json({ ok: true, listing: toPublicListing(updated, false, true) })
 }

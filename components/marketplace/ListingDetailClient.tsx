@@ -26,6 +26,7 @@ type Dict = EnDict['marketplace']
 
 export default function ListingDetailClient({ listing, paidReturn, dict }: { listing: PublicListing; paidReturn?: { email: string }; dict: Dict }) {
   const [contact, setContact] = useState<Contact | null>(null)
+  const [fullName, setFullName] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [emailInput, setEmailInput] = useState(paidReturn?.email || '')
@@ -35,7 +36,7 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
     const token = getSessionToken()
     fetch(`/api/marketplace/listings/${listing.id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.unlocked && d.contact) setContact(d.contact) })
+      .then(d => { if (d?.unlocked && d.contact) { setContact(d.contact); if (d.listing?.username) setFullName(d.listing.username) } })
       .catch(() => {})
   }, [listing.id])
 
@@ -86,6 +87,7 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
     const d = await res.json()
     if (d?.contact) {
       setContact(d.contact)
+      if (d.listing?.username) setFullName(d.listing.username)
       requestAnimationFrame(() => document.getElementById('contact-box')?.scrollIntoView({ behavior: 'smooth' }))
     }
   }
@@ -103,14 +105,14 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white px-6 py-16 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-3xl font-bold">@{listing.username}</h1>
+        <h1 className="text-3xl font-bold">@{fullName ?? listing.username}</h1>
         {s.tier && <span className="text-sm font-bold px-3 py-1 rounded-lg" style={{ color, border: `1px solid ${color}` }}>{s.tier}</span>}
       </div>
       <div className="grid grid-cols-3 gap-4 my-8">
         {[
           { label: dict.followers, value: (s.followers ?? 0).toLocaleString() },
           { label: dict.engagement, value: s.engagementRate != null ? `${s.engagementRate.toFixed(1)}%` : '—' },
-          { label: dict.valuation, value: s.valuationUsd != null ? `$${s.valuationUsd.toLocaleString()}` : '—' },
+          { label: dict.valuation, value: s.valuationLow != null && s.valuationHigh != null ? `$${s.valuationLow.toLocaleString()}–$${s.valuationHigh.toLocaleString()}` : s.valuationUsd != null ? `$${s.valuationUsd.toLocaleString()}` : '—' },
         ].map(k => (
           <div key={k.label} className="border border-neutral-800 rounded-xl p-4 bg-neutral-950">
             <div className="text-xs text-neutral-500 mb-1">{k.label}</div>
@@ -120,6 +122,7 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
       </div>
       {listing.description && <p className="text-neutral-300 mb-8 whitespace-pre-wrap">{listing.description}</p>}
       <div className="flex items-baseline gap-3 mb-8">
+        <span className="text-sm text-neutral-500">{dict.dealPrice}</span>
         <span className="text-4xl font-extrabold text-[#FF0050]">${listing.askingPriceUsd.toLocaleString()}</span>
         <span className="text-sm text-neutral-500 flex items-center gap-1"><Clock size={14} />{dict.valuedAsOf} {s.evaluatedAt ? new Date(s.evaluatedAt).toLocaleDateString('en-US') : '—'}</span>
       </div>

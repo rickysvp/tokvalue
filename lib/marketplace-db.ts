@@ -2,6 +2,7 @@
 // 所有函数在服务端调用；联系方式字段只经详情接口的已解锁分支返回。
 import type { NeonQueryFunction } from '@neondatabase/serverless'
 import type { ListingInput, ListingSnapshot, ListingStatus } from './marketplace'
+import { maskUsername } from './marketplace'
 
 const DATABASE_URL = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').replace(/\s+/g, '')
 
@@ -100,10 +101,11 @@ function rowToListing(r: Record<string, unknown>): ListingRow {
   }
 }
 
-// 公开字段投影——任何列表/未解锁响应都不得包含 contact_*
-export function toPublicListing(l: ListingRow, sellerMasked = true) {
+// 公开字段投影——任何列表/未解锁响应都不得包含 contact_*；
+// username 默认掩码中间部分，仅解锁者/卖家本人响应 revealUsername=true
+export function toPublicListing(l: ListingRow, sellerMasked = true, revealUsername = false) {
   return {
-    id: l.id, username: l.username,
+    id: l.id, username: revealUsername ? l.username : maskUsername(l.username),
     sellerEmail: sellerMasked ? undefined : l.sellerEmail,
     askingPriceUsd: l.askingPriceUsd, description: l.description,
     status: l.status, snapshot: {

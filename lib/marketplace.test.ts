@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  validateListingInput, buildSnapshot, shouldAutoRemove,
+  validateListingInput, buildSnapshot, shouldAutoRemove, maskUsername,
   UNLOCK_PRICE_USD, REPORT_REMOVE_THRESHOLD,
   type ListingInput,
 } from './marketplace'
@@ -79,4 +79,19 @@ describe('shouldAutoRemove', () => {
 
 it('UNLOCK_PRICE_USD is 3.99', () => {
   expect(UNLOCK_PRICE_USD).toBe(3.99)
+})
+
+describe('maskUsername', () => {
+  it('keeps head and tail for long names', () => {
+    expect(maskUsername('fitwithdana')).toBe('fit*****ana')
+  })
+  it('keeps 1+1 for short names', () => {
+    expect(maskUsername('mike')).toBe('m**e')
+  })
+  it('handles 2-char names', () => {
+    expect(maskUsername('ab')).toBe('a*')
+  })
+  it('masks the dot in usernames containing dots', () => {
+    expect(maskUsername('moneymindset.mike')).toBe('mon***********ike')
+  })
 })

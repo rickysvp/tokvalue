@@ -75,3 +75,11 @@ export function buildSnapshot(e: Evaluation): ListingSnapshot {
 export function shouldAutoRemove(reportCount: number): boolean {
   return reportCount >= REPORT_REMOVE_THRESHOLD
 }
+
+// 公开展示时隐藏 username 中间部分：保留头尾，中间以 * 代替
+export function maskUsername(username: string): string {
+  const len = username.length
+  if (len <= 2) return username.slice(0, 1) + '*'.repeat(Math.max(1, len - 1))
+  if (len <= 5) return username.slice(0, 1) + '*'.repeat(len - 2) + username.slice(-1)
+  return username.slice(0, 3) + '*'.repeat(len - 6) + username.slice(-3)
+}
