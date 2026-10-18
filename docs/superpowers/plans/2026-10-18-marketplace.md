@@ -31,7 +31,7 @@
 - Create: `lib/marketplace.ts`
 - Test: `lib/marketplace.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `lib/marketplace.test.ts`：
 
@@ -120,12 +120,12 @@ it('UNLOCK_PRICE_USD is 3.99', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npx vitest run lib/marketplace.test.ts`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现 lib/marketplace.ts**
+- [x] **Step 3: 实现 lib/marketplace.ts**
 
 ```ts
 // 交易撮合模块纯逻辑：常量、输入校验、估值快照提取（无 DB 依赖，可单测）
@@ -207,12 +207,12 @@ export function shouldAutoRemove(reportCount: number): boolean {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npx vitest run lib/marketplace.test.ts`
 Expected: PASS（全部用例）
 
-- [ ] **Step 5: 类型检查 + 提交**
+- [x] **Step 5: 类型检查 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -227,7 +227,7 @@ git commit -m "feat(marketplace): pure logic layer with validation and snapshot 
 **Files:**
 - Create: `lib/marketplace-db.ts`
 
-- [ ] **Step 1: 实现（建表 + CRUD + 解锁 + 举报）**
+- [x] **Step 1: 实现（建表 + CRUD + 解锁 + 举报）**
 
 ```ts
 // 交易撮合 DB 层：3 张表惰性建表（沿用 CREATE TABLE IF NOT EXISTS 惯例）+ CRUD。
@@ -478,12 +478,12 @@ valuation_desc / valuation_asc / followers_desc 分别用 `ORDER BY snapshot_val
 
 **addReport removed 判定修正:** 直接 `return { reported: true, removed: newStatus === 'removed' }`（删除对 shouldAutoRemove 的误用调用）。
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
 Run: `npx tsc --noEmit`
 Expected: 0 errors
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add lib/marketplace-db.ts
@@ -498,7 +498,7 @@ git commit -m "feat(marketplace): db layer with listings/unlocks/reports"
 - Create: `app/api/marketplace/eligibility/route.ts`
 - Create: `app/api/marketplace/listings/route.ts`
 
-- [ ] **Step 1: eligibility 路由**
+- [x] **Step 1: eligibility 路由**
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -526,7 +526,7 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-- [ ] **Step 2: listings 路由（GET 公开列表 + POST 登记）**
+- [x] **Step 2: listings 路由（GET 公开列表 + POST 登记）**
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -619,7 +619,7 @@ export async function hasPaidReport(email: string, username: string): Promise<bo
 
 listings POST 中 `if (!(await hasPaidReport(email, input.username))) return NextResponse.json({ error: 'Paid report required', code: 'LISTING_REQUIRES_PAID_REPORT' }, { status: 403 })`；eligibility 路由同样改调此函数（消除重复 SQL）。
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -634,7 +634,7 @@ git commit -m "feat(marketplace): eligibility and listing create/list APIs"
 **Files:**
 - Create: `app/api/marketplace/listings/[id]/route.ts`
 
-- [ ] **Step 1: 实现 GET/PATCH**
+- [x] **Step 1: 实现 GET/PATCH**
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -700,7 +700,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 `validateListingInput` 若最终未在此文件使用则删除该 import（lint no-unused-vars）。
 
-- [ ] **Step 2: 验证 + 提交**
+- [x] **Step 2: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -717,7 +717,7 @@ git commit -m "feat(marketplace): listing detail and seller patch APIs"
 - Modify: `lib/credits-server.ts`（pending_purchases 加 listing_id 列 + storePendingPurchase 支持可选 listingId + 导出 deletePendingPurchase）
 - Modify: `app/api/credits/claim/route.ts`（unlock1 分支）
 
-- [ ] **Step 1: credits-server.ts 扩展**
+- [x] **Step 1: credits-server.ts 扩展**
 
 在 `pending_purchases` 建表语句后追加迁移（与项目 `ADD COLUMN IF NOT EXISTS` 惯例一致）：
 
@@ -734,7 +734,7 @@ export async function deletePendingPurchase(email: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 2: unlock 路由**
+- [x] **Step 2: unlock 路由**
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -828,7 +828,7 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-- [ ] **Step 3: claim 路由 unlock 分支**
+- [x] **Step 3: claim 路由 unlock 分支**
 
 `app/api/credits/claim/route.ts` 在 Step 3（`claimPendingPurchase` 调用，约 L126）之前插入：
 
@@ -847,7 +847,7 @@ if (pending.packageId === 'unlock1' && pending.listingId) {
 
 （删除上面误写的双 import：只 `import { deletePendingPurchase } from '@/lib/credits-server'` 到文件头部，与 `getPendingPurchase` 同行。）
 
-- [ ] **Step 4: 验证 + 提交**
+- [x] **Step 4: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -862,11 +862,11 @@ git commit -m "feat(marketplace): unlock checkout route and claim fulfillment"
 **Files:**
 - Modify: `app/api/stripe/webhook/route.ts:118-173`
 
-- [ ] **Step 1: PRODUCT_ID_MAP 加 unlock1**
+- [x] **Step 1: PRODUCT_ID_MAP 加 unlock1**
 
 L15-19 的 map 加一行：`unlock1: process.env.CREEM_PRODUCT_ID_UNLOCK1 || '',`
 
-- [ ] **Step 2: checkout.completed 内加解锁分支**
+- [x] **Step 2: checkout.completed 内加解锁分支**
 
 在 L122（`const packageId = ...`）之后、L129 的 metadata 校验之前插入——unlock 单不走 `findPackage`（它不是 credits 包）：
 
@@ -904,7 +904,7 @@ if (packageId === 'unlock1') {
 }
 ```
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -919,7 +919,7 @@ git commit -m "feat(marketplace): webhook unlock1 fulfillment branch with Creem 
 **Files:**
 - Create: `app/api/marketplace/report/route.ts`
 
-- [ ] **Step 1: 实现**
+- [x] **Step 1: 实现**
 
 ```ts
 import { NextRequest, NextResponse } from 'next/server'
@@ -955,7 +955,7 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-- [ ] **Step 2: 验证 + 提交**
+- [x] **Step 2: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -970,11 +970,11 @@ git commit -m "feat(marketplace): report route with auto-removal threshold"
 **Files:**
 - Modify: `lib/i18n/dictionaries/en.ts`、`lib/i18n/dictionaries/zh.ts`
 
-- [ ] **Step 1: 两份字典的 `nav` 内加 `marketplace` 键**
+- [x] **Step 1: 两份字典的 `nav` 内加 `marketplace` 键**
 
 en.ts：`marketplace: 'Marketplace',`；zh.ts：`marketplace: '交易市场',`
 
-- [ ] **Step 2: 顶层加 `marketplace` 组（en.ts 示例，zh.ts 对应翻译）**
+- [x] **Step 2: 顶层加 `marketplace` 组（en.ts 示例，zh.ts 对应翻译）**
 
 ```ts
 marketplace: {
@@ -1001,7 +1001,7 @@ marketplace: {
 },
 ```
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit
@@ -1017,7 +1017,7 @@ git commit -m "feat(marketplace): i18n dictionary entries"
 - Create: `app/marketplace/page.tsx`（Server Component）
 - Create: `components/marketplace/ListingCard.tsx`
 
-- [ ] **Step 1: 列表页**
+- [x] **Step 1: 列表页**
 
 Server Component 直接调 DB 层（无 fetch 环回）：
 
@@ -1069,7 +1069,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
 }
 ```
 
-- [ ] **Step 2: ListingCard**
+- [x] **Step 2: ListingCard**
 
 ```tsx
 import { TIER_COLORS } from '@/lib/tier'
@@ -1102,7 +1102,7 @@ export default function ListingCard({ item, dict }: { item: PublicItem; dict: { 
 }
 ```
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -1118,7 +1118,7 @@ git commit -m "feat(marketplace): listing browse page"
 - Create: `app/marketplace/[id]/page.tsx`（Server 壳，取数据）
 - Create: `components/marketplace/ListingDetailClient.tsx`（解锁按钮/举报/URL 回跳轮询）
 
-- [ ] **Step 1: 详情页壳**
+- [x] **Step 1: 详情页壳**
 
 ```tsx
 import { notFound } from 'next/navigation'
@@ -1145,7 +1145,7 @@ export default async function ListingPage({ params, searchParams }: {
 }
 ```
 
-- [ ] **Step 2: ListingDetailClient**
+- [x] **Step 2: ListingDetailClient**
 
 ```tsx
 'use client'
@@ -1286,7 +1286,7 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
 
 **注意:** `localStorage.setItem('tokvalue_session', ...)` 的 key 以 `lib/credits-client.ts` 的 `TOKEN_KEY` 常量为准——改为 import 该文件的 `setSessionToken`（若已导出；`lib/credits-client.ts:35` 有 `setSessionToken`）。两处手写 localStorage 均替换为 `setSessionToken(d.token)`。
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -1302,7 +1302,7 @@ git commit -m "feat(marketplace): listing detail with unlock flow"
 - Create: `app/sell/page.tsx`（Client）
 - Modify: `components/report-v2/ReportNav.tsx`（顶部加 List for Sale 按钮）
 
-- [ ] **Step 1: /sell 页**
+- [x] **Step 1: /sell 页**
 
 ```tsx
 'use client'
@@ -1403,7 +1403,7 @@ export default function SellPage() {
 
 **Step 1b（清理）:** 删除代码块首行 `import { getServerDict } ...` 注释示例——客户端组件不 import server 字典；本页文案直接用英文字面量（目标用户为英文创作者）。`done` state 未使用则删除。
 
-- [ ] **Step 2: ReportNav 加入口按钮**
+- [x] **Step 2: ReportNav 加入口按钮**
 
 在 `components/report-v2/ReportNav.tsx` 的导航容器内（tabs 同一行的右侧）追加：
 
@@ -1416,7 +1416,7 @@ export default function SellPage() {
 
 `username` 取自该组件已有的 props/context（读文件确认变量名；若无则从 URL `useParams()` 获取）。按钮对所有查看完整报告的用户可见；eligibility 由 /sell 页兜底（未付费用户看到提示），MVP 不在报告页做预检。
 
-- [ ] **Step 3: 验证 + 提交**
+- [x] **Step 3: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -1433,7 +1433,7 @@ git commit -m "feat(marketplace): sell page and report entry point"
 - Modify: `components/SiteHeader.tsx`（nav 数组加 Marketplace）
 - Modify: `components/UserMenu.tsx`（加 My Listings）
 
-- [ ] **Step 1: my 页（Server Component + 登录守卫）**
+- [x] **Step 1: my 页（Server Component + 登录守卫）**
 
 ```tsx
 import { redirect } from 'next/navigation'
@@ -1493,7 +1493,7 @@ export default async function MyMarketplacePage() {
 
 **前置确认:** 读 `lib/auth.ts` 中 `createSessionToken` 的调用方（verify-code / claim 路由）是否写 cookie。若 token 仅存 localStorage，则本页面改为 Client Component：`getSessionToken()` + `fetch('/api/marketplace/listings?mine=1')`——此时给 listings GET 路由加 `mine` 参数分支（JWT 鉴权，返回 `getListingsBySeller`，含 sellerEmail），`/api/marketplace/my-unlocks` 同理新增返回 `getUnlocksByEmail`。**两种实现二选一，以实际登录态存储方式为准。**
 
-- [ ] **Step 2: SiteHeader nav**
+- [x] **Step 2: SiteHeader nav**
 
 `components/SiteHeader.tsx:56` 的 items 数组追加：
 
@@ -1503,11 +1503,11 @@ export default async function MyMarketplacePage() {
 
 （`Store` 从 lucide-react import；确认该数组每项的字段名与现有 `pricing/howItWorks` 一致。）
 
-- [ ] **Step 3: UserMenu 加 My Listings**
+- [x] **Step 3: UserMenu 加 My Listings**
 
 读 `components/UserMenu.tsx` 找到已登录菜单项列表（如 History/Dashboard 项），按同样格式追加一项：label `dict.marketplace.myListings`，href `/marketplace/my`。
 
-- [ ] **Step 4: 验证 + 提交**
+- [x] **Step 4: 验证 + 提交**
 
 ```bash
 npx tsc --noEmit && npx next lint
@@ -1519,7 +1519,7 @@ git commit -m "feat(marketplace): my listings page and nav entries"
 
 ### Task 13: 全量验证与手动链路测试
 
-- [ ] **Step 1: 全量静态检查 + 单测**
+- [x] **Step 1: 全量静态检查 + 单测**
 
 ```bash
 npx tsc --noEmit && npx next lint && npx vitest run
@@ -1527,7 +1527,7 @@ npx tsc --noEmit && npx next lint && npx vitest run
 
 Expected: 全部通过，0 errors。
 
-- [ ] **Step 2: 本地手动链路（DEV_SKIP_PAYMENT=true）**
+- [x] **Step 2: 本地手动链路（DEV_SKIP_PAYMENT=true）**
 
 `npm run dev` 后按序验证：
 1. 首页评估一个账号 → 验证码登录 → 解锁完整报告（dev 跳过支付）
@@ -1537,7 +1537,7 @@ Expected: 全部通过，0 errors。
 5. 换浏览器（未登录）访问详情页 → 无联系方式；举报按钮提示登录
 6. 用另一 email 举报 3 次（清 DB 重测或直接 SQL 改 report_count=2 再举报）→ listing 变 removed → 列表页消失
 
-- [ ] **Step 3: 安全回归（curl）**
+- [x] **Step 3: 安全回归（curl）**
 
 ```bash
 # 无 token POST 登记 → 401
@@ -1547,7 +1547,7 @@ curl -s -X POST localhost:3000/api/marketplace/listings -H 'Content-Type: applic
 
 Expected: 均返回预期错误码。
 
-- [ ] **Step 4: 最终提交**
+- [x] **Step 4: 最终提交**
 
 ```bash
 git add -A -- docs/superpowers/plans/2026-10-18-marketplace.md
