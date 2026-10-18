@@ -161,6 +161,7 @@ export interface PendingPurchase {
   checkoutId: string
   createdAt: number
   utm?: Record<string, unknown>
+  listingId?: string | null
 }
 
 async function initPendingTable(): Promise<void> {
@@ -176,6 +177,7 @@ async function initPendingTable(): Promise<void> {
     )
   `
   await s`ALTER TABLE pending_purchases ADD COLUMN IF NOT EXISTS utm JSONB`
+  await s`ALTER TABLE pending_purchases ADD COLUMN IF NOT EXISTS listing_id TEXT`
 }
 
 export async function storePendingPurchase(purchase: PendingPurchase): Promise<void> {
@@ -184,16 +186,22 @@ export async function storePendingPurchase(purchase: PendingPurchase): Promise<v
   const s = await getSql()
   const key = purchase.email.toLowerCase().trim()
   await s`
-    INSERT INTO pending_purchases (email, package_id, credits, amount, checkout_id, created_at, utm)
-    VALUES (${key}, ${purchase.packageId}, ${purchase.credits}, ${purchase.amount}, ${purchase.checkoutId}, ${purchase.createdAt}, ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb)
+    INSERT INTO pending_purchases (email, package_id, credits, amount, checkout_id, created_at, utm, listing_id)
+    VALUES (${key}, ${purchase.packageId}, ${purchase.credits}, ${purchase.amount}, ${purchase.checkoutId}, ${purchase.createdAt}, ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb, ${purchase.listingId ?? null})
     ON CONFLICT (email) DO UPDATE SET
       package_id = ${purchase.packageId},
       credits = ${purchase.credits},
       amount = ${purchase.amount},
       checkout_id = ${purchase.checkoutId},
       created_at = ${purchase.createdAt},
-      utm = ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb
+      utm = ${purchase.utm ? JSON.stringify(purchase.utm) : null}::jsonb,
+      listing_id = ${purchase.listingId ?? null}
   `
+}
+
+export async function deletePendingPurchase(email: string): Promise<void> {
+  const sql = await getSql()
+  await sql`DELETE FROM pending_purchases WHERE email = ${email}`
 }
 
 export async function claimPendingPurchase(email: string): Promise<CreditBalance | null> {
@@ -257,6 +265,7 @@ export async function getPendingPurchase(email: string): Promise<PendingPurchase
     amount: Number(r.amount),
     checkoutId: String(r.checkout_id),
     createdAt,
+    listingId: (r.listing_id as string) ?? null,
     ...(utm ? { utm } : {}),
   }
 }

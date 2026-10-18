@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPendingPurchase, claimPendingPurchase } from '@/lib/credits-server'
+import { getPendingPurchase, claimPendingPurchase, deletePendingPurchase } from '@/lib/credits-server'
 import { getBearerToken, verifySessionToken, createSessionToken } from '@/lib/auth'
 import { recordEventFromRequest } from '@/lib/analytics'
 import { getServerDict } from '@/lib/i18n/server'
@@ -119,6 +119,16 @@ export async function POST(req: NextRequest) {
         totalPurchased: 0,
         reason: 'PAYMENT_NOT_COMPLETED',
       })
+    }
+
+    // 解锁类购买：发放 marketplace_unlocks 而非 credits
+    if (pending.packageId === 'unlock1' && pending.listingId) {
+      const { recordUnlock } = await import('@/lib/marketplace-db')
+      await recordUnlock(pending.listingId, email)
+      await deletePendingPurchase(email)
+      recordEventFromRequest(req, { event_type: 'credit_claim', email, metadata: { type: 'unlock', listingId: pending.listingId, checkoutId: pending.checkoutId, isGuest } }).catch(() => {})
+      const sessionToken = isGuest ? await createSessionToken(email) : null
+      return NextResponse.json({ claimed: true, email, credits: 0, totalPurchased: 0, unlocked: true, listingId: pending.listingId, ...(sessionToken ? { token: sessionToken } : {}) })
     }
 
     // Step 3: Grant credits (claimPendingPurchase 内部用 checkoutId 作为幂等键，
