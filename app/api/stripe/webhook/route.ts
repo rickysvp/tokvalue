@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { grantCredits } from '@/lib/credits-server'
 import { adminDeductCredits } from '@/lib/admin-credits'
 import { findPackage, CREDIT_PACKAGES } from '@/lib/credits'
+import { UNLOCK_PACKAGE_ID, UNLOCK_PRICE_USD } from '@/lib/marketplace'
 import { getServerDict } from '@/lib/i18n/server'
 import { recordRefund, recordEvent } from '@/lib/analytics'
 import { createCommission, voidCommission, voidCommissionByOrder, resolveReferralCode } from '@/lib/referral'
@@ -16,6 +17,7 @@ const PRODUCT_ID_MAP: Record<string, string> = {
   pack1: process.env.CREEM_PRODUCT_ID_PACK1 || '',
   pack6: process.env.CREEM_PRODUCT_ID_PACK6 || '',
   pack30: process.env.CREEM_PRODUCT_ID_PACK30 || '',
+  unlock1: process.env.CREEM_PRODUCT_ID_UNLOCK1 || '',
 }
 
 function getCreemApiBase(): string {
@@ -124,6 +126,38 @@ export async function POST(req: NextRequest) {
       let utm: Record<string, unknown> | undefined
       if (metadata.utm) {
         try { utm = JSON.parse(metadata.utm) } catch { utm = undefined }
+      }
+
+      // 解锁购买：独立分支，发放 marketplace_unlocks，不发 credits、不产生推荐佣金
+      if (packageId === UNLOCK_PACKAGE_ID) {
+        const listingId = metadata.listingId || ''
+        if (!email || !listingId) {
+          console.warn('[creem-webhook] unlock event missing email/listingId')
+          return NextResponse.json({ received: true })
+        }
+        const checkoutId = (obj.id as string) || event.id
+        const info = await fetchCreemCheckout(checkoutId)
+        if (!info) return NextResponse.json({ error: 'Checkout verification unavailable' }, { status: 500 })
+        if (info.orderStatus !== 'paid') {
+          console.warn('[creem-webhook] unlock order not paid, refusing.', { checkout: checkoutId })
+          return NextResponse.json({ received: true })
+        }
+        if (info.currency !== 'USD' || info.orderAmount < Math.round(UNLOCK_PRICE_USD * 100)) {
+          console.warn('[creem-webhook] unlock amount below price, refusing.', { checkout: checkoutId, orderAmount: info.orderAmount })
+          return NextResponse.json({ received: true })
+        }
+        const unlockProduct = PRODUCT_ID_MAP[UNLOCK_PACKAGE_ID]
+        if (unlockProduct && info.productId && info.productId !== unlockProduct) {
+          console.warn('[creem-webhook] unlock product mismatch, refusing.', { checkout: checkoutId })
+          return NextResponse.json({ received: true })
+        }
+        const { recordUnlock } = await import('@/lib/marketplace-db')
+        const isNew = await recordUnlock(listingId, email.toLowerCase())
+        console.log('[creem-webhook] unlock recorded:', checkoutId, 'new:', isNew)
+        if (isNew) {
+          recordEvent({ event_type: 'checkout_success', email, metadata: { packageId: UNLOCK_PACKAGE_ID, listingId, amount: UNLOCK_PRICE_USD, checkoutId } }).catch(() => {})
+        }
+        return NextResponse.json({ received: true })
       }
 
       if (!email || !packageId) {
