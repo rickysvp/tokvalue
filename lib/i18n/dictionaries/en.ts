@@ -1203,6 +1203,12 @@ const en = {
     disclaimer: 'TokValue does not facilitate transactions. Verify ownership and transfer the account at your own risk.',
     withdraw: 'Withdraw',
     markSold: 'Mark as Sold',
+    sortLatest: 'Latest',
+    sortValuationDesc: 'Valuation ↓',
+    sortValuationAsc: 'Valuation ↑',
+    sortFollowers: 'Followers',
+    prevPage: '← Prev',
+    nextPage: 'Next →',
   },
 
   // ── Dashboard v2 ──
