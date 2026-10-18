@@ -1237,6 +1237,14 @@ const en = {
     noEvaluation: 'Evaluate this account first.',
     submitFailed: 'Listing failed. Please try again.',
     socialNone: 'None',
+    // ── /marketplace/my ──
+    statusActive: 'Active',
+    statusSold: 'Sold',
+    statusWithdrawn: 'Withdrawn',
+    statusRemoved: 'Removed',
+    noListingsYet: 'No listings yet.',
+    noUnlocksYet: 'No unlocked contacts yet.',
+    updateFailed: 'Update failed. Please try again.',
   },
 
   // ── Dashboard v2 ──

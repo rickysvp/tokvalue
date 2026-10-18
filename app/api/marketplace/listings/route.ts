@@ -3,14 +3,23 @@ import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { findEvaluation } from '@/lib/db'
 import { checkIpRateLimit, ipBucketKey, rateLimitResponse } from '@/lib/rate-limit'
 import { validateListingInput, buildSnapshot, MAX_ACTIVE_LISTINGS_PER_EMAIL, type ListingInput, type SocialType } from '@/lib/marketplace'
-import { createListing, countActiveListingsByEmail, listActiveListings, getActiveListingByUsername, toPublicListing, hasPaidReport, type ListingSort } from '@/lib/marketplace-db'
+import { createListing, countActiveListingsByEmail, listActiveListings, getListingsBySeller, getActiveListingByUsername, toPublicListing, hasPaidReport, type ListingSort } from '@/lib/marketplace-db'
 
 export const dynamic = 'force-dynamic'
 
 const SORTS = ['latest', 'valuation_desc', 'valuation_asc', 'followers_desc'] as const
 
 // GET /api/marketplace/listings?page=1&pageSize=24&sort=latest —— 公开，无 contact 字段
+// GET /api/marketplace/listings?mine=1 —— JWT 鉴权，返回当前卖家全部 listing（含非 active 状态）
 export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get('mine') === '1') {
+    const token = getBearerToken(req)
+    if (!token) return NextResponse.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, { status: 401 })
+    const payload = await verifySessionToken(token)
+    if (!payload?.email) return NextResponse.json({ error: 'Invalid session', code: 'UNAUTHORIZED' }, { status: 401 })
+    const items = await getListingsBySeller(payload.email.toLowerCase().trim())
+    return NextResponse.json({ items: items.map(l => toPublicListing(l, false)) })
+  }
   const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') || '1', 10) || 1)
   const pageSize = Math.min(48, Math.max(1, parseInt(req.nextUrl.searchParams.get('pageSize') || '24', 10) || 24))
   const sortParam = req.nextUrl.searchParams.get('sort') || 'latest'

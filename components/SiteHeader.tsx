@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
-import { Zap, Lightbulb, BookOpen, Loader2, Mail } from 'lucide-react'
+import { Zap, Lightbulb, BookOpen, Loader2, Mail, Store } from 'lucide-react'
 import { getActiveEmail, getSessionToken } from '@/lib/credits-client'
 import { getServerDict } from '@/lib/i18n/server'
 import { UserMenu } from '@/components/UserMenu'
@@ -55,6 +55,7 @@ export function SiteHeader() {
           {[
             { label: dict.nav.pricing, href: '/#pricing', icon: Zap },
             { label: dict.nav.howItWorks, href: '/#capabilities', icon: Lightbulb },
+            { label: dict.nav.marketplace, href: '/marketplace', icon: Store },
           ].map(item => (
             <a
               key={item.label}
