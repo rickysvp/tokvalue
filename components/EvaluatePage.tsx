@@ -747,6 +747,17 @@ function EvaluateTopBar({ dict, creditBalance, balanceLoading, paymentSuccess, o
           <Image src="/tokvalue.png" alt="TokValue" width={140} height={36} className="h-9 w-auto object-contain" />
         </Link>
 
+        {/* Marketplace entry (mobile) */}
+        <Link
+          href="/marketplace"
+          aria-label={dict.nav.marketplace}
+          title={dict.nav.marketplace}
+          className="md:hidden shrink-0 flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-white transition-colors"
+        >
+          <Store className="h-4 w-4" />
+          <span className="hidden min-[420px]:inline">{dict.nav.marketplace}</span>
+        </Link>
+
         {/* Navigation */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
           {[
