@@ -1209,6 +1209,18 @@ const en = {
     sortFollowers: 'Followers',
     prevPage: '← Prev',
     nextPage: 'Next →',
+    followers: 'Followers',
+    engagement: 'Engagement',
+    valuation: 'Valuation',
+    contactHidden: 'Seller contact hidden',
+    emailPlaceholder: 'your@email.com',
+    emailLabel: 'Email',
+    loading: 'Loading…',
+    enterEmailToPay: 'Enter your email to pay',
+    unlockFailed: 'Unlock failed',
+    networkError: 'Network error',
+    signInToReport: 'Sign in to report a listing',
+    reportSubmitted: 'Report submitted. Thank you.',
   },
 
   // ── Dashboard v2 ──
