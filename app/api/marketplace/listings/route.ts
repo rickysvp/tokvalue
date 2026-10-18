@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
   const pageSize = Math.min(48, Math.max(1, parseInt(req.nextUrl.searchParams.get('pageSize') || '24', 10) || 24))
   const sortParam = req.nextUrl.searchParams.get('sort') || 'latest'
   const sort = (SORTS as readonly string[]).includes(sortParam) ? sortParam : 'latest'
-  const { items, total } = await listActiveListings(page, pageSize, sort as ListingSort)
+  const statusParam = req.nextUrl.searchParams.get('status') === 'sold' ? 'sold' : 'active'
+  const { items, total } = await listActiveListings(page, pageSize, sort as ListingSort, statusParam as 'active' | 'sold')
   return NextResponse.json({ items: items.map(l => toPublicListing(l)), total, page, pageSize })
 }
 

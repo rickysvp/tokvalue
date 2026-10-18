@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { getServerDict } from '@/lib/i18n/server'
 import { getListingById, toPublicListing } from '@/lib/marketplace-db'
 import ListingDetailClient from '@/components/marketplace/ListingDetailClient'
+import { SiteHeader } from '@/components/SiteHeader'
+import { SiteFooter } from '@/components/SiteFooter'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,9 +16,15 @@ export default async function ListingPage({ params, searchParams }: {
   const dict = getServerDict()
   const listing = await getListingById(id)
   if (!listing || listing.status === 'removed') notFound()
-  return <ListingDetailClient
-    listing={toPublicListing(listing)}
-    paidReturn={sp.paid === 'success' ? { email: sp.email || '' } : undefined}
-    dict={dict.marketplace}
-  />
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <SiteHeader />
+      <ListingDetailClient
+        listing={toPublicListing(listing)}
+        paidReturn={sp.paid === 'success' ? { email: sp.email || '' } : undefined}
+        dict={dict.marketplace}
+      />
+      <SiteFooter />
+    </div>
+  )
 }

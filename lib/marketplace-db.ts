@@ -149,26 +149,26 @@ export async function countActiveListingsByEmail(email: string): Promise<number>
 
 export type ListingSort = 'latest' | 'valuation_desc' | 'valuation_asc' | 'followers_desc'
 
-export async function listActiveListings(page: number, pageSize: number, sort: ListingSort): Promise<{ items: ListingRow[]; total: number }> {
+export async function listActiveListings(page: number, pageSize: number, sort: ListingSort, status: 'active' | 'sold' = 'active'): Promise<{ items: ListingRow[]; total: number }> {
   await ensureInit()
   const s = await getSql()
   const offset = (page - 1) * pageSize
-  const countRows = await s`SELECT COUNT(*)::int AS n FROM marketplace_listings WHERE status = 'active'` as Array<{ n: number }>
+  const countRows = await s`SELECT COUNT(*)::int AS n FROM marketplace_listings WHERE status = ${status}` as Array<{ n: number }>
   // neon tagged template 不能内联动态 ORDER BY 字符串，四种排序各写一条显式 SQL
   const rows = sort === 'valuation_desc'
     ? await s`
-      SELECT * FROM marketplace_listings WHERE status = 'active'
+      SELECT * FROM marketplace_listings WHERE status = ${status}
       ORDER BY snapshot_valuation_usd DESC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
     : sort === 'valuation_asc'
     ? await s`
-      SELECT * FROM marketplace_listings WHERE status = 'active'
+      SELECT * FROM marketplace_listings WHERE status = ${status}
       ORDER BY snapshot_valuation_usd ASC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
     : sort === 'followers_desc'
     ? await s`
-      SELECT * FROM marketplace_listings WHERE status = 'active'
+      SELECT * FROM marketplace_listings WHERE status = ${status}
       ORDER BY snapshot_followers DESC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
     : await s`
-      SELECT * FROM marketplace_listings WHERE status = 'active'
+      SELECT * FROM marketplace_listings WHERE status = ${status}
       ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
   return { items: rows.map(rowToListing), total: Number(countRows[0]?.n ?? 0) }
 }

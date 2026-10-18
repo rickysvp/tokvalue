@@ -103,11 +103,16 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
   const color = s.tier ? TIER_COLORS[s.tier] ?? '#fff' : '#fff'
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white px-6 py-16 max-w-3xl mx-auto">
+    <main className="px-6 py-12 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-3xl font-bold">@{fullName ?? listing.username}</h1>
         {s.tier && <span className="text-sm font-bold px-3 py-1 rounded-lg" style={{ color, border: `1px solid ${color}` }}>{s.tier}</span>}
       </div>
+      {listing.status === 'sold' && (
+        <div className="flex items-center gap-2 mb-6 px-4 py-3 rounded-xl border border-[#15803d] bg-[#15803d]/10 text-[#15803d] font-semibold text-sm">
+          <CheckCircle2 size={16} />{dict.soldBanner}
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-4 my-8">
         {[
           { label: dict.followers, value: (s.followers ?? 0).toLocaleString() },
@@ -133,6 +138,11 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
             <div className="flex items-center gap-2 text-[#00F2EA] font-semibold mb-4"><CheckCircle2 size={18} />{dict.unlocked}</div>
             <p className="mb-2">{dict.emailLabel}: <a className="text-[#00F2EA] underline" href={`mailto:${contact.email}`}>{contact.email}</a></p>
             {contact.socialType && <p>{contact.socialType}: {contact.socialHandle}</p>}
+          </div>
+        ) : listing.status === 'sold' ? (
+          <div className="text-center text-neutral-500 py-4">
+            <div className="flex items-center justify-center gap-2 mb-2"><Lock size={18} />{dict.contactHidden}</div>
+            <p className="text-sm">{dict.soldBanner}</p>
           </div>
         ) : (
           <div className="text-center">

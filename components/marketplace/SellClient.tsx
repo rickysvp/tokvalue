@@ -205,7 +205,7 @@ function Field({ label, type, value, onChange, min, max }: { label: string; type
 
 function Shell({ dict, children }: { dict: Dict; children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white px-6 py-16 max-w-2xl mx-auto">
+    <main className="px-6 py-12 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-8">{dict.listForSale}</h1>
       {children}
     </main>

@@ -11,6 +11,8 @@ import { Users, DollarSign } from 'lucide-react'
 import { getSessionToken } from '@/lib/credits-client'
 import { getServerDict } from '@/lib/i18n/server'
 import { tierColor } from '@/lib/tier'
+import { SiteHeader } from '@/components/SiteHeader'
+import { SiteFooter } from '@/components/SiteFooter'
 import type { ListingStatus } from '@/lib/marketplace'
 
 const dict = getServerDict()
@@ -94,7 +96,9 @@ export default function MyMarketplacePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white px-6 py-16 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <SiteHeader />
+      <main className="px-6 py-12 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-8">{dict.marketplace.myListings}</h1>
 
       {listings === null ? (
@@ -179,6 +183,8 @@ export default function MyMarketplacePage() {
           ))}
         </div>
       )}
-    </main>
+      </main>
+      <SiteFooter />
+    </div>
   )
 }
