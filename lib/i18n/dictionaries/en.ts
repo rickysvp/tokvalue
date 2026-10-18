@@ -1221,6 +1221,22 @@ const en = {
     networkError: 'Network error',
     signInToReport: 'Sign in to report a listing',
     reportSubmitted: 'Report submitted. Thank you.',
+    // ── /sell listing form ──
+    checkingEligibility: 'Checking eligibility…',
+    missingUsername: 'Missing ?username= parameter. Go to a full report and click "List This Account for Sale".',
+    listingAccount: 'Listing',
+    snapshotTitle: 'Valuation Snapshot',
+    publishing: 'Publishing…',
+    getPaidReport: 'Unlock a Paid Report',
+    signInRequired: 'Sign in and unlock a paid full report to list this account.',
+    priceRangeError: 'Enter a price between $1 and $10,000,000.',
+    emailError: 'Enter a valid email address.',
+    handleRequired: 'Enter your handle / ID for the selected channel.',
+    maxListings: 'You already have the maximum number of active listings.',
+    alreadyListed: 'This account is already listed.',
+    noEvaluation: 'Evaluate this account first.',
+    submitFailed: 'Listing failed. Please try again.',
+    socialNone: 'None',
   },
 
   // ── Dashboard v2 ──

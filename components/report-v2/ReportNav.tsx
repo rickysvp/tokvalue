@@ -1,14 +1,36 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getSessionToken } from '@/lib/credits-client'
 
 /**
  * 报告锚点导航：桌面左侧竖排固定，移动端顶部 sticky 横滚 pill 条。
  * IntersectionObserver 高亮当前 section；点击原生锚点平滑滚动
  * （globals.css scroll-behavior: smooth + 各 section scroll-mt 偏移）。
+ * 传入 username 时，eligibility 通过（已付费完整报告）才显示 "List for Sale" 入口。
  */
-export function ReportNav({ items }: { items: { id: string; label: string }[] }) {
+export function ReportNav({ items, username, sellLabel }: { items: { id: string; label: string }[]; username?: string; sellLabel?: string }) {
   const [active, setActive] = useState<string | null>(null)
+  const [sellEligible, setSellEligible] = useState(false)
+
+  useEffect(() => {
+    if (!username || !sellLabel) return
+    const token = getSessionToken()
+    if (!token) return
+    let cancelled = false
+    fetch(`/api/marketplace/eligibility?username=${encodeURIComponent(username)}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setSellEligible(!!d.eligible) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [username, sellLabel])
+
+  const sellButton = sellEligible && username && sellLabel ? (
+    <a href={`/sell?username=${encodeURIComponent(username)}`}
+      className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-full border border-[#FF0050] text-[#FF0050] hover:bg-[#FF0050]/10 transition-colors whitespace-nowrap">
+      {sellLabel}
+    </a>
+  ) : null
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -41,6 +63,9 @@ export function ReportNav({ items }: { items: { id: string; label: string }[] })
             {item.label}
           </a>
         ))}
+        {sellButton && (
+          <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex flex-col">{sellButton}</div>
+        )}
       </nav>
 
       {/* 移动：顶部 sticky 横滚 pill 条 */}
@@ -61,6 +86,7 @@ export function ReportNav({ items }: { items: { id: string; label: string }[] })
             {item.label}
           </a>
         ))}
+        {sellButton}
       </nav>
     </>
   )

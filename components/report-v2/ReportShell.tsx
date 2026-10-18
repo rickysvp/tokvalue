@@ -48,7 +48,7 @@ export function ReportShell({ result, dict, isPremium, onUnlock }: {
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-10">
-      <ReportNav items={navItems} />
+      <ReportNav items={navItems} username={result.username} sellLabel={dict.marketplace.listForSale} />
 
       {/* 1. VerdictHero —— 首屏判定，不遮罩 */}
       <VerdictHero result={result} dict={dict} isPremium={isPremium} />
