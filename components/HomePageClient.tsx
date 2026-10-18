@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Loader2, Lightbulb, Zap, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight, BarChart3, Store } from 'lucide-react'
+import { Search, Loader2, Lightbulb, Zap, BookOpen, Play, CheckCircle2, Mail, Shield, ArrowRight, BarChart3, Store, Tag } from 'lucide-react'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
@@ -213,6 +213,15 @@ export default function HomePage() {
             <Store className="h-4 w-4" />
             <span className="hidden min-[420px]:inline">{dict.nav.marketplace}</span>
           </Link>
+          <Link
+            href="/sell"
+            aria-label={dict.nav.sell}
+            title={dict.nav.sell}
+            className="md:hidden shrink-0 flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-white transition-colors"
+          >
+            <Tag className="h-4 w-4" />
+            <span className="hidden min-[420px]:inline">{dict.nav.sell}</span>
+          </Link>
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
@@ -237,6 +246,14 @@ export default function HomePage() {
               <Store className="h-3.5 w-3.5" />
               {dict.nav.marketplace}
               <span className="absolute inset-x-2 -bottom-0.5 h-px bg-gradient-to-r from-transparent via-[#00F2EA]/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
+            </Link>
+            <Link
+              href="/sell"
+              className="group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-white transition-colors"
+            >
+              <Tag className="h-3.5 w-3.5" />
+              {dict.nav.sell}
+              <span className="absolute inset-x-2 -bottom-0.5 h-px bg-gradient-to-r from-transparent via-[#FF0050]/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
             </Link>
             <Link
               href="/blog"

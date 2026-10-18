@@ -3,7 +3,8 @@
 // 通过后展示估值快照卡（徽章颜色读 TIER_COLORS）+ 表单，提交 POST /api/marketplace/listings，
 // 成功跳转 listing 详情（My Listings 页由 Task 12 提供）。
 import { Suspense, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getSessionToken } from '@/lib/credits-client'
 import { TIER_COLORS } from '@/lib/tier'
 import { PaidWallModal } from '@/components/PaidWallModal'
@@ -24,10 +25,12 @@ interface HistoryEvaluation {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function SellForm({ dict }: { dict: Dict }) {
+  const router = useRouter()
   const sp = useSearchParams()
   const username = (sp.get('username') || '').toLowerCase().trim()
   const [eligible, setEligible] = useState<boolean | null>(null)
   const [hasToken, setHasToken] = useState(false)
+  const [evaluated, setEvaluated] = useState(false)
   const [snapshot, setSnapshot] = useState<HistoryEvaluation | null>(null)
   const [checkKey, setCheckKey] = useState(0)
   const [form, setForm] = useState({ askingPriceUsd: '', description: '', contactEmail: '', socialType: '', socialHandle: '' })
@@ -46,14 +49,16 @@ function SellForm({ dict }: { dict: Dict }) {
         if (cancelled) return
         const ok = !!d.eligible
         setEligible(ok)
-        if (!ok) return
-        // 估值快照：eligibility 已保证 ownership+paid，从本人 history 记录取该账号估值数据
+        // 本人历史评估记录：既用于快照卡，也用于区分"没评估"与"评估过但未付费"
+        let row: HistoryEvaluation | undefined
         try {
           const hres = await fetch('/api/history', { headers: { Authorization: `Bearer ${token}` } })
           const h = await hres.json()
-          const row = (h.evaluations as HistoryEvaluation[] | undefined)?.find(e => e.username === username)
-          if (row && !cancelled) setSnapshot(row)
-        } catch { /* 快照缺失不阻塞登记 */ }
+          row = (h.evaluations as HistoryEvaluation[] | undefined)?.find(e => e.username === username)
+        } catch { /* 查询失败按未评估处理 */ }
+        if (cancelled) return
+        setEvaluated(!!row)
+        if (ok && row) setSnapshot(row)
       })
       .catch(() => { if (!cancelled) setEligible(false) })
     return () => { cancelled = true }
@@ -110,21 +115,36 @@ function SellForm({ dict }: { dict: Dict }) {
     }
   }
 
-  if (!username) return <Shell dict={dict}><p className="text-neutral-400">{dict.missingUsername}</p></Shell>
+  if (!username) return <UsernameGate dict={dict} />
 
   if (eligible === null) return <Shell dict={dict}><p className="text-neutral-500">{dict.checkingEligibility}</p></Shell>
 
   if (!eligible) {
+    // 未评估过该账号 → 引导先去评估；评估过但未付费 → 弹付费墙升级完整报告
+    if (hasToken && evaluated) {
+      return (
+        <Shell dict={dict}>
+          <p className="text-[#FF0050] mb-6">{dict.requiresPaidReport}</p>
+          <button onClick={() => setPaidWallOpen(true)}
+            className="bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-6 py-3 font-bold transition-colors">
+            {dict.getPaidReport}
+          </button>
+          <PaidWallModal open={paidWallOpen} onClose={() => setPaidWallOpen(false)}
+            onUnlock={() => { setPaidWallOpen(false); setCheckKey(k => k + 1) }}
+            username={username} mode="evaluate" />
+        </Shell>
+      )
+    }
     return (
       <Shell dict={dict}>
-        <p className="text-[#FF0050] mb-6">{hasToken ? dict.requiresPaidReport : dict.signInRequired}</p>
-        <button onClick={() => setPaidWallOpen(true)}
-          className="bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-6 py-3 font-bold transition-colors">
-          {dict.getPaidReport}
-        </button>
-        <PaidWallModal open={paidWallOpen} onClose={() => setPaidWallOpen(false)}
-          onUnlock={() => { setPaidWallOpen(false); setCheckKey(k => k + 1) }}
-          username={username} mode="evaluate" />
+        <p className="text-neutral-300 mb-6">{dict.sellEvaluateFirst}</p>
+        <Link href={`/evaluate/${encodeURIComponent(username)}`}
+          className="inline-block bg-[#00F2EA] hover:bg-[#00d9d2] text-black rounded-lg px-6 py-3 font-bold transition-colors">
+          {dict.evaluateThisAccount} → @{username}
+        </Link>
+        <div className="mt-4">
+          <button onClick={() => router.replace('/sell')} className="text-sm text-neutral-500 hover:text-neutral-300 underline">← {dict.prevPage}</button>
+        </div>
       </Shell>
     )
   }
@@ -189,6 +209,26 @@ function SellForm({ dict }: { dict: Dict }) {
       <PaidWallModal open={paidWallOpen} onClose={() => setPaidWallOpen(false)}
         onUnlock={() => { setPaidWallOpen(false); setCheckKey(k => k + 1) }}
         username={username} mode="evaluate" />
+    </Shell>
+  )
+}
+
+// 第一步：录入要出售的 TikTok 账号，校验后进入登记/引导评估
+function UsernameGate({ dict }: { dict: Dict }) {
+  const router = useRouter()
+  const [value, setValue] = useState('')
+  const clean = value.toLowerCase().replace(/^@/, '').trim()
+  return (
+    <Shell dict={dict}>
+      <p className="text-neutral-400 mb-4">{dict.sellEnterUsername}</p>
+      <form className="flex gap-3 max-w-md" onSubmit={e => { e.preventDefault(); if (clean) router.push(`/sell?username=${encodeURIComponent(clean)}`) }}>
+        <input value={value} onChange={e => setValue(e.target.value)} placeholder={dict.sellUsernamePlaceholder} required
+          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2.5 text-sm focus:border-[#00F2EA] outline-none" />
+        <button type="submit" disabled={!clean}
+          className="bg-[#00F2EA] hover:bg-[#00d9d2] disabled:opacity-50 text-black rounded-lg px-5 py-2.5 font-bold text-sm transition-colors whitespace-nowrap">
+          {dict.sellCheck}
+        </button>
+      </form>
     </Shell>
   )
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
-import { Zap, Lightbulb, BookOpen, Loader2, Mail, Store } from 'lucide-react'
+import { Zap, Lightbulb, BookOpen, Loader2, Mail, Store, Tag } from 'lucide-react'
 import { getActiveEmail, getSessionToken } from '@/lib/credits-client'
 import { getServerDict } from '@/lib/i18n/server'
 import { UserMenu } from '@/components/UserMenu'
@@ -60,6 +60,15 @@ export function SiteHeader() {
           <Store className="h-4 w-4" />
           <span className="hidden min-[420px]:inline">{dict.nav.marketplace}</span>
         </Link>
+        <Link
+          href="/sell"
+          aria-label={dict.nav.sell}
+          title={dict.nav.sell}
+          className="md:hidden shrink-0 flex items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-medium text-neutral-400 hover:text-white transition-colors"
+        >
+          <Tag className="h-4 w-4" />
+          <span className="hidden min-[420px]:inline">{dict.nav.sell}</span>
+        </Link>
 
         {/* Nav */}
         <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
@@ -67,6 +76,7 @@ export function SiteHeader() {
             { label: dict.nav.pricing, href: '/#pricing', icon: Zap },
             { label: dict.nav.howItWorks, href: '/#capabilities', icon: Lightbulb },
             { label: dict.nav.marketplace, href: '/marketplace', icon: Store },
+            { label: dict.nav.sell, href: '/sell', icon: Tag },
           ].map(item => (
             <a
               key={item.label}

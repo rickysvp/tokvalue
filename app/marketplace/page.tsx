@@ -42,14 +42,20 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         <h1 className="text-4xl font-bold mb-2">{dict.marketplace.title}</h1>
         <p className="text-neutral-400 mb-6">{dict.marketplace.subtitle}</p>
 
-        {/* 在售 / 已售出 切换 */}
-        <div className="flex gap-2 mb-4">
-          {([['active', dict.marketplace.tabForSale], ['sold', dict.marketplace.tabSold]] as const).map(([v, label]) => (
-            <Link key={v} href={`/marketplace?status=${v}&sort=${sort}`}
-              className={`px-5 py-2 rounded-full text-sm font-semibold border transition-colors ${status === v ? 'bg-[#00F2EA] text-black border-[#00F2EA]' : 'border-neutral-700 text-neutral-400 hover:border-neutral-500'}`}>
-              {label}
-            </Link>
-          ))}
+        {/* 在售 / 已售出 切换 + 卖账号 CTA */}
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex gap-2">
+            {([['active', dict.marketplace.tabForSale], ['sold', dict.marketplace.tabSold]] as const).map(([v, label]) => (
+              <Link key={v} href={`/marketplace?status=${v}&sort=${sort}`}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-colors ${status === v ? 'bg-[#00F2EA] text-black border-[#00F2EA]' : 'border-neutral-700 text-neutral-400 hover:border-neutral-500'}`}>
+                {label}
+              </Link>
+            ))}
+          </div>
+          <Link href="/sell"
+            className="bg-[#FF0050] hover:bg-[#e0004a] rounded-full px-5 py-2 text-sm font-bold transition-colors whitespace-nowrap">
+            {dict.marketplace.sellYourAccount}
+          </Link>
         </div>
 
         <div className="flex gap-2 mb-8 flex-wrap">
