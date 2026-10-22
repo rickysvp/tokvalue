@@ -25,9 +25,18 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
     return () => { cancelled = true }
   }, [username, sellLabel])
 
-  const sellButton = sellEligible && username && sellLabel ? (
+  // 桌面卡片内：实心玫红按钮
+  const sellButtonCard = sellEligible && username && sellLabel ? (
     <a href={`/sell?username=${encodeURIComponent(username)}`}
-      className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-full border border-[#FF0050] text-[#FF0050] hover:bg-[#FF0050]/10 transition-colors whitespace-nowrap">
+      className="flex items-center justify-center w-full text-xs font-semibold px-3 py-2 rounded-xl bg-[#FF0050] text-white hover:bg-[#e60049] transition-colors whitespace-nowrap shadow-sm shadow-[#FF0050]/30">
+      {sellLabel}
+    </a>
+  ) : null
+
+  // 移动端横滚条内：outline 小胶囊
+  const sellButtonPill = sellEligible && username && sellLabel ? (
+    <a href={`/sell?username=${encodeURIComponent(username)}`}
+      className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold border border-[#FF0050] text-[#FF0050] bg-white">
       {sellLabel}
     </a>
   ) : null
@@ -50,28 +59,41 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
 
   return (
     <>
-      {/* 桌面：左侧竖排固定 */}
-      <nav aria-label="Report sections" className="hidden lg:flex fixed left-6 top-1/3 z-30 -translate-y-1/2 flex-col gap-1">
-        {items.map(item => (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            className={`whitespace-nowrap py-1 text-xs transition-colors ${
-              active === item.id ? 'font-medium text-[#1d4ed8]' : 'text-[#6B7280] hover:text-[#111827]'
-            }`}
-          >
-            {item.label}
-          </a>
-        ))}
-        {sellButton && (
-          <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex flex-col">{sellButton}</div>
-        )}
+      {/* 桌面：左侧竖排固定卡片，贴顶不随内容垂直居中，避免长列表上方留大块空白 */}
+      <nav aria-label="Report sections" className="hidden xl:flex fixed left-6 top-24 z-30 flex-col gap-1 w-44">
+        <div className="rounded-2xl border border-[#E5E7EB] bg-white/90 backdrop-blur p-2 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="px-3 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Report</p>
+          {items.map(item => {
+            const isActive = active === item.id
+            return (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className={`relative flex items-center rounded-lg px-3 py-1.5 text-xs transition-all ${
+                  isActive
+                    ? 'bg-[#1d4ed8]/[0.08] text-[#1d4ed8] font-semibold'
+                    : 'text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#111827]'
+                }`}
+              >
+                <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full transition-colors ${
+                  isActive ? 'bg-[#1d4ed8]' : 'bg-transparent'
+                }`} />
+                {item.label}
+              </a>
+            )
+          })}
+          {sellButtonCard && (
+            <div className="mt-2 pt-2 border-t border-[#E5E7EB]">
+              {sellButtonCard}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* 移动：顶部 sticky 横滚 pill 条 */}
       <nav
         aria-label="Report sections"
-        className="sticky top-14 z-30 -mx-4 flex gap-2 overflow-x-auto bg-[#F7F8FA]/95 px-4 py-2 backdrop-blur lg:hidden"
+        className="sticky top-14 z-30 -mx-4 flex gap-2 overflow-x-auto bg-[#F7F8FA]/95 px-4 py-2 backdrop-blur xl:hidden"
       >
         {items.map(item => (
           <a
@@ -86,7 +108,7 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
             {item.label}
           </a>
         ))}
-        {sellButton}
+        {sellButtonPill}
       </nav>
     </>
   )
