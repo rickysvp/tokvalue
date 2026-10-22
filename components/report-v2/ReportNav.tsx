@@ -25,10 +25,10 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
     return () => { cancelled = true }
   }, [username, sellLabel])
 
-  // 桌面：小 outline 按钮，对齐 Sidebar 极简风
+  // 桌面：小实心玫红按钮
   const sellButtonCard = sellEligible && username && sellLabel ? (
     <a href={`/sell?username=${encodeURIComponent(username)}`}
-      className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-md border border-[#FF0050]/30 text-[#FF0050] hover:bg-[#FF0050]/5 transition-colors whitespace-nowrap">
+      className="flex items-center justify-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#FF0050] text-white hover:bg-[#e60049] transition-colors whitespace-nowrap shadow-sm shadow-[#FF0050]/25">
       {sellLabel}
     </a>
   ) : null
@@ -59,32 +59,37 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
 
   return (
     <>
-      {/* 桌面：左侧竖排固定，对齐 dashboard-v2 Sidebar 风格（无卡片/无阴影） */}
-      <nav aria-label="Report sections" className="hidden xl:block fixed left-6 top-24 z-30 w-44">
-        <p className="px-2.5 mb-2 text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider">Report</p>
-        <div className="flex flex-col gap-0.5 text-[13px]">
-          {items.map(item => {
-            const isActive = active === item.id
-            return (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className={`px-2.5 py-1.5 rounded-md transition-colors ${
-                  isActive
-                    ? 'bg-[#1d4ed810] text-[#1d4ed8] font-medium'
-                    : 'text-[#6b7280] hover:bg-[#f0f1f3] hover:text-[#111827]'
-                }`}
-              >
-                {item.label}
-              </a>
-            )
-          })}
-        </div>
-        {sellButtonCard && (
-          <div className="mt-3 pt-3 border-t border-[#e5e7eb]">
-            {sellButtonCard}
+      {/* 桌面：左侧悬浮导航卡片 */}
+      <nav aria-label="Report sections" className="hidden xl:block fixed left-6 top-24 z-30 w-48">
+        <div className="rounded-2xl bg-white border border-[#ececf0] p-2 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.15)]">
+          <p className="px-2.5 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#9ca3af]">Report</p>
+          <div className="flex flex-col gap-0.5">
+            {items.map(item => {
+              const isActive = active === item.id
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className={`relative flex items-center rounded-lg px-2.5 py-[7px] text-[13px] transition-all duration-150 ${
+                    isActive
+                      ? 'bg-[#1d4ed8]/[0.08] text-[#1d4ed8] font-medium'
+                      : 'text-[#6b7280] hover:bg-[#f5f6f8] hover:text-[#111827]'
+                  }`}
+                >
+                  <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full transition-all ${
+                    isActive ? 'bg-[#1d4ed8] opacity-100' : 'opacity-0'
+                  }`} />
+                  {item.label}
+                </a>
+              )
+            })}
           </div>
-        )}
+          {sellButtonCard && (
+            <div className="mt-2 pt-2 border-t border-[#f0f1f3]">
+              {sellButtonCard}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* 移动：顶部 sticky 横滚 pill 条 */}
