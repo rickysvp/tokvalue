@@ -1,7 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import {
+  Gauge, DollarSign, Radar as RadarIcon, Layers, Wallet, Tag,
+  Map, Users, TrendingUp, Briefcase, ShieldAlert, CalendarCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import { getSessionToken } from '@/lib/credits-client'
+
+const NAV_ICONS: Record<string, LucideIcon> = {
+  'verdict-hero': Gauge,
+  'account-value': DollarSign,
+  'dimension-radar': RadarIcon,
+  'pillars': Layers,
+  'income': Wallet,
+  'deal-pricing': Tag,
+  'revenue-roadmap': Map,
+  'peer-ranking': Users,
+  'growth-content': TrendingUp,
+  'brand-commerce': Briefcase,
+  'risk-health': ShieldAlert,
+  'thirty-day-plan': CalendarCheck,
+}
 
 /**
  * 报告锚点导航：桌面左侧竖排固定，移动端顶部 sticky 横滚 pill 条。
@@ -60,32 +80,34 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
   return (
     <>
       {/* 桌面：左侧悬浮导航卡片 */}
-      <nav aria-label="Report sections" className="hidden xl:block fixed left-6 top-24 z-30 w-48">
-        <div className="rounded-2xl bg-white border border-[#ececf0] p-2 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.15)]">
+      <nav aria-label="Report sections" className="hidden xl:block fixed left-6 top-24 z-30 w-56">
+        <div className="rounded-2xl bg-white border border-[#ececf0] p-2.5 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.15)]">
           <p className="px-2.5 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#9ca3af]">Report</p>
           <div className="flex flex-col gap-0.5">
             {items.map(item => {
               const isActive = active === item.id
+              const Icon = NAV_ICONS[item.id]
               return (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
-                  className={`relative flex items-center rounded-lg px-2.5 py-[7px] text-[13px] transition-all duration-150 ${
+                  className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150 ${
                     isActive
                       ? 'bg-[#1d4ed8]/[0.08] text-[#1d4ed8] font-medium'
-                      : 'text-[#6b7280] hover:bg-[#f5f6f8] hover:text-[#111827]'
+                      : 'text-[#5b6470] hover:bg-[#f5f6f8] hover:text-[#111827]'
                   }`}
                 >
-                  <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full transition-all ${
+                  <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full transition-all ${
                     isActive ? 'bg-[#1d4ed8] opacity-100' : 'opacity-0'
                   }`} />
-                  {item.label}
+                  {Icon && <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#1d4ed8]' : 'text-[#9ca3af]'}`} strokeWidth={2} />}
+                  <span className="truncate">{item.label}</span>
                 </a>
               )
             })}
           </div>
           {sellButtonCard && (
-            <div className="mt-2 pt-2 border-t border-[#f0f1f3]">
+            <div className="mt-2.5 pt-2.5 border-t border-[#f0f1f3]">
               {sellButtonCard}
             </div>
           )}
