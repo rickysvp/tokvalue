@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { Evaluation } from '@/types'
 import { drawShareCard } from '../share-canvas'
@@ -16,12 +16,15 @@ export function ShareCardSection({ result, dict, isPremium, labels }: {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [rendered, setRendered] = useState(false)
 
-  const render = () => {
+  const render = useCallback(() => {
     if (canvasRef.current) {
       drawShareCard(canvasRef.current, result, isPremium)
       setRendered(true)
     }
-  }
+  }, [isPremium, result])
+
+  // Keep the on-page report and every DOM-based export visually identical.
+  useEffect(() => { render() }, [render])
 
   const download = () => {
     if (!canvasRef.current) return

@@ -7,14 +7,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Evaluation } from '@/types'
 import { getUtm } from '@/lib/utm'
 import { Search, Loader2, History, Download, BookmarkPlus, BookOpen, FileText, Image as ImageIcon, ChevronDown, CheckCircle2, Mail, Zap, Share2, FlaskConical, Store, Tag } from 'lucide-react'
-import html2canvas from 'html2canvas'
 import { PaidWallModal } from '@/components/PaidWallModal'
 import { EvaluatingModal, type EvaluatingStatus } from '@/components/EvaluatingModal'
 import { SiteFooter } from '@/components/SiteFooter'
 import { ReportShell } from '@/components/report-v2/ReportShell'
 import { DemoConversionBar } from '@/components/DemoConversionBar'
 import { saveToTracker, getTrackedByUsername } from '@/lib/tracker'
-import { downloadPdf } from '@/lib/export-pdf'
+import { downloadPdf, downloadPng } from '@/lib/export-pdf'
 import { useToast, ToastContainer } from '@/components/Toast'
 import type { CreditBalance } from '@/lib/credits'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
@@ -504,28 +503,7 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
     if (!reportRef.current || !result) return
     setShowExportMenu(false)
     try {
-      const reportEl = reportRef.current
-      const canvas = await html2canvas(reportEl, {
-        backgroundColor: '#F7F8FA',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        windowWidth: reportEl.scrollWidth,
-        windowHeight: reportEl.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc) => {
-          const stickyHeaders = clonedDoc.querySelectorAll('[class*="sticky"]')
-          stickyHeaders.forEach((el) => {
-            (el as HTMLElement).style.position = 'relative'
-          })
-        },
-      })
-      const link = document.createElement('a')
-      link.download = `tokvalue-${result.username}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
+      await downloadPng(result, reportRef.current)
     } catch (err) {
       console.error('[export-png] failed:', err)
       toast(dict.toast.pngExportFailed + (err instanceof Error ? err.message : String(err)))
