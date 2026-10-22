@@ -25,10 +25,10 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
     return () => { cancelled = true }
   }, [username, sellLabel])
 
-  // 桌面卡片内：实心玫红按钮
+  // 桌面：小 outline 按钮，对齐 Sidebar 极简风
   const sellButtonCard = sellEligible && username && sellLabel ? (
     <a href={`/sell?username=${encodeURIComponent(username)}`}
-      className="flex items-center justify-center w-full text-xs font-semibold px-3 py-2 rounded-xl bg-[#FF0050] text-white hover:bg-[#e60049] transition-colors whitespace-nowrap shadow-sm shadow-[#FF0050]/30">
+      className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-md border border-[#FF0050]/30 text-[#FF0050] hover:bg-[#FF0050]/5 transition-colors whitespace-nowrap">
       {sellLabel}
     </a>
   ) : null
@@ -59,35 +59,32 @@ export function ReportNav({ items, username, sellLabel }: { items: { id: string;
 
   return (
     <>
-      {/* 桌面：左侧竖排固定卡片，贴顶不随内容垂直居中，避免长列表上方留大块空白 */}
-      <nav aria-label="Report sections" className="hidden xl:flex fixed left-6 top-24 z-30 flex-col gap-1 w-44">
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white/90 backdrop-blur p-2 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-          <p className="px-3 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Report</p>
+      {/* 桌面：左侧竖排固定，对齐 dashboard-v2 Sidebar 风格（无卡片/无阴影） */}
+      <nav aria-label="Report sections" className="hidden xl:block fixed left-6 top-24 z-30 w-44">
+        <p className="px-2.5 mb-2 text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wider">Report</p>
+        <div className="flex flex-col gap-0.5 text-[13px]">
           {items.map(item => {
             const isActive = active === item.id
             return (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className={`relative flex items-center rounded-lg px-3 py-1.5 text-xs transition-all ${
+                className={`px-2.5 py-1.5 rounded-md transition-colors ${
                   isActive
-                    ? 'bg-[#1d4ed8]/[0.08] text-[#1d4ed8] font-semibold'
-                    : 'text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#111827]'
+                    ? 'bg-[#1d4ed810] text-[#1d4ed8] font-medium'
+                    : 'text-[#6b7280] hover:bg-[#f0f1f3] hover:text-[#111827]'
                 }`}
               >
-                <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full transition-colors ${
-                  isActive ? 'bg-[#1d4ed8]' : 'bg-transparent'
-                }`} />
                 {item.label}
               </a>
             )
           })}
-          {sellButtonCard && (
-            <div className="mt-2 pt-2 border-t border-[#E5E7EB]">
-              {sellButtonCard}
-            </div>
-          )}
         </div>
+        {sellButtonCard && (
+          <div className="mt-3 pt-3 border-t border-[#e5e7eb]">
+            {sellButtonCard}
+          </div>
+        )}
       </nav>
 
       {/* 移动：顶部 sticky 横滚 pill 条 */}

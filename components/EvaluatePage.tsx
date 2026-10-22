@@ -545,25 +545,25 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         onLogout={() => { setCreditBalance(null); setActiveEmail(null); setSessionToken(null); setIsLoggedIn(false) }}
       />
 
-      {/* Search bar (re-evaluate) */}
-      <section className="border-b border-neutral-800 bg-[#0a0a0a]">
-        <div className="mx-auto max-w-3xl px-4 py-6">
+      {/* Search bar (re-evaluate) — 融入浅灰内容区，与报告区无缝衔接 */}
+      <section className="bg-[#F7F8FA] border-b border-[#e5e7eb]">
+        <div className="mx-auto max-w-3xl px-4 py-5">
           <form onSubmit={(e) => { e.preventDefault(); handleEvaluate() }} className="flex items-center gap-2">
-            <div className="flex-1 flex items-center rounded-xl border border-neutral-700 bg-neutral-900/80 px-4 py-2.5 focus-within:border-[#FF0050] transition-colors">
-              <span className="text-neutral-500 mr-2">@</span>
+            <div className="flex-1 flex items-center rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 focus-within:border-[#1d4ed8] transition-colors shadow-sm">
+              <span className="text-neutral-400 mr-2 text-sm">@</span>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="Enter tiktok handle"
                 autoComplete="off"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-600"
+                className="flex-1 bg-transparent text-sm text-[#111827] outline-none placeholder:text-neutral-400"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#FF0050] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#d60043] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#FF0050] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#d60043] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-[#FF0050]/20"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {loading ? dict.common.analyzing : dict.common.evaluate}
