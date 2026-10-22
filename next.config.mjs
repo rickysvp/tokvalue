@@ -57,7 +57,7 @@ const nextConfig = {
           // - img-src https:：头像走 tiktokcdn 多级子域（CSP 无多级通配，图片非主要攻击面）
           value: [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
