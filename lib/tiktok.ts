@@ -402,12 +402,16 @@ async function apiCallSingle(
 
       const root = json as Record<string, unknown>
 
-      // 错误格式：{ detail: "User xxx does not exist" } 或 { message: "..." }
+      // 供应商会以 HTTP 200 返回业务错误；不能把任意 "invalid" 当作账号不存在。
       const detailMsg = typeof root.detail === 'string' ? root.detail : ''
-      const errMsg = typeof root.message === 'string' ? root.message : detailMsg
+      const errMsg = typeof root.message === 'string' ? root.message
+        : detailMsg || (typeof root.msg === 'string' ? root.msg : '') || (typeof root.status_msg === 'string' ? root.status_msg : '')
+      const failedCode = (typeof root.code === 'number' && root.code !== 0)
+        || (typeof root.statusCode === 'number' && root.statusCode !== 0)
+        || (typeof root.status_code === 'number' && root.status_code !== 0)
 
-      if (errMsg) {
-        if (/does not exist|not found|no user|user not found|invalid/i.test(errMsg)) {
+      if (errMsg && !/^success$/i.test(errMsg)) {
+        if (/(?:user|account).*(?:does not exist|not found)|no (?:such )?user/i.test(errMsg)) {
           if (!throwOnError) return {}
           callOk = true // provider HTTP 往返正常，业务性 404 不计熔断
           throw new TikTokApiError(errMsg, 'USER_NOT_FOUND', 404)
@@ -416,11 +420,13 @@ async function apiCallSingle(
           console.warn(`[tiktok] ${label} ${providerTag} response rate limit`)
           throw new TikTokApiError(errMsg, 'RATE_LIMIT', 429)
         }
-        if (/endpoint.*does not exist/i.test(errMsg)) {
-          console.error(`[tiktok] ${label} ${providerTag} endpoint error:`, errMsg)
-          if (!throwOnError) return {}
-          throw new TikTokApiError(errMsg, 'API_ERROR', 500)
-        }
+        console.error(`[tiktok] ${label} ${providerTag} upstream error:`, errMsg)
+        if (!throwOnError) return {}
+        throw new TikTokApiError(errMsg, 'API_ERROR', 500)
+      }
+      if (failedCode) {
+        if (!throwOnError) return {}
+        throw new TikTokApiError('Provider returned a failure status', 'API_ERROR', 500)
       }
 
       console.log(`[tiktok] ${label} ${providerTag} OK (${duration}ms)`)
@@ -470,8 +476,8 @@ const API6_ADAPTER: ProviderAdapter = {
     const nickname = String(pickField(info, 'nickname', 'username') || username)
     const secUid = String(pickField(info, 'secondary_id', 'sec_uid', 'secUid') || '')
 
-    if (!followerCount && !videoCount && !nickname) {
-      throw new TikTokApiError('User has empty stats', 'USER_NOT_FOUND', 404)
+    if (!pickField(info, 'username', 'user_id', 'secondary_id', 'sec_uid', 'secUid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
     }
 
     const postsFetched = posts.length > 0
@@ -499,16 +505,15 @@ const API23_ADAPTER: ProviderAdapter = {
     if (!userInfo) throw new TikTokApiError('Empty response', 'API_ERROR', 500)
     const user = (userInfo.user as Record<string, unknown>) || {}
     const stats = (userInfo.stats as Record<string, unknown>) || {}
+    if (!pickField(user, 'uniqueId', 'unique_id', 'id', 'secUid', 'sec_uid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
+    }
 
     const followerCount = toNumber(stats.followerCount ?? stats.follower_count)
     const videoCount = toNumber(stats.videoCount ?? stats.video_count)
     const totalLikes = toNumber(stats.heart ?? stats.heartCount ?? stats.likeCount)
     const nickname = String(user.nickname || username)
     const secUid = String(user.secUid ?? (user.sec_uid || ''))
-
-    if (!followerCount && !videoCount && !nickname) {
-      throw new TikTokApiError('User has empty stats', 'USER_NOT_FOUND', 404)
-    }
 
     // 视频端点需要 secUid
     const posts = await fetchPostsApi23(username, secUid, provider, audit)
@@ -537,16 +542,15 @@ const SCRAPER7_ADAPTER: ProviderAdapter = {
     if (!data) throw new TikTokApiError('Empty response', 'API_ERROR', 500)
     const user = (data.user as Record<string, unknown>) || {}
     const stats = (data.stats as Record<string, unknown>) || {}
+    if (!pickField(user, 'uniqueId', 'unique_id', 'id', 'secUid', 'sec_uid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
+    }
 
     const followerCount = toNumber(stats.followerCount ?? stats.follower_count)
     const videoCount = toNumber(stats.videoCount ?? stats.video_count)
     const totalLikes = toNumber(stats.heart ?? stats.heartCount)
     const nickname = String(user.nickname || username)
     const secUid = String(user.secUid ?? (user.sec_uid || ''))
-
-    if (!followerCount && !videoCount && !nickname) {
-      throw new TikTokApiError('User has empty stats', 'USER_NOT_FOUND', 404)
-    }
 
     const posts = await fetchPostsScraper7(username, provider, audit)
     const postsFetched = posts.length > 0
@@ -591,6 +595,7 @@ export async function fetchProfile(inputUsername: string, audit?: AuditCtx): Pro
   }
 
   let lastError: unknown = null
+  let notFoundError: TikTokApiError | null = null
 
   for (const provider of providers) {
     const adapter = ADAPTERS[provider.host]
@@ -619,14 +624,16 @@ export async function fetchProfile(inputUsername: string, audit?: AuditCtx): Pro
       }).catch(() => {})
       return profile
     } catch (err) {
-      // USER_NOT_FOUND 不切换 provider
-      if (err instanceof TikTokApiError && err.code === 'USER_NOT_FOUND') throw err
-      lastError = err
+      if (err instanceof TikTokApiError && err.code === 'USER_NOT_FOUND') {
+        notFoundError = err
+      } else {
+        lastError = err
+      }
       console.warn(`[tiktok] ${adapter.name} failed: ${err instanceof Error ? err.message : err}, trying next provider...`)
     }
   }
 
-  throw lastError || new TikTokApiError('All providers exhausted', 'API_ERROR', 500)
+  throw lastError || notFoundError || new TikTokApiError('All providers exhausted', 'API_ERROR', 500)
 }
 
 // ========== 各 host 的视频获取函数 ==========

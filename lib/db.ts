@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'path'
 import { withFileLock } from '@/lib/file-lock'
 import { hashIp } from '@/lib/analytics'
+import { isReusablePaidReport } from '@/lib/report-cache'
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : join(process.cwd(), 'data'))
 const DATA_PATH = join(DATA_DIR, 'evaluations.json')
@@ -85,13 +86,13 @@ async function initStore(): Promise<Store> {
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS upgraded_at TIMESTAMPTZ`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS evaluated_by_ip TEXT`
       await getSql()`CREATE INDEX IF NOT EXISTS idx_evaluations_is_free ON evaluations(is_free)`
-      // Migration: source posts data quality ('full' | 'partial') — paid cache must reject partial data
+      // Migration: source posts data quality ('full' | 'partial'); show this in reused reports.
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS data_quality TEXT`
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS avatar_data TEXT`
       // Migration: B5a 报告 v2 叙事（6 支柱 / 估值 v2 / Baseline 模式）单列 JSONB 持久化
       await getSql()`ALTER TABLE evaluations ADD COLUMN IF NOT EXISTS report_v2 JSONB`
       // Migration: 用户-评估所有权关联表（单一事实源）。
-      // 所有评估按用户收费、不共享：一个账号的报告快照存在 evaluations(username PK)，
+      // 报告计算结果共享，查看权限按用户收费：快照存在 evaluations(username PK)，
       // 而「谁付费解锁了哪个账号」由本表承载（email+username 联合主键，多用户可各自拥有同一账号）。
       // evaluated_by 列保留仅为向后兼容（历史行回填），不再是归属唯一依据。
       await getSql()`
@@ -207,6 +208,24 @@ export async function findEvaluation(username: string): Promise<Evaluation | nul
   const store = type === 'file' ? readFileStore() : memoryFallback
   const found = store.find(e => e.username === normalized)
   return found ? normalizeEvaluation(found) : null
+}
+
+/** Shared calculation cache; authorization to view it is checked separately. */
+export async function findReusablePaidEvaluation(username: string): Promise<Evaluation | null> {
+  const normalized = username.trim().replace(/^@/, '').toLowerCase()
+  const type = await initStore()
+  // Never treat a configured but unavailable DB as an empty cache.
+  if (DATABASE_URL && type !== 'postgres') throw new Error('[db] Report store unavailable')
+  if (type === 'postgres') {
+    const rows = await getSql()`SELECT * FROM evaluations WHERE username = ${normalized} AND is_free = false`
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row || !isReusablePaidReport({ computedAt: row.computed_at as string | Date, isFree: false })) return null
+    return rowToEvaluation(row)
+  }
+  const store = type === 'file' ? readFileStore() : memoryFallback
+  const found = store.find(e => e.username === normalized) as (Evaluation & { isFree?: boolean }) | undefined
+  return found && isReusablePaidReport({ computedAt: found.computedAt, isFree: found.isFree })
+    ? normalizeEvaluation(found) : null
 }
 
 export async function findRecentEvaluations(limit = 50): Promise<Evaluation[]> {
@@ -367,59 +386,6 @@ export async function saveEvaluation(evaluation: Evaluation, options?: string | 
   if (idx >= 0) memoryFallback[idx] = record
   else memoryFallback.push(record)
   return evaluation
-}
-
-export async function isCacheValid(username: string, ttlHours = 720): Promise<boolean> {
-  const normalized = username.trim().replace(/^@/, '').toLowerCase()
-  const type = await initStore()
-
-  let computedAt = ''
-  let formulaVersion: string | undefined
-  let categories: string[] | undefined
-  let isFree: boolean | undefined
-  let dataQuality: string | undefined
-
-  if (type === 'postgres') {
-    // 直接取行判断 is_free/data_quality（findEvaluation 的 Evaluation 重建会丢弃这两个行级字段）
-    const rows = await getSql()`
-      SELECT computed_at, formula_version, account_profile, is_free, data_quality
-      FROM evaluations
-      WHERE username = ${normalized}`
-    const row = rows[0] as Record<string, unknown> | undefined
-    if (!row) return false
-    computedAt = String(row.computed_at ?? '')
-    formulaVersion = row.formula_version ? String(row.formula_version) : undefined
-    categories = parseJson<Evaluation['accountProfile']>(row.account_profile)?.categories
-    isFree = row.is_free == null ? undefined : Boolean(row.is_free)
-    dataQuality = row.data_quality ? String(row.data_quality) : undefined
-  } else {
-    const store = type === 'file' ? readFileStore() : memoryFallback
-    const found = store.find(e => e.username === normalized)
-    if (!found) return false
-    computedAt = String(found.computedAt ?? '')
-    formulaVersion = found.formulaVersion
-    categories = found.accountProfile?.categories
-    isFree = (found as { isFree?: boolean }).isFree
-    dataQuality = found.dataQuality
-  }
-
-  if (formulaVersion !== 'v2') return false
-
-  if (!categories || !Array.isArray(categories) || categories.length === 0) {
-    return false
-  }
-
-  // 缓存污染防护（postgres）：付费 30 天缓存只允许命中付费评估（is_free=false），
-  // 免费评估可能基于估算播放（dataQuality='partial'），不得透给付费用户
-  if (type === 'postgres' && isFree !== false) return false
-  // file/memory 模式：仅拒绝明确标记为免费的记录（历史数据无 isFree 标记时从宽，保持本地开发可用）
-  if (isFree === true) return false
-
-  // dataQuality='partial'（播放量估算）不进付费缓存；存量行为空/undefined 时视为 full（兼容历史）
-  if (dataQuality && dataQuality !== 'full') return false
-
-  const hours = (Date.now() - new Date(computedAt).getTime()) / 36e5
-  return hours < ttlHours
 }
 
 /**
@@ -873,12 +839,11 @@ export async function hasOwnership(
   const uname = normUsername(username)
   if (!key || !uname) return false
   const type = await initStore()
+  if (DATABASE_URL && type !== 'postgres') throw new Error('[db] Report store unavailable')
   if (type === 'postgres') {
-    const rows = await getSql()`
-      SELECT 1 FROM evaluation_ownership
-      WHERE email = ${key} AND username = ${uname}
-        ${opts.paidOnly ? 'AND is_free = false' : ''}
-      LIMIT 1`
+    const rows = opts.paidOnly
+      ? await getSql()`SELECT 1 FROM evaluation_ownership WHERE email = ${key} AND username = ${uname} AND is_free = false LIMIT 1`
+      : await getSql()`SELECT 1 FROM evaluation_ownership WHERE email = ${key} AND username = ${uname} LIMIT 1`
     return rows.length > 0
   }
   const rec = memoryOwnership.get(`${key}::${uname}`)

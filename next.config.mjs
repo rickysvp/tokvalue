@@ -51,7 +51,8 @@ const nextConfig = {
         ...(isDev ? [] : [{
           key: 'Content-Security-Policy',
           // 核心目标：即使存在 XSS，也阻断「向外部域外传 token」的通道。
-          // - connect-src 'self'：客户端 fetch/XHR 只能打同源 /api/*（token 无法外传）
+          // - connect-src data:：PDF 排版引擎从内嵌 data URL 加载 WASM；网络请求仍限同源。
+          // - worker-src blob:：PDF 排版引擎使用 blob Worker，不放宽页面脚本来源。
           // - script-src 'unsafe-inline'：JSON-LD（next/script + dangerouslySetInnerHTML）必需
           // - style-src 'unsafe-inline'：styled-jsx（<style jsx>）必需
           // - img-src https:：头像走 tiktokcdn 多级子域（CSP 无多级通配，图片非主要攻击面）
@@ -61,7 +62,8 @@ const nextConfig = {
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
-            "connect-src 'self'",
+            "connect-src 'self' data:",
+            "worker-src 'self' blob:",
             "media-src 'self'",
             "frame-src 'none'",
             "object-src 'none'",

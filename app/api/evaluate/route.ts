@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchProfile } from '@/lib/tiktok'
 import { fetchAndEncodeAvatar } from '@/lib/avatar'
 import { scoreProfile } from '@/lib/scoring'
-import { findEvaluation, findFreeEvaluation, saveEvaluation, isCacheValid, checkFreeRateLimit, hasOwnership, upsertOwnership, isEvaluationPaid } from '@/lib/db'
+import { findEvaluation, findFreeEvaluation, findReusablePaidEvaluation, saveEvaluation, checkFreeRateLimit, hasOwnership, upsertOwnership, isEvaluationPaid } from '@/lib/db'
 import { hydrateCommercial } from '@/lib/scoring/commercial'
 import { generateTrendAnalysis, generateCommercializationAdvice, generateContentStrategy } from '@/lib/deepseek'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
@@ -22,6 +22,30 @@ import type { RawProfile } from '@/types'
 import { ApiErrorResponse, Evaluation } from '@/types'
 
 export const dynamic = 'force-dynamic'
+
+const cachedReportResponse = (evaluation: Evaluation, reviewId?: string) => NextResponse.json(
+  { ...hydrateCommercial(evaluation), cached: true, isFree: false, access_level: 'full', ...(reviewId ? { review_id: reviewId } : {}) },
+  { headers: { 'Cache-Control': 'private, no-store' } },
+)
+
+/** Opening a purchased report is read-only: no credit, TikTok request, or new review. */
+export async function GET(req: NextRequest) {
+  const normalized = (req.nextUrl.searchParams.get('username') || '').trim().replace(/^@/, '').toLowerCase()
+  if (!normalized) return NextResponse.json({ code: 'INVALID_USERNAME' }, { status: 400 })
+  const token = getBearerToken(req)
+  const session = token ? await verifySessionToken(token) : null
+  if (!session) return NextResponse.json({ code: 'NEED_VERIFY' }, { status: 401 })
+  try {
+    if (!await hasOwnership(session.email, normalized, { paidOnly: true })) {
+      return NextResponse.json({ code: 'NOT_FOUND' }, { status: 404 })
+    }
+    const cached = await findReusablePaidEvaluation(normalized)
+    return cached ? cachedReportResponse(cached) : NextResponse.json({ code: 'NOT_FOUND' }, { status: 404 })
+  } catch (err) {
+    console.error('[evaluate] saved report lookup failed:', err)
+    return NextResponse.json({ code: 'REPORT_STORE_UNAVAILABLE', error: 'Saved report is temporarily unavailable. Please try again.' }, { status: 503 })
+  }
+}
 
 // 合并 utm 到事件 metadata（服务端归因）
 function withUtm(meta: Record<string, unknown>, utm?: Record<string, unknown>): Record<string, unknown> {
@@ -177,23 +201,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════
-    // PAID MODE — 30-day cache, force=true to skip
+    // PAID MODE — shared 7-day report cache, per-user paid access
     // ═══════════════════════════════════════════
     if (isPaidMode) {
       const forceRefresh = body.force === true
-      // 30-day cache to save RapidAPI + DeepSeek quota
-      // 按用户收费：缓存命中只认「当前用户已付费拥有此账号」，跨用户不共享。
-      if (!forceRefresh && await isCacheValid(normalized) && await hasOwnership(userEmail, normalized, { paidOnly: true })) {
-        const cached = await findEvaluation(normalized)
-        if (cached) {
+      // Share the calculation, not entitlement. Existing owners pay nothing on revisit.
+      const reusableReport = await findReusablePaidEvaluation(normalized)
+      if (reusableReport && await hasOwnership(userEmail, normalized, { paidOnly: true })) {
           recordEventFromRequest(req, {
             event_type: 'evaluate_done',
             username: normalized,
-            metadata: { score: cached.score, tier: cached.tier, cached: true },
+            metadata: { score: reusableReport.score, tier: reusableReport.tier, cached: true },
           }).catch(err => console.warn('[evaluate] recordEvent(cached) failed:', err))
-          // 旧缓存缺 PMF 字段时服务端补建（客户端不得重算报价）
-          return NextResponse.json({ ...hydrateCommercial(cached), cached: true, isFree: false, access_level: 'full' })
-        }
+          return cachedReportResponse(reusableReport)
       }
 
       // ── B1: 幂等 + in-flight 锁（状态机唯一路径；非 postgres 返回 unavailable，
@@ -255,6 +275,33 @@ export async function POST(req: NextRequest) {
             eventType: 'quota_reserved', purchaseType: 'credits', status: 'quota_reserved',
           })
           await advance('fetching_data')
+        }
+
+        // A different buyer unlocks the same 7-day report with one credit, without
+        // contacting TikTok or regenerating the report. Keep the normal review ledger.
+        if (reusableReport) {
+          await advance('data_saved')
+          await advance('analyzing')
+          await advance('report_generating')
+          await upsertOwnership(userEmail, normalized, { isFree: false })
+          if (reviewRow) {
+            reviewRow = (await transitionReview(reviewRow.id, 'completed')) ?? reviewRow
+            reviewQuotaReserved = false
+            await recordUsageEvent({
+              email: userEmail, username: normalized, reviewId: reviewRow.id,
+              eventType: 'quota_consumed', purchaseType: 'credits', status: 'completed',
+            })
+            await recordUsageEvent({
+              email: userEmail, username: normalized, reviewId: reviewRow.id,
+              eventType: 'review_completed', purchaseType: 'credits', status: 'completed',
+              meta: { score: reusableReport.score, tier: reusableReport.tier, cached: true },
+            })
+          }
+          recordEventFromRequest(req, {
+            event_type: 'evaluate_done', username: normalized,
+            metadata: { score: reusableReport.score, tier: reusableReport.tier, cached: true },
+          }).catch(() => {})
+          return cachedReportResponse(reusableReport, reviewRow?.id)
         }
 
         // ── B2: 24h 快照优先——命中跳过 RapidAPI（照常扣费）；force 刷新则跳过快照 ──

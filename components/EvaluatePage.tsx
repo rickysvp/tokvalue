@@ -275,6 +275,35 @@ function EvaluatePageContent({ initialUsername }: { initialUsername: string }) {
         return
       }
 
+      // Navigation back to a purchased report should only read its 7-day snapshot.
+      // A 404 means this user has not unlocked it (or it expired); only then POST.
+      try {
+        const saved = await fetch(`/api/evaluate?username=${encodeURIComponent(target)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+        if (saved.ok) {
+          const data = await saved.json()
+          setResult(data)
+          setIsPremium(true)
+          setError('')
+          setLoading(false)
+          setIsLoading(false)
+          setEvaluatingModal(prev => ({ ...prev, open: false }))
+          return
+        }
+        if (saved.status !== 404 && saved.status !== 401) {
+          throw new Error('Saved report is temporarily unavailable. Please try again.')
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : dict.errors.networkError
+        setError(message)
+        setLoading(false)
+        setIsLoading(false)
+        setEvaluatingModal({ open: true, status: 'error', errorMessage: message })
+        return
+      }
+
       setLoading(true)
       setError('')
       setResult(null)
