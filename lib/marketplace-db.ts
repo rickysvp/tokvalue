@@ -1,5 +1,6 @@
 // 交易撮合 DB 层：3 张表惰性建表（沿用 CREATE TABLE IF NOT EXISTS 惯例）+ CRUD。
 // 所有函数在服务端调用；联系方式字段只经详情接口的已解锁分支返回。
+import crypto from 'crypto'
 import type { NeonQueryFunction } from '@neondatabase/serverless'
 import type { ListingInput, ListingSnapshot, ListingStatus } from './marketplace'
 import { maskUsername } from './marketplace'
@@ -62,8 +63,6 @@ function ensureInit(): Promise<void> {
       await s`CREATE UNIQUE INDEX IF NOT EXISTS idx_listings_active_username ON marketplace_listings(username) WHERE status = 'active'`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_status_created ON marketplace_listings(status, created_at DESC)`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_seller ON marketplace_listings(seller_email)`
-      // 数字编号：URL 形如 /marketplace/1009；1001-1008 保留给演示挂牌
-      await s`CREATE SEQUENCE IF NOT EXISTS marketplace_listing_ids START 1009`
       await s`
         CREATE TABLE IF NOT EXISTS marketplace_unlocks (
           listing_id TEXT NOT NULL,
@@ -119,26 +118,39 @@ export function toPublicListing(l: ListingRow, sellerMasked = true, revealUserna
   }
 }
 
+// 随机 8 位数字字符串（10000000-99999999）：不暴露挂牌数量与先后顺序
+function randomListingId(): string {
+  return String(crypto.randomInt(10_000_000, 100_000_000))
+}
+
 export async function createListing(input: ListingInput, snapshot: ListingSnapshot, sellerEmail: string): Promise<ListingRow> {
   await ensureInit()
   const s = await getSql()
-  try {
-    const rows = await s`
-      INSERT INTO marketplace_listings (id, username, seller_email, asking_price_usd, description,
-        contact_email, social_type, social_handle,
-        snapshot_tier, snapshot_valuation_low, snapshot_valuation_high, snapshot_valuation_usd,
-        snapshot_followers, snapshot_engagement_rate, snapshot_evaluated_at)
-      VALUES (nextval('marketplace_listing_ids')::text, ${input.username}, ${sellerEmail}, ${input.askingPriceUsd}, ${input.description ?? null},
-        ${input.contactEmail}, ${input.socialType}, ${(input.socialHandle ?? '').trim() || null},
-        ${snapshot.snapshotTier}, ${snapshot.snapshotValuationLow}, ${snapshot.snapshotValuationHigh}, ${snapshot.snapshotValuationUsd},
-        ${snapshot.snapshotFollowers}, ${snapshot.snapshotEngagementRate}, ${snapshot.snapshotEvaluatedAt ? new Date(snapshot.snapshotEvaluatedAt) : null})
-      RETURNING *` as Array<Record<string, unknown>>
-    return rowToListing(rows[0])
-  } catch (err) {
-    // 23505 = unique_violation：同一 username 已有 active listing
-    if ((err as { code?: string }).code === '23505') throw new Error('LISTING_EXISTS_FOR_USERNAME')
-    throw err
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const id = randomListingId()
+    try {
+      const rows = await s`
+        INSERT INTO marketplace_listings (id, username, seller_email, asking_price_usd, description,
+          contact_email, social_type, social_handle,
+          snapshot_tier, snapshot_valuation_low, snapshot_valuation_high, snapshot_valuation_usd,
+          snapshot_followers, snapshot_engagement_rate, snapshot_evaluated_at)
+        VALUES (${id}, ${input.username}, ${sellerEmail}, ${input.askingPriceUsd}, ${input.description ?? null},
+          ${input.contactEmail}, ${input.socialType}, ${(input.socialHandle ?? '').trim() || null},
+          ${snapshot.snapshotTier}, ${snapshot.snapshotValuationLow}, ${snapshot.snapshotValuationHigh}, ${snapshot.snapshotValuationUsd},
+          ${snapshot.snapshotFollowers}, ${snapshot.snapshotEngagementRate}, ${snapshot.snapshotEvaluatedAt ? new Date(snapshot.snapshotEvaluatedAt) : null})
+        RETURNING *` as Array<Record<string, unknown>>
+      return rowToListing(rows[0])
+    } catch (err) {
+      const e = err as { code?: string; constraint?: string; message?: string }
+      if (e.code === '23505') {
+        // 主键碰撞（随机 id 重复）→ 换 id 重试；username 唯一约束 → 业务错误
+        if (e.constraint === 'marketplace_listings_pkey' || /marketplace_listings_pkey/.test(e.message ?? '')) continue
+        throw new Error('LISTING_EXISTS_FOR_USERNAME')
+      }
+      throw err
+    }
   }
+  throw new Error('LISTING_ID_COLLISION')
 }
 
 export async function countActiveListingsByEmail(email: string): Promise<number> {
