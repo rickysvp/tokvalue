@@ -215,6 +215,125 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 
+  it('maps tiktok363 userInfo.user/stats + data.itemList posts (secUid param)', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok363.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/userinfo-by-username')) {
+        return Response.json({
+          statusCode: 0,
+          userInfo: {
+            user: { id: '7201814183033439238', uniqueId: 'khaby_lame', nickname: 'khaby lame', secUid: 'sec-363', avatarLarger: 'https://a/av.jpg', signature: 'Just funny' },
+            stats: { followerCount: 16, followingCount: 66, heart: 283, heartCount: 283, videoCount: 14 },
+          },
+        })
+      }
+      if (url.includes('/user-posts')) {
+        return Response.json({
+          data: { itemList: [{ id: 'p1', desc: 'hello', createTime: 100, stats: { playCount: 47, diggCount: 13, commentCount: 2, shareCount: 1 } }] },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.secUid).toBe('sec-363')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: 'p1', playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 })
+    // 视频端点必须用 secUid 而非数字 userid
+    expect(called.some(url => url.includes('/user-posts/?secUid=sec-363'))).toBe(true)
+  })
+
+  it('rejects tiktok363 empty user array (statusCode 10221) as API_ERROR', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok363.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ statusCode: 10221, status_code: 0, userInfo: { user: [] } })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
+  it('maps tiktok-data-api13 data.items profile + user-videos posts', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-data-api13.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/rapidapi/v1/tiktok/profile')) {
+        return Response.json({
+          credits_charged: 1,
+          data: { items: [{ uniqueId: 'khaby_lame', nickname: 'khaby lame', secUid: 'sec-13', avatarUrl: 'https://a/av.jpg', signature: 'Just funny', followerCount: 16, followingCount: 66, totalFavorited: 283, awemeCount: 14, region: 'NG', verified: false }] },
+          data_status: 'ok',
+        })
+      }
+      if (url.includes('/rapidapi/v1/tiktok/user-videos')) {
+        return Response.json({
+          credits_charged: 1,
+          data: { items: [{ videoId: '7203359544481713413', description: '#CapCut', createTime: 1677162843, playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 }] },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.secUid).toBe('sec-13')
+    expect(profile.region).toBe('NG')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: '7203359544481713413', playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 })
+    expect(called.some(url => url.includes('/rapidapi/v1/tiktok/user-videos?unique_id=khaby_lame'))).toBe(true)
+  })
+
+  it('treats tiktok-data-api13 HTTP 503 DOWNSTREAM_UNAVAILABLE as API_ERROR', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-data-api13.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: { code: 'DOWNSTREAM_UNAVAILABLE', message: 'The data source is unavailable. No credits were charged.' } }, { status: 503 })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
+  it('maps tiktok-scraper36 data.user/stats + data.videos flat stats', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper36.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/api/tiktok/user/profile')) {
+        return Response.json({
+          code: 0, msg: 'success',
+          data: {
+            user: { id: '7201814183033439238', uniqueId: 'khaby_lame', nickname: 'khaby lame', secUid: 'sec-36', avatarLarger: 'https://a/av.jpg', signature: 'Just funny' },
+            stats: { followingCount: 66, followerCount: 16, heartCount: 283, videoCount: 14 },
+          },
+        })
+      }
+      if (url.includes('/api/tiktok/user/posts')) {
+        return Response.json({
+          code: 0, msg: 'success',
+          data: { videos: [{ aweme_id: 'v09044-model', video_id: '7203359544481713413', title: '#CapCut', create_time: 1677162843, play_count: 47, digg_count: 13, comment_count: 2, share_count: 1 }] },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.secUid).toBe('sec-36')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: '7203359544481713413', playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 })
+    expect(called.some(url => url.includes('/api/tiktok/user/posts?unique_id=khaby_lame'))).toBe(true)
+  })
+
+  it('treats tiktok-scraper36 code -1 unique_id invalid as API_ERROR (not USER_NOT_FOUND)', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper36.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: -1, msg: 'unique_id is invalid' })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
