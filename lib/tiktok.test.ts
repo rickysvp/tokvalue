@@ -529,6 +529,57 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 
+  it('maps tiktok-social {meta,body} camelCase stats + videos[] ISO time', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-social.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/api/v1/tiktok/user/info?username=')) {
+        return Response.json({
+          meta: { version: 'v1.0', status: 200, username: 'khaby_lame' },
+          body: {
+            id: '7201814183033439238', secUid: 'sec-social', username: 'khaby_lame', nickname: 'khaby lame',
+            bio: 'Just funny videos', avatar: 'https://a/av.jpg', verified: false,
+            stats: { followers: 16, following: 66, likes: 283, videos: 14, friends: 11 },
+          },
+        })
+      }
+      if (url.includes('/api/v1/tiktok/user/videos?username=')) {
+        return Response.json({
+          meta: { status: 200 },
+          body: {
+            user: { id: '7201814183033439238', username: 'khaby_lame' }, cursor: 'c2', hasMore: false,
+            videos: [
+              { id: '7203359544481713413', description: '#CapCut', createTime: '2023-02-23T14:34:03Z', stats: { plays: 47, likes: 13, comments: 0, shares: 0, saves: 0 } },
+              { id: 'v2', description: 'hello', createTime: '2023-02-01T08:00:00Z', stats: { plays: 1000, likes: 50, comments: 5, shares: 3, saves: 1 } },
+            ],
+          },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.followingCount).toBe(66)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.secUid).toBe('sec-social')
+    expect(profile.avatar).toBe('https://a/av.jpg')
+    expect(profile.bio).toBe('Just funny videos')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: '7203359544481713413', playCount: 47, likeCount: 13, commentCount: 0, shareCount: 0 })
+    expect(profile.posts[0].createTime).toBe(1677162843)
+    expect(called.some(url => url.includes('/api/v1/tiktok/user/videos?username=khaby_lame'))).toBe(true)
+  })
+
+  it('promotes tiktok-social HTTP 200 success:false User not found to USER_NOT_FOUND', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-social.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ success: false, message: 'User not found' })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {

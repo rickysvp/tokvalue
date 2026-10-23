@@ -997,6 +997,38 @@ const TIKTOK_BTS_ADAPTER: ProviderAdapter = {
   },
 }
 
+// --- tiktok-social 适配器（GET /api/v1/tiktok/user/info?username= 返回 {meta, body}，body camelCase + stats{followers,following,likes,videos}；GET /api/v1/tiktok/user/videos?username= 返回 body{user,cursor,hasMore,videos[]}，视频项 stats{plays,likes,comments,shares} + createTime ISO；不存在账号返回 HTTP 200 {"success":false,"message":"User not found"}，由 apiCallSingle 统一提升为 USER_NOT_FOUND；~1.4-3s） ---
+const TIKTOK_SOCIAL_ADAPTER: ProviderAdapter = {
+  name: 'tiktok-social',
+  async fetchProfile(username, provider, audit) {
+    const path = `/api/v1/tiktok/user/info?username=${encodeURIComponent(username)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/info', { timeoutMs: 20000, audit })
+    const body = (root.body as Record<string, unknown>) || {}
+    const stats = (body.stats as Record<string, unknown>) || {}
+    if (!pickField(body, 'username', 'id', 'secUid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
+    }
+
+    const nickname = String(body.nickname || username)
+    const posts = await fetchPostsTiktokSocial(username, provider, audit)
+    const postsFetched = posts.length > 0
+    return {
+      username, nickname,
+      followerCount: toNumber(stats.followers),
+      followingCount: toNumber(stats.following),
+      totalLikes: toNumber(stats.likes),
+      videoCount: toNumber(stats.videos),
+      secUid: String(body.secUid ?? ''),
+      region: inferRegionFromContent(nickname, String(body.bio || ''), posts),
+      avatar: String(body.avatar || ''),
+      bio: String(body.bio || ''),
+      posts,
+      dataQuality: postsFetched ? 'full' as const : 'partial' as const,
+      postsFetchError: postsFetched ? undefined : 'Video data unavailable — evaluation may be less accurate',
+    }
+  },
+}
+
 // Host → 适配器映射
 const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-api6.p.rapidapi.com': API6_ADAPTER,
@@ -1013,6 +1045,7 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-scraper44.p.rapidapi.com': TIKTOK_SCRAPER44_ADAPTER,
   'tiktok-api56.p.rapidapi.com': TIKTOK_API56_ADAPTER,
   'best-tiktok-scraper-free-1000-calls.p.rapidapi.com': TIKTOK_BTS_ADAPTER,
+  'tiktok-social.p.rapidapi.com': TIKTOK_SOCIAL_ADAPTER,
 }
 
 // ========== fetchProfile：多 provider 遍历 ==========
@@ -1389,6 +1422,33 @@ async function fetchPostsTiktokBts(username: string, provider: ProviderConfig, a
     }).filter(p => p.id)
   } catch (err) {
     console.warn(`[tiktok] ${provider.host} users/videos failed:`, err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+// tiktok-social: GET /api/v1/tiktok/user/videos?username=xxx（body.videos[] 项：id/description/createTime ISO + stats{plays,likes,comments,shares}）
+async function fetchPostsTiktokSocial(username: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
+  try {
+    const path = `/api/v1/tiktok/user/videos?username=${encodeURIComponent(username)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'user/videos', { timeoutMs: 12000, audit })
+    const body = (root.body as Record<string, unknown>) || {}
+    const items: unknown[] = Array.isArray(body.videos) ? body.videos : []
+    return items.map((v: unknown): Post => {
+      const item = (v && typeof v === 'object') ? (v as Record<string, unknown>) : {}
+      const st = (item.stats && typeof item.stats === 'object') ? (item.stats as Record<string, unknown>) : {}
+      const createdSec = item.createTime ? Math.floor(Date.parse(String(item.createTime)) / 1000) : 0
+      return {
+        id: String(item.id ?? ''),
+        playCount: toNumber(st.plays),
+        likeCount: toNumber(st.likes),
+        commentCount: toNumber(st.comments),
+        shareCount: toNumber(st.shares),
+        createTime: Number.isFinite(createdSec) && createdSec > 0 ? createdSec : 0,
+        desc: String(item.description ?? ''),
+      }
+    }).filter(p => p.id)
+  } catch (err) {
+    console.warn(`[tiktok] ${provider.host} user/videos failed:`, err instanceof Error ? err.message : err)
     return []
   }
 }
