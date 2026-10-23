@@ -334,6 +334,48 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
   })
 
+  it('maps tiktok-scraper20 data.user.user/stats + data.posts native items', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper20.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/api/v1/users/detail')) {
+        return Response.json({
+          status: 'ok', message: null,
+          data: {
+            user: {
+              user: { id: '7201814183033439238', uniqueId: 'khaby_lame', nickname: 'khaby lame', secUid: 'sec-20', avatarLarger: 'https://a/av.jpg', signature: 'Just funny' },
+              stats: { followerCount: 16, followingCount: 66, heart: 283, heartCount: 283, videoCount: 14 },
+            },
+          },
+        })
+      }
+      if (url.includes('/api/v1/users/posts')) {
+        return Response.json({
+          status: 'ok', message: null,
+          data: { posts: [{ id: '7203359544481713413', desc: '#CapCut', createTime: 1677162843, stats: { playCount: 47, diggCount: 13, commentCount: 2, shareCount: 1 } }] },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.secUid).toBe('sec-20')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: '7203359544481713413', playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 })
+    expect(called.some(url => url.includes('/api/v1/users/posts?username=khaby_lame'))).toBe(true)
+  })
+
+  it('treats tiktok-scraper20 empty data.user array as API_ERROR (not USER_NOT_FOUND)', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper20.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ status: 'ok', message: null, data: { user: [] } })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
