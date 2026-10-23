@@ -484,6 +484,51 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
   })
 
+  it('maps best-tiktok-scraper flat snake_case profile stats + videos[] ISO time', async () => {
+    process.env.TIKTOK_PROVIDERS = 'best-tiktok-scraper-free-1000-calls.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/users/profile?user=')) {
+        return Response.json({
+          id: '7201814183033439238', username: 'khaby_lame', nickname: 'khaby lame',
+          sec_uid: 'sec-bts', profile_picture: 'https://a/av.jpg', biography: 'Just funny',
+          stats: { follower_count: 16, following_count: 66, like_count: 283, video_count: 14 },
+        })
+      }
+      if (url.includes('/users/videos?user=')) {
+        return Response.json({
+          user: 'khaby_lame', video_count: 2,
+          videos: [
+            { id: 'v1', description: '#CapCut', created_at: '2026-03-04T12:00:00Z', stats: { play_count: 47, like_count: 13, comment_count: 2, share_count: 1 } },
+            { id: 'v2', description: 'hello', created_at: '2026-03-01T08:30:00Z', stats: { play_count: 1000, like_count: 50, comment_count: 5, share_count: 3 } },
+          ],
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.followingCount).toBe(66)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.secUid).toBe('sec-bts')
+    expect(profile.avatar).toBe('https://a/av.jpg')
+    expect(profile.bio).toBe('Just funny')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: 'v1', playCount: 47, likeCount: 13, commentCount: 2, shareCount: 1 })
+    expect(profile.posts[0].createTime).toBeGreaterThan(1_700_000_000)
+    expect(called.some(url => url.includes('/users/videos?user=khaby_lame'))).toBe(true)
+  })
+
+  it('promotes best-tiktok-scraper HTTP 404 user-not-found to USER_NOT_FOUND', async () => {
+    process.env.TIKTOK_PROVIDERS = 'best-tiktok-scraper-free-1000-calls.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'user @ghost_user not found' }), { status: 404, headers: { 'content-type': 'application/json' } })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {

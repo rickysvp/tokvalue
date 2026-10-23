@@ -386,7 +386,8 @@ async function apiCallSingle(
           try {
             const errJson = JSON.parse(text) as Record<string, unknown>
             const msg = typeof errJson.detail === 'string' ? errJson.detail
-              : typeof errJson.message === 'string' ? errJson.message : ''
+              : typeof errJson.message === 'string' ? errJson.message
+                : typeof errJson.error === 'string' ? errJson.error : ''
             if (errJson.error === 'not_found' || /^(?:user|account)\b.*(?:not found|does not exist)/i.test(msg)) {
               notFoundMsg = msg || 'User not found'
             }
@@ -965,6 +966,37 @@ const TIKTOK_API56_ADAPTER: ProviderAdapter = {
   },
 }
 
+// --- best-tiktok-scraper-free-1000-calls 适配器（GET /users/profile?user= 返回扁平 snake_case + stats 对象；GET /users/videos?user= 返回 {user, video_count, videos[]}，视频项 stats snake_case + created_at ISO；不存在账号返回 HTTP 404 {"error":"user @x not found"} → USER_NOT_FOUND；~1-2.8s） ---
+const TIKTOK_BTS_ADAPTER: ProviderAdapter = {
+  name: 'best-tiktok-scraper',
+  async fetchProfile(username, provider, audit) {
+    const path = `/users/profile?user=${encodeURIComponent(username)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'users/profile', { timeoutMs: 20000, audit })
+    const stats = (root.stats as Record<string, unknown>) || {}
+    if (!pickField(root, 'username', 'id', 'sec_uid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
+    }
+
+    const nickname = String(root.nickname || username)
+    const posts = await fetchPostsTiktokBts(username, provider, audit)
+    const postsFetched = posts.length > 0
+    return {
+      username, nickname,
+      followerCount: toNumber(stats.follower_count ?? stats.followerCount),
+      followingCount: toNumber(stats.following_count ?? stats.followingCount),
+      totalLikes: toNumber(stats.like_count ?? stats.heartCount ?? stats.heart),
+      videoCount: toNumber(stats.video_count ?? stats.videoCount),
+      secUid: String(root.sec_uid ?? (root.secUid || '')),
+      region: root.region ? String(root.region) : inferRegionFromContent(nickname, String(root.biography || ''), posts),
+      avatar: String(root.profile_picture || ''),
+      bio: String(root.biography || ''),
+      posts,
+      dataQuality: postsFetched ? 'full' as const : 'partial' as const,
+      postsFetchError: postsFetched ? undefined : 'Video data unavailable — evaluation may be less accurate',
+    }
+  },
+}
+
 // Host → 适配器映射
 const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-api6.p.rapidapi.com': API6_ADAPTER,
@@ -980,6 +1012,7 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-profile-videos-scraper.p.rapidapi.com': TIKTOK_PVS_ADAPTER,
   'tiktok-scraper44.p.rapidapi.com': TIKTOK_SCRAPER44_ADAPTER,
   'tiktok-api56.p.rapidapi.com': TIKTOK_API56_ADAPTER,
+  'best-tiktok-scraper-free-1000-calls.p.rapidapi.com': TIKTOK_BTS_ADAPTER,
 }
 
 // ========== fetchProfile：多 provider 遍历 ==========
@@ -1330,6 +1363,32 @@ async function fetchPostsTiktokApi56(secUid: string, provider: ProviderConfig, a
     }).filter(p => p.id)
   } catch (err) {
     console.warn(`[tiktok] ${provider.host} get-user-post failed:`, err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+// best-tiktok-scraper: GET /users/videos?user=xxx（videos[] 项：id/description/created_at ISO + stats{play_count,like_count,comment_count,share_count}）
+async function fetchPostsTiktokBts(username: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
+  try {
+    const path = `/users/videos?user=${encodeURIComponent(username)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'users/videos', { timeoutMs: 12000, audit })
+    const items: unknown[] = Array.isArray(root.videos) ? root.videos : []
+    return items.map((v: unknown): Post => {
+      const item = (v && typeof v === 'object') ? (v as Record<string, unknown>) : {}
+      const st = (item.stats && typeof item.stats === 'object') ? (item.stats as Record<string, unknown>) : {}
+      const createdSec = item.created_at ? Math.floor(Date.parse(String(item.created_at)) / 1000) : 0
+      return {
+        id: String(item.id ?? ''),
+        playCount: toNumber(st.play_count),
+        likeCount: toNumber(st.like_count),
+        commentCount: toNumber(st.comment_count),
+        shareCount: toNumber(st.share_count),
+        createTime: Number.isFinite(createdSec) && createdSec > 0 ? createdSec : 0,
+        desc: String(item.description ?? item.title ?? ''),
+      }
+    }).filter(p => p.id)
+  } catch (err) {
+    console.warn(`[tiktok] ${provider.host} users/videos failed:`, err instanceof Error ? err.message : err)
     return []
   }
 }
