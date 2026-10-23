@@ -405,6 +405,42 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
   })
 
+  it('maps tiktok-scraper44 authorMeta + flat video stats to profile + posts', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper44.p.rapidapi.com:test-key'
+    let postedBody = ''
+    vi.stubGlobal('fetch', vi.fn(async (url: string, opts?: RequestInit) => {
+      postedBody = String(opts?.body ?? '')
+      return Response.json([
+        {
+          id: 'v1', text: 'hola amigos', createTime: 1792711510, playCount: 47400, diggCount: 7547, commentCount: 331, shareCount: 45,
+          authorMeta: { name: 'creator_44', nickName: 'Creator 44', verified: true, signature: 'mi bio', avatar: 'https://a/av.jpg', following: 168, fans: 75191969, heart: 5346754835, video: 734 },
+        },
+        {
+          id: 'v2', text: 'otro', createTime: 1792600000, playCount: 30000, diggCount: 2000, commentCount: 100, shareCount: 20,
+          authorMeta: { name: 'creator_44', nickName: 'Creator 44', fans: 75191969 },
+        },
+      ])
+    }))
+
+    const profile = await fetchProfile('creator_44')
+    expect(postedBody).toContain('"profiles":["creator_44"]')
+    expect(profile.followerCount).toBe(75191969)
+    expect(profile.followingCount).toBe(168)
+    expect(profile.totalLikes).toBe(5346754835)
+    expect(profile.videoCount).toBe(734)
+    expect(profile.nickname).toBe('Creator 44')
+    expect(profile.bio).toBe('mi bio')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: 'v1', playCount: 47400, likeCount: 7547, commentCount: 331, shareCount: 45, createTime: 1792711510 })
+  })
+
+  it('treats tiktok-scraper44 empty array as API_ERROR (not USER_NOT_FOUND)', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-scraper44.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json([])))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
