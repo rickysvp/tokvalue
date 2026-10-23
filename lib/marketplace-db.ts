@@ -62,6 +62,8 @@ function ensureInit(): Promise<void> {
       await s`CREATE UNIQUE INDEX IF NOT EXISTS idx_listings_active_username ON marketplace_listings(username) WHERE status = 'active'`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_status_created ON marketplace_listings(status, created_at DESC)`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_seller ON marketplace_listings(seller_email)`
+      // 数字编号：URL 形如 /marketplace/1009；1001-1008 保留给演示挂牌
+      await s`CREATE SEQUENCE IF NOT EXISTS marketplace_listing_ids START 1009`
       await s`
         CREATE TABLE IF NOT EXISTS marketplace_unlocks (
           listing_id TEXT NOT NULL,
@@ -120,14 +122,13 @@ export function toPublicListing(l: ListingRow, sellerMasked = true, revealUserna
 export async function createListing(input: ListingInput, snapshot: ListingSnapshot, sellerEmail: string): Promise<ListingRow> {
   await ensureInit()
   const s = await getSql()
-  const id = crypto.randomUUID()
   try {
     const rows = await s`
       INSERT INTO marketplace_listings (id, username, seller_email, asking_price_usd, description,
         contact_email, social_type, social_handle,
         snapshot_tier, snapshot_valuation_low, snapshot_valuation_high, snapshot_valuation_usd,
         snapshot_followers, snapshot_engagement_rate, snapshot_evaluated_at)
-      VALUES (${id}, ${input.username}, ${sellerEmail}, ${input.askingPriceUsd}, ${input.description ?? null},
+      VALUES (nextval('marketplace_listing_ids')::text, ${input.username}, ${sellerEmail}, ${input.askingPriceUsd}, ${input.description ?? null},
         ${input.contactEmail}, ${input.socialType}, ${(input.socialHandle ?? '').trim() || null},
         ${snapshot.snapshotTier}, ${snapshot.snapshotValuationLow}, ${snapshot.snapshotValuationHigh}, ${snapshot.snapshotValuationUsd},
         ${snapshot.snapshotFollowers}, ${snapshot.snapshotEngagementRate}, ${snapshot.snapshotEvaluatedAt ? new Date(snapshot.snapshotEvaluatedAt) : null})
