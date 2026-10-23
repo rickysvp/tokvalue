@@ -836,6 +836,54 @@ const TIKTOK_SCRAPER20_ADAPTER: ProviderAdapter = {
   },
 }
 
+// --- tiktok-profile-videos-scraper 适配器（单端点批量 POST /，body {"profiles":[u],"maxResults":30}，返回视频数组；账号级统计仅 author_followers 可靠，following/videoCount/totalLikes 为近似下界；不存在账号返回 []；延迟 ~4s） ---
+const TIKTOK_PVS_ADAPTER: ProviderAdapter = {
+  name: 'tiktok-profile-videos-scraper',
+  async fetchProfile(username, provider, audit) {
+    const root = await apiCallSingle(provider, 'POST', '/', { profiles: [username], maxResults: 30 }, 'profile-videos', { timeoutMs: 20000, audit })
+    const items: unknown[] = Array.isArray(root) ? root : []
+    if (!items.length) {
+      // 该 API 对 ghost 与查无数据账号均返回空数组；无账号级资料可用，按 API_ERROR 换池
+      throw new TikTokApiError('Provider returned no videos/profile for user', 'API_ERROR', 500)
+    }
+    const first = items[0] as Record<string, unknown>
+    const authorUsername = String(first.author_username || username)
+    const nickname = String(first.author_nickname || username)
+    const followerCount = toNumber(first.author_followers)
+
+    const posts: Post[] = items.map((v: unknown): Post => {
+      const item = (v && typeof v === 'object') ? (v as Record<string, unknown>) : {}
+      const createdSec = item.created_at ? Math.floor(Date.parse(String(item.created_at)) / 1000) : 0
+      return {
+        id: String(item.id ?? ''),
+        playCount: toNumber(item.plays),
+        likeCount: toNumber(item.likes),
+        commentCount: toNumber(item.comments),
+        shareCount: toNumber(item.shares),
+        createTime: Number.isFinite(createdSec) && createdSec > 0 ? createdSec : 0,
+        desc: String(item.description ?? ''),
+      }
+    }).filter(p => p.id)
+
+    const totalLikes = posts.reduce((s, p) => s + p.likeCount, 0)
+    const postsFetched = posts.length > 0
+    return {
+      username: authorUsername || username, nickname,
+      followerCount,
+      followingCount: 0,
+      totalLikes,
+      videoCount: posts.length,
+      secUid: '',
+      region: inferRegionFromContent(nickname, '', posts),
+      avatar: '',
+      bio: '',
+      posts,
+      dataQuality: postsFetched ? 'full' as const : 'partial' as const,
+      postsFetchError: postsFetched ? undefined : 'Video data unavailable — evaluation may be less accurate',
+    }
+  },
+}
+
 // Host → 适配器映射
 const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-api6.p.rapidapi.com': API6_ADAPTER,
@@ -848,6 +896,7 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-data-api13.p.rapidapi.com': TIKTOK_DATA13_ADAPTER,
   'tiktok-scraper36.p.rapidapi.com': TIKTOK_SCRAPER36_ADAPTER,
   'tiktok-scraper20.p.rapidapi.com': TIKTOK_SCRAPER20_ADAPTER,
+  'tiktok-profile-videos-scraper.p.rapidapi.com': TIKTOK_PVS_ADAPTER,
 }
 
 // ========== fetchProfile：多 provider 遍历 ==========

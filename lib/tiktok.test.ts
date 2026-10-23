@@ -376,6 +376,35 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
   })
 
+  it('maps tiktok-profile-videos-scraper flat video array to profile + posts', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-profile-videos-scraper.p.rapidapi.com:test-key'
+    let postedBody = ''
+    vi.stubGlobal('fetch', vi.fn(async (url: string, opts?: RequestInit) => {
+      postedBody = String(opts?.body ?? '')
+      return Response.json([
+        { id: 'v1', description: 'hola amigos', created_at: '2026-10-20T10:00:00', plays: 5000, likes: 400, comments: 30, shares: 12, author_username: 'creator_pvs', author_nickname: 'Creator PVS', author_followers: 8888, author_verified: true },
+        { id: 'v2', description: 'otro video', created_at: '2026-10-21T10:00:00', plays: 3000, likes: 200, comments: 10, shares: 4, author_username: 'creator_pvs', author_nickname: 'Creator PVS', author_followers: 8888 },
+      ])
+    }))
+
+    const profile = await fetchProfile('creator_pvs')
+    expect(postedBody).toContain('"profiles":["creator_pvs"]')
+    expect(profile.followerCount).toBe(8888)
+    expect(profile.nickname).toBe('Creator PVS')
+    expect(profile.totalLikes).toBe(600)
+    expect(profile.videoCount).toBe(2)
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: 'v1', playCount: 5000, likeCount: 400, commentCount: 30, shareCount: 12 })
+    expect(profile.posts[0].createTime).toBeGreaterThan(1_700_000_000)
+  })
+
+  it('treats tiktok-profile-videos-scraper empty array as API_ERROR (not USER_NOT_FOUND)', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-profile-videos-scraper.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json([])))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
