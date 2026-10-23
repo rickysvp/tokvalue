@@ -62,14 +62,15 @@ describe('fetchProfile provider responses', () => {
     expect(called.some(url => url.endsWith('/user/details'))).toBe(true)
   })
 
-  it('does not call an ambiguous response account not found when another provider says not found', async () => {
+  it('prefers one provider\'s explicit not-found over another provider\'s ambiguous error', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.includes('tiktok-scraper7')) return Response.json({ code: -1, msg: 'unique_id is invalid' })
       if (url.endsWith('/user/details')) return Response.json({ detail: 'User nljo_kiyokazu does not exist' })
       return Response.json({ videos: [] })
     }))
 
-    await expect(fetchProfile('nljo_kiyokazu')).rejects.toMatchObject({ code: 'API_ERROR' })
+    // api6 已连通 TikTok 并明确回报账号不存在，优先于 scraper7 的模糊错误
+    await expect(fetchProfile('nljo_kiyokazu')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
   })
 
   it('rejects empty userInfo rather than creating a profile from the requested username', async () => {
@@ -393,7 +394,8 @@ describe('fetchProfile provider responses', () => {
     expect(profile.nickname).toBe('Creator PVS')
     expect(profile.totalLikes).toBe(600)
     expect(profile.videoCount).toBe(2)
-    expect(profile.dataQuality).toBe('full')
+    // PVS 无账号级统计（following=0、totalLikes 为下界），必须标 partial 而非 full
+    expect(profile.dataQuality).toBe('partial')
     expect(profile.posts[0]).toMatchObject({ id: 'v1', playCount: 5000, likeCount: 400, commentCount: 30, shareCount: 12 })
     expect(profile.posts[0].createTime).toBeGreaterThan(1_700_000_000)
   })
@@ -576,6 +578,18 @@ describe('fetchProfile provider responses', () => {
   it('promotes tiktok-social HTTP 200 success:false User not found to USER_NOT_FOUND', async () => {
     process.env.TIKTOK_PROVIDERS = 'tiktok-social.p.rapidapi.com:test-key'
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ success: false, message: 'User not found' })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
+  })
+
+  it('prefers explicit USER_NOT_FOUND over generic errors from other providers', async () => {
+    process.env.TIKTOK_PROVIDERS = 'atlas-tiktok-scraper-api.p.rapidapi.com:test-key,tiktok-api6.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('atlas-tiktok-scraper-api')) {
+        return new Response(JSON.stringify({ detail: 'User ghost_user does not exist' }), { status: 404, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response('rate limited', { status: 429 })
+    }))
 
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'USER_NOT_FOUND' })
   })

@@ -879,7 +879,8 @@ const TIKTOK_PVS_ADAPTER: ProviderAdapter = {
       avatar: '',
       bio: '',
       posts,
-      dataQuality: postsFetched ? 'full' as const : 'partial' as const,
+      // 账号级统计缺失（following=0、videoCount/totalLikes 为返回视频的下界近似），不得标 full
+      dataQuality: 'partial' as const,
       postsFetchError: postsFetched ? undefined : 'Video data unavailable — evaluation may be less accurate',
     }
   },
@@ -1106,7 +1107,9 @@ export async function fetchProfile(inputUsername: string, audit?: AuditCtx): Pro
     }
   }
 
-  throw lastError || notFoundError || new TikTokApiError('All providers exhausted', 'API_ERROR', 500)
+  // 明确的 USER_NOT_FOUND 优先于通用错误：某 provider 已成功连通 TikTok 并确认账号不存在时，
+  // 不应被其他 provider 的限流/超时等通用错误覆盖，否则用户会看到"服务错误"并无意义地重试。
+  throw notFoundError || lastError || new TikTokApiError('All providers exhausted', 'API_ERROR', 500)
 }
 
 // ========== 各 host 的视频获取函数 ==========
