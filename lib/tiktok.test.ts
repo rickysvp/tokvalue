@@ -441,6 +441,49 @@ describe('fetchProfile provider responses', () => {
     await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
   })
 
+  it('maps tiktok-api56 userInfo user/stats + aweme_list snake_case statistics', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-api56.p.rapidapi.com:test-key'
+    const called: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      called.push(url)
+      if (url.includes('/api/tiktok/get-user-detail/v1')) {
+        return Response.json({
+          code: 0,
+          data: {
+            userInfo: {
+              user: { id: '7201814183033439238', uniqueId: 'khaby_lame', nickname: 'khaby lame', secUid: 'sec-56', avatarLarger: 'https://a/av.jpg', signature: 'Just funny' },
+              stats: { followerCount: 16, followingCount: 66, heart: 283, heartCount: 283, videoCount: 14 },
+            },
+          },
+        })
+      }
+      if (url.includes('/api/tiktok/get-user-post/v1')) {
+        return Response.json({
+          code: 0,
+          data: { aweme_list: [{ aweme_id: '7203359544481713413', desc: '#CapCut', create_time: 1677162843, statistics: { play_count: 47, digg_count: 13, comment_count: 0, share_count: 0 } }] },
+        })
+      }
+      return Response.json({})
+    }))
+
+    const profile = await fetchProfile('@khaby_lame')
+    expect(profile.followerCount).toBe(16)
+    expect(profile.followingCount).toBe(66)
+    expect(profile.totalLikes).toBe(283)
+    expect(profile.videoCount).toBe(14)
+    expect(profile.secUid).toBe('sec-56')
+    expect(profile.dataQuality).toBe('full')
+    expect(profile.posts[0]).toMatchObject({ id: '7203359544481713413', playCount: 47, likeCount: 13 })
+    expect(called.some(url => url.includes('/api/tiktok/get-user-post/v1?secUid=sec-56'))).toBe(true)
+  })
+
+  it('treats tiktok-api56 statusCode 10221 without userInfo as API_ERROR', async () => {
+    process.env.TIKTOK_PROVIDERS = 'tiktok-api56.p.rapidapi.com:test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: 0, data: { statusCode: 10221, statusMsg: '', needFix: false }, message: null })))
+
+    await expect(fetchProfile('ghost_user')).rejects.toMatchObject({ code: 'API_ERROR' })
+  })
+
   it('returns account not found when every provider explicitly reports a missing user', async () => {
     const called: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {

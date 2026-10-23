@@ -930,6 +930,41 @@ const TIKTOK_SCRAPER44_ADAPTER: ProviderAdapter = {
   },
 }
 
+// --- tiktok-api56 适配器（GET /api/tiktok/get-user-detail/v1?uniqueId= 返回 data.userInfo.user/stats camelCase；GET /api/tiktok/get-user-post/v1?secUid= 返回 data.aweme_list[] 经典 statistics snake_case；不存在账号返回 data.statusCode:10221 无 userInfo → API_ERROR；~1-3.7s） ---
+const TIKTOK_API56_ADAPTER: ProviderAdapter = {
+  name: 'tiktok-api56',
+  async fetchProfile(username, provider, audit) {
+    const path = `/api/tiktok/get-user-detail/v1?uniqueId=${encodeURIComponent(username)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'get-user-detail', { timeoutMs: 20000, audit })
+    const rootData = root.data as Record<string, unknown> | undefined
+    const userInfo = (rootData?.userInfo as Record<string, unknown>) || {}
+    const user = (userInfo.user as Record<string, unknown>) || {}
+    const stats = (userInfo.stats as Record<string, unknown>) || {}
+    if (!pickField(user, 'uniqueId', 'unique_id', 'id', 'secUid', 'sec_uid')) {
+      throw new TikTokApiError('Provider returned an empty user', 'API_ERROR', 500)
+    }
+
+    const secUid = String(user.secUid ?? (user.sec_uid || ''))
+    const nickname = String(user.nickname || username)
+    const posts = await fetchPostsTiktokApi56(secUid, provider, audit)
+    const postsFetched = posts.length > 0
+    return {
+      username, nickname,
+      followerCount: toNumber(stats.followerCount ?? stats.follower_count),
+      followingCount: toNumber(stats.followingCount ?? stats.following_count),
+      totalLikes: toNumber(stats.heartCount ?? stats.heart ?? stats.total_favorited),
+      videoCount: toNumber(stats.videoCount ?? stats.video_count),
+      secUid,
+      region: user.region ? String(user.region) : inferRegionFromContent(nickname, String(user.signature || ''), posts),
+      avatar: String(user.avatarLarger ?? (user.avatar_larger ?? (user.avatarThumb || ''))),
+      bio: String(user.signature || ''),
+      posts,
+      dataQuality: postsFetched ? 'full' as const : 'partial' as const,
+      postsFetchError: postsFetched ? undefined : 'Video data unavailable — evaluation may be less accurate',
+    }
+  },
+}
+
 // Host → 适配器映射
 const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-api6.p.rapidapi.com': API6_ADAPTER,
@@ -944,6 +979,7 @@ const ADAPTERS: Record<string, ProviderAdapter> = {
   'tiktok-scraper20.p.rapidapi.com': TIKTOK_SCRAPER20_ADAPTER,
   'tiktok-profile-videos-scraper.p.rapidapi.com': TIKTOK_PVS_ADAPTER,
   'tiktok-scraper44.p.rapidapi.com': TIKTOK_SCRAPER44_ADAPTER,
+  'tiktok-api56.p.rapidapi.com': TIKTOK_API56_ADAPTER,
 }
 
 // ========== fetchProfile：多 provider 遍历 ==========
@@ -1267,6 +1303,33 @@ async function fetchPostsTiktokScraper20(username: string, provider: ProviderCon
     }).filter(p => p.id)
   } catch (err) {
     console.warn(`[tiktok] ${provider.host} api/v1/users/posts failed:`, err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+// tiktok-api56: GET /api/tiktok/get-user-post/v1?secUid=xxx（data.aweme_list[]，经典 TikTok aweme：aweme_id/desc/create_time + statistics snake_case，同 atlas 形态）
+async function fetchPostsTiktokApi56(secUid: string, provider: ProviderConfig, audit?: AuditCtx): Promise<Post[]> {
+  if (!secUid) return []
+  try {
+    const path = `/api/tiktok/get-user-post/v1?secUid=${encodeURIComponent(secUid)}`
+    const root = await apiCallSingle(provider, 'GET', path, undefined, 'get-user-post', { timeoutMs: 12000, audit })
+    const rootData = root.data as Record<string, unknown> | undefined
+    const items: unknown[] = Array.isArray(rootData?.aweme_list) ? rootData!.aweme_list : []
+    return items.map((v: unknown): Post => {
+      const item = (v && typeof v === 'object') ? (v as Record<string, unknown>) : {}
+      const statistics = (item.statistics && typeof item.statistics === 'object') ? (item.statistics as Record<string, unknown>) : {}
+      return {
+        id: String(item.aweme_id ?? item.id ?? ''),
+        playCount: toNumber(statistics.play_count),
+        likeCount: toNumber(statistics.digg_count),
+        commentCount: toNumber(statistics.comment_count),
+        shareCount: toNumber(statistics.share_count),
+        createTime: toNumber(item.create_time),
+        desc: String(item.desc ?? ''),
+      }
+    }).filter(p => p.id)
+  } catch (err) {
+    console.warn(`[tiktok] ${provider.host} get-user-post failed:`, err instanceof Error ? err.message : err)
     return []
   }
 }
