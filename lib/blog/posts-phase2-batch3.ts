@@ -79,7 +79,7 @@ Engagement rate (ER) is the single biggest multiplier on the rate card. Here's t
 
 Why do brands pay up for ER? Because engagement predicts conversion. A beauty brand paying for a 5% ER account isn't buying views — it's buying the probability that followers actually click, save, and purchase. Comments, shares, and saves matter most: TikTok's algorithm treats save/share signals as high-intent, pushing the post to more of the FYP.
 
-If your ER is under 2%, do not negotiate — **fix the content first**. See [which analytics metrics actually matter](/blog/tiktok-analytics-metrics-that-matter) before you pitch any brand.
+If your ER is under 2%, do not negotiate — **fix the content first**. See [which analytics metrics actually matter](/blog/tiktok-analytics-guide-2026) before you pitch any brand.
 
 ## Niche Multiplier Table
 
@@ -118,7 +118,7 @@ The rate card assumes one thing: a single sponsored video. Change the deliverabl
 
 **UGC is the most underrated revenue stream on TikTok.** Brands pay $150-$800 per UGC video from creators with as few as 1K-10K followers — no posting required, no audience needed. It's not a "real" brand deal in the influencer sense, but for small accounts it's often the fastest path to consistent income. If you're starting out, pitch UGC while you build your posting audience.
 
-Bundles are where serious money lives. A brand that pays $2,000 for one post will often pay $6,000-$8,000 for four posts across a month — they get scale, you get predictable income and fewer negotiation cycles. Long-term ambassadorships are the endgame: one 500K creator we track earns $90K/year from a single 12-month skincare contract that started as a $500 trial post. For the full playbook on getting those first deals, read [how to get brand deals on TikTok](/blog/how-to-get-brand-deals-tiktok).
+Bundles are where serious money lives. A brand that pays $2,000 for one post will often pay $6,000-$8,000 for four posts across a month — they get scale, you get predictable income and fewer negotiation cycles. Long-term ambassadorships are the endgame: one 500K creator we track earns $90K/year from a single 12-month skincare contract that started as a $500 trial post. For the full playbook on getting those first deals, read [how to get brand deals on TikTok](/blog/tiktok-brand-deal-rates-by-follower-count-2026).
 
 ## How to Negotiate Above the Rate Card
 
@@ -253,7 +253,7 @@ Follower count is what you show off; audience quality is what gets you paid. Fou
 
 **4. Moderate your community.** Reply to comments in the first hour, pin good questions, delete spam. A comment section full of real questions is a conversion asset; a dead or spam-filled one tanks brand confidence.
 
-Quality shows up in one number above all: **engagement rate**. At every tier, the top earners share the trait of exceptional ER. Pushing from 2% to 4% ER roughly doubles your income potential at the same follower count. If you want the full metric framework, [which TikTok analytics actually matter](/blog/tiktok-analytics-metrics-that-matter) breaks down every number that moves the needle.
+Quality shows up in one number above all: **engagement rate**. At every tier, the top earners share the trait of exceptional ER. Pushing from 2% to 4% ER roughly doubles your income potential at the same follower count. If you want the full metric framework, [which TikTok analytics actually matter](/blog/tiktok-analytics-guide-2026) breaks down every number that moves the needle.
 
 ## Step 3: Optimize for Brand-Relevant Metrics
 
@@ -280,7 +280,7 @@ Here's where the strategy pays off. Most creators monetize one channel; the top 
 | Brand deals | ~92% of accounts | 34% actively seeking | $250-$1,500/month |
 | TikTok Shop | 10K followers + 1K+ views/30d (varies by region) | 11% set up | $100-$1,000+/month in commissions |
 | Amazon Associates | 5K followers (most regions) | 6% using it | $50-$500/month |
-| Creator Rewards | 10K followers + 100K views/30d | 45% enrolled | $20-$80/month (see [the real payout math](/blog/tiktok-creator-fund-payment-explained-2026)) |
+| Creator Rewards | 10K followers + 100K views/30d | 45% enrolled | $20-$80/month (see [the real payout math](/blog/tiktok-rpm-cpm-2026-real-rates-by-country-niche)) |
 | UGC (usage rights) | No follower minimum | — | $150-$800/video, 3-10 videos/month |
 
 The pattern is unmistakable: **the money is not in the qualification — it's in the follow-through.** Set-up order matters: at 1K-5K followers, do UGC + Amazon Associates (no minimums). At 10K, add TikTok Shop and Creator Rewards. At 20K+, actively pitch brand deals every single week — don't wait to be found.
@@ -299,7 +299,7 @@ A concrete schedule, assuming you can post 5-7 times per week. Adjust volume dow
 
 **Weeks 7-9 — Metric Optimization (5 hrs/week):** Run your weekly 15-minute metric review. Delete or revise formats below target. Publish your best-performing series episodes at your audience's peak hours. Set up Amazon Associates (if 5K+). Target: 30-day average views ≥ 20% of followers.
 
-**Weeks 10-13 — Monetization Onboarding (5 hrs/week):** At 10K followers: apply for Creator Rewards, set up TikTok Shop, join TikTok Creator Marketplace. Start weekly outreach to 5-10 relevant brands (see the [brand deal outreach playbook](/blog/how-to-get-brand-deals-tiktok)). Pitch 2 UGC opportunities per week. Target: first paid collaboration or UGC client by week 13.
+**Weeks 10-13 — Monetization Onboarding (5 hrs/week):** At 10K followers: apply for Creator Rewards, set up TikTok Shop, join TikTok Creator Marketplace. Start weekly outreach to 5-10 relevant brands (see the [brand deal outreach playbook](/blog/tiktok-brand-deal-rates-by-follower-count-2026)). Pitch 2 UGC opportunities per week. Target: first paid collaboration or UGC client by week 13.
 
 **Expected 90-day outcomes (realistic):** 5K-20K followers with 3-6% ER if you started at 0; 2-4x that if you had an existing base. First $500-$2,000 in combined revenue. More importantly: an account with a defined persona, proven formats, and every revenue stream you qualify for active — which is worth 3-5x more than a same-size account grown for views alone.
 
@@ -462,9 +462,9 @@ Run this decision on numbers, not burnout. The honest math for most creators:
 
 **Keep if:** the account earns more than ~$500/month in combined revenue, your ER is 3%+, or you enjoy the content enough to keep compounding. The earnings multiple on kept accounts is 2-5x the resale price within 12-18 months — because kept accounts carry zero transfer risk and full compounding.
 
-**The middle path:** monetize harder instead of selling. An account that's "only" worth $2K on the resale market is typically worth $10K-$20K/year in [brand deal income](/blog/how-to-get-brand-deals-tiktok) — and you keep the optionality. Transfer risk is real; selling a healthy account to capture a fraction of its earning value is usually the worst of both worlds.
+**The middle path:** monetize harder instead of selling. An account that's "only" worth $2K on the resale market is typically worth $10K-$20K/year in [brand deal income](/blog/tiktok-brand-deal-rates-by-follower-count-2026) — and you keep the optionality. Transfer risk is real; selling a healthy account to capture a fraction of its earning value is usually the worst of both worlds.
 
-One more consideration: if you buy an account, budget 30-60 days of content transition before monetizing hard — audiences forgive format shifts, but they punish sudden sales-pitch energy. And check every claim: verify ER with real data, not screenshots. Our [analytics metrics guide](/blog/tiktok-analytics-metrics-that-matter) covers how to spot inflated engagement before you wire money.
+One more consideration: if you buy an account, budget 30-60 days of content transition before monetizing hard — audiences forgive format shifts, but they punish sudden sales-pitch energy. And check every claim: verify ER with real data, not screenshots. Our [analytics metrics guide](/blog/tiktok-analytics-guide-2026) covers how to spot inflated engagement before you wire money.
 
 ## FAQ
 

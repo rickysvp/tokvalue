@@ -96,7 +96,7 @@ If you're a comedy or entertainment creator under 1M followers, the winning stra
 2. **Product-integrate, don't just shout out.** Skits with products built into the premise command 2-3x the rate of a generic "use my code" read, because brands pay for creative that doesn't look like an ad.
 3. **Build recurring formats.** A weekly series with a named segment gives brands something predictable to buy. Predictable inventory prices higher than one-off virality.
 4. **Sell the audience, not the content.** If your audience is 60% US-based, 18-34, with a measurable skew (parents, students, gamers), that's a sellable story. Most comedy creators never present their demographics to brands — a huge missed negotiation lever.
-5. **Sweat the non-brand channels.** Comedy's low CPM makes direct payouts, affiliate, and merchandise relatively more important than in high-CPM niches. Every revenue stream counts; [our analytics metrics guide](/blog/tiktok-analytics-metrics-that-matter) shows which engagement signals brands and algorithms reward most.
+5. **Sweat the non-brand channels.** Comedy's low CPM makes direct payouts, affiliate, and merchandise relatively more important than in high-CPM niches. Every revenue stream counts; [our analytics metrics guide](/blog/tiktok-analytics-guide-2026) shows which engagement signals brands and algorithms reward most.
 
 ## How to Raise Your Comedy Account Value
 
@@ -105,7 +105,7 @@ The fastest way to escape the comedy discount is to stop being *pure* comedy:
 - **Add a niche spine.** Comedy + fitness (gym fails, trainer reactions), comedy + parenting, comedy + finance (money memes) — hybrid accounts move toward the higher CPM of the second niche. In our [TikTok niche valuation guide](/blog/tiktok-niche-valuation-guide-2026), hybrid accounts consistently price 40-80% above their pure-comedy equivalents.
 - **Prove your audience.** Pull your demographics, export your top-performing videos, quantify your engagement quality, and bring the receipts to negotiations.
 - **Fix the fundamentals.** Consistency, authentic followers, and a stable posting history are the difference between being priced as a meme page and priced as a media asset — the same framework that drives [TikTok account valuation overall](/blog/tiktok-account-worth-2026).
-- **Package yourself.** Create a one-page rate card with tiers, deliverables, and past results. Creators with rate cards close deals 2-3x faster than those who negotiate from scratch — see [how to get brand deals on TikTok](/blog/how-to-get-brand-deals-tiktok) for the negotiation playbook.
+- **Package yourself.** Create a one-page rate card with tiers, deliverables, and past results. Creators with rate cards close deals 2-3x faster than those who negotiate from scratch — see [how to get brand deals on TikTok](/blog/tiktok-brand-deal-rates-by-follower-count-2026) for the negotiation playbook.
 
 The ceiling on comedy is not the niche. It's whether you sell reach at reach prices — or build a business around it.
 
@@ -210,7 +210,7 @@ Practical implication: TikTok is the better **acquisition** engine (new audience
 
 Direct per-view income is the least important number on this page — but it's the one most creators ask about first, so let's settle it.
 
-- **TikTok:** The legacy Creator Fund pays roughly **$0.02-$0.04 per 1,000 views** ($20-$40 per million views). The Creator Rewards program pays more per qualified view but requires 1-minute+ original videos and strict quality standards. For most creators, direct payouts remain a rounding error next to brand deals — [the full math is here](/blog/tiktok-creator-fund-payment-explained-2026).
+- **TikTok:** The legacy Creator Fund pays roughly **$0.02-$0.04 per 1,000 views** ($20-$40 per million views). The Creator Rewards program pays more per qualified view but requires 1-minute+ original videos and strict quality standards. For most creators, direct payouts remain a rounding error next to brand deals — [the full math is here](/blog/tiktok-rpm-cpm-2026-real-rates-by-country-niche).
 - **Instagram:** The Reels Play Bonus — rolled out in 2021, expanded, then quietly wound down — is **largely gone by 2026**. Meta pivoted toward subscriptions and invite-only performance bonuses. The average creator earns **$0 direct per-view income** on Reels.
 
 Verdict: TikTok pays *something* more consistently on direct views. But on both platforms, direct payouts are toppings, not the meal. Nobody builds a creator career on $20-$40 per million views.
@@ -255,7 +255,7 @@ Use this decision table against your actual situation:
 | Commerce via TikTok Shop | TikTok | Impulse-purchase loop is built into the platform |
 | Short-form virality for awareness | TikTok | Power-law distribution creates breakout moments |
 
-The pragmatic answer for most serious creators: **run both, with different jobs.** TikTok is the acquisition engine — new followers, new deal inquiries, viral moments. Instagram is the retention engine — subscriptions, community, direct relationships. Post natively to both (platform-native captions and formats, not raw cross-posts) and track which signals matter on each — see [which TikTok metrics actually matter](/blog/tiktok-analytics-metrics-that-matter) for the measurement framework, and [how to land brand deals](/blog/how-to-get-brand-deals-tiktok) for turning either platform's audience into income.
+The pragmatic answer for most serious creators: **run both, with different jobs.** TikTok is the acquisition engine — new followers, new deal inquiries, viral moments. Instagram is the retention engine — subscriptions, community, direct relationships. Post natively to both (platform-native captions and formats, not raw cross-posts) and track which signals matter on each — see [which TikTok metrics actually matter](/blog/tiktok-analytics-guide-2026) for the measurement framework, and [how to land brand deals](/blog/tiktok-brand-deal-rates-by-follower-count-2026) for turning either platform's audience into income.
 
 ## FAQ
 
@@ -396,7 +396,7 @@ The upside is just as concrete: accounts we re-scored 90 days after a health imp
 4. **Engineer real engagement.** Reply to every comment within a couple of hours, add save/share CTAs, and post comment-bait questions. Comment quality is the strongest human signal you can produce.
 5. **Clean up flagged content.** Privately delete or re-edit videos that triggered community guidelines issues — a history of violations drags your stability component down.
 
-For the full measurement framework behind engagement signals, see [which TikTok analytics metrics actually matter](/blog/tiktok-analytics-metrics-that-matter).
+For the full measurement framework behind engagement signals, see [which TikTok analytics metrics actually matter](/blog/tiktok-analytics-guide-2026).
 
 ## The 30-Day Health Fix Plan
 
@@ -409,7 +409,7 @@ Here's the week-by-week plan that moves the needle:
 | Week 3: Consistency + length | Post same days/times without gaps; batch content in advance; push 60-second+ videos for watch time | Watch-time and completion metrics rise |
 | Week 4: Verify & document | Re-run your health check; screenshot before/after metrics; build your negotiation one-pager | Health score +10-25 points; offer premiums 15-40% |
 
-Timing matters: brands re-check health **before signing the contract**, not just at first outreach. Run this plan before your next pitch cycle, and bring the improved numbers to the conversation — see [how to get brand deals on TikTok](/blog/how-to-get-brand-deals-tiktok) for turning a clean account into a signed contract. It's the highest-ROI month of work most creators will ever do: no new followers required, just credibility restored.
+Timing matters: brands re-check health **before signing the contract**, not just at first outreach. Run this plan before your next pitch cycle, and bring the improved numbers to the conversation — see [how to get brand deals on TikTok](/blog/tiktok-brand-deal-rates-by-follower-count-2026) for turning a clean account into a signed contract. It's the highest-ROI month of work most creators will ever do: no new followers required, just credibility restored.
 
 ## FAQ
 

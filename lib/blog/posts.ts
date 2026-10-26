@@ -7,6 +7,7 @@ import { PHASE2_BATCH5 } from './posts-phase2-batch5'
 import { PHASE2_BATCH6 } from './posts-phase2-batch6'
 import { PHASE2_BATCH7 } from './posts-phase2-batch7'
 import { PHASE2_BATCH8 } from './posts-phase2-batch8'
+import { PHASE3_BATCH1 } from './posts-phase3-batch1'
 
 // TOC extractor — generates heading structure from markdown
 export function extractTOC(content: string) {
@@ -38,6 +39,7 @@ export const post1: BlogPost = {
     'Most TikTok calculators are garbage. This guide breaks down exactly how real valuation works — and why a 80K-follower beauty account beats a 500K-follower meme account.',
   tags: ['TikTok valuation', 'brand deals', 'creator economy', 'account worth'],
   publishedAt: '2026-07-20T09:00:00Z',
+  updatedAt: '2026-10-26T09:00:00Z',
   readTime: '11 min',
   category: 'Creator Economy',
   featured: true,
@@ -125,12 +127,13 @@ The power-law exponent of 0.85 reflects a well-established finding in creator ec
 
 ### 4. Monetization Capability
 
-Brand deals aren't the only revenue channel. TokValue estimates income from eight distinct sources: Brand Sponsorships, Creator Program, Subscriptions, TikTok Shop, Amazon Associates, Shopify DTC, Live Commerce, and LIVE Gifts.
+Brand deals aren't the only revenue channel. TokValue estimates income from eight distinct sources: Brand Sponsorships, the Creator Rewards Program, LIVE Subscriptions, TikTok Shop, Amazon Associates, Shopify DTC, Live Commerce, and LIVE Gifts.
 
-Each channel has eligibility thresholds. TikTok Shop requires 1,000 followers; live commerce typically needs 50,000+.
+Each channel has eligibility thresholds. TikTok Shop affiliate opens at roughly 500–1,000 followers depending on market; LIVE gifts and subscriptions at around 1,000; the Creator Rewards Program requires 10,000 followers plus 100,000 views in 30 days. UGC videos and Spark Ads — where brands pay you to create or amplify ad content — have no follower minimum at all.
 
+**💸 Related: [How to Make Money on TikTok in 2026: Every Monetization Channel Compared →](/blog/how-to-make-money-on-tiktok-2026)** — Thresholds, real payout ranges, and a tier-by-tier roadmap for all eight channels.
 
-**🔗 Related: [TikTok Creator Fund vs Brand Deals: Which Actually Pays More? →](/blog/tiktok-creator-fund-vs-brand-deals)** — Real payout data across both revenue channels.
+**🔗 Related: [Real RPM and CPM rates by country and niche →](/blog/tiktok-rpm-cpm-2026-real-rates-by-country-niche)** — The actual platform payout math across markets.
 ### 5. IP / Brand Asset Value
 
 This only applies to Macro (100K-1M followers) and Mega (1M+) creators. It represents the value of your personal brand as intellectual property — the licensing potential, the recognition, the brand equity that goes beyond individual posts.
@@ -182,13 +185,23 @@ If you want an instant breakdown instead of doing the math yourself, our [TikTok
 
 ## What Makes TikTok Valuation Different in 2026
 
-Three trends are reshaping account valuation this year:
+As of late 2026, four trends are reshaping how accounts are valued:
 
-**1. TikTok Shop Is Eating Everything.** The platform processed $40B+ in US GMV last year. Commerce-ready accounts command significantly higher valuations. We now weight commerce signals (TikTok Shop, Amazon storefront links, Shopify integration) as a separate dimension.
+**1. TikTok Shop Is No Longer a Side Channel.** The numbers have stepped up a level. TikTok Shop's global GMV was an estimated $64.3 billion in 2025 (up roughly 94% year over year, per Momentum Works) and around $50.3 billion in the first half of 2026 alone (up ~92%), with full-year 2026 projections running from roughly $105 billion to $123 billion. In the US, annualized GMV crossed $30 billion in Q2 2026 according to figures cited by Bloomberg, and roughly 28 million US consumers made at least one TikTok Shop purchase over the trailing twelve months. Commerce-ready accounts now command a clear valuation premium — we weight commerce signals (TikTok Shop, Amazon storefront links, Shopify integration) as a dedicated dimension, and demonstrated sales history is worth more than a shop link that has never converted.
 
-**2. The Death of the "Influencer" Label.** Brands are moving from one-off posts to creator partnerships with product development deals, equity stakes, and multi-year contracts. Our IP valuation component captures this "equity value" for macro and mega accounts.
+**2. Retention, Not Reach, Is the New Quality Signal.** The 2026 recommendation system weights watch completion and average watch time above raw views, with re-watch rate rising sharply in importance alongside profile visits and comment sentiment. That changes valuation: accounts with a *reliable* retention system — repeatable hooks, serial formats, consistent completion — are worth more than accounts whose reach rests on one viral spike, because brands can predict their performance. Our [TikTok analytics guide](/blog/tiktok-analytics-guide-2026) shows exactly which metrics signal that reliability.
 
-**3. AI Is Raising the Floor.** AI tools mean a solo creator can now output at the level of a small production team. We don't score "AI usage" directly, but the effects show up in our quality layer — consistent cadence, higher content volume, better editing.
+**3. The Death of the "Influencer" Label.** Brands are moving from one-off posts to creator partnerships with product development deals, equity stakes, and multi-year contracts — and a whole parallel market for UGC and Spark Ads now lets creators with modest followings earn from ad content. Our IP valuation component captures this "equity value" for macro and mega accounts, while the Brand Readiness pillar captures commercial proof at every tier.
+
+**4. AI Is Raising the Floor.** AI tools mean a solo creator can now output at the level of a small production team. We don't score "AI usage" directly, but the effects show up in our quality layer — consistent cadence, higher content volume, better editing. The bar for *baseline* production quality is higher, which is why originality and genuine audience connection increasingly separate accounts that hold value from accounts that merely look polished.
+
+## From Valuation to Action: Make the Number Go Up
+
+A valuation is a snapshot, not a verdict. The six pillars that produce your number — growth momentum, content consistency, audience quality, niche clarity, brand readiness, and risk — are all inputs you can move.
+
+- Want to **raise your score and commercial value**? Work the seven levers in [How to Increase Your TikTok Account Value (2026)](/blog/how-to-increase-tiktok-account-value-2026), complete with a 30/60/90-day plan.
+- Want to **add revenue lines**? The [full monetization channel comparison](/blog/how-to-make-money-on-tiktok-2026) sequences every channel by follower tier.
+- Want to **read the metrics behind the score**? The [2026 analytics guide](/blog/tiktok-analytics-guide-2026) turns your dashboard into a growth plan.
 
 ## Bottom Line
 
@@ -420,4 +433,5 @@ export const ALL_POSTS: BlogPost[] = [
   ...PHASE2_BATCH6,
   ...PHASE2_BATCH7,
   ...PHASE2_BATCH8,
+  ...PHASE3_BATCH1,
 ]
