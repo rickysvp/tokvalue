@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url,
       images: [
         {
-          url: '/og.jpg?v=2',
+          url: `/blog/${slug}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: post.title,
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: ['/og.jpg?v=2'],
+      images: [`/blog/${slug}/opengraph-image`],
     },
     alternates: {
       canonical: url,
@@ -79,6 +79,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         authorName={author?.name || post.author}
         authorUrl={author ? `https://tokvalue.com/authors/${author.slug}` : undefined}
         tags={post.tags}
+        category={post.category}
         url={postUrl}
         content={post.content}
       />
