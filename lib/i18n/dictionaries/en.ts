@@ -1201,6 +1201,7 @@ const en = {
     valuedAsOf: 'Valued as of',
     reportListing: 'Report listing',
     noListings: 'No accounts listed yet. Be the first.',
+    dbUnavailable: 'Marketplace is temporarily unavailable — refresh in a moment.',
     disclaimer: 'TokValue does not facilitate transactions. Verify ownership and transfer the account at your own risk.',
     withdraw: 'Withdraw',
     markSold: 'Mark as Sold',

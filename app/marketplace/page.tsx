@@ -25,13 +25,16 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   let rows: ListingRow[] = []
   let total = 0
   let niches: string[] = []
+  // DB 抖动（Neon 冷连接 fetch failed）不能伪装成"还没有人挂牌"——那会让买家以为市场是空的
+  let dbUnavailable = false
   try {
     niches = await retryOnTransient(() => listNiches())
     const res = await retryOnTransient(() => listActiveListings(page, 24, sort, status, { niche, priceBand: price }))
     rows = res.items
     total = res.total
-  } catch {
-    // DB 不可用时降级为空态，不向用户抛服务端错误
+  } catch (err) {
+    dbUnavailable = true
+    console.error('[marketplace] listings query failed', err)
   }
   const publicItems = rows.map(l => toPublicListing(l))
   const now = Date.now()
@@ -91,38 +94,44 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           ))}
         </div>
 
-        {/* 筛选：赛道 + 价格带 */}
+        {/* 筛选：赛道 + 价格带，各占一行，避免分隔符在换行处落单 */}
         {(niches.length > 0 || status === 'active') && (
-          <div className="flex items-center gap-2 mb-8 flex-wrap text-sm">
-            <span className="text-xs uppercase tracking-wide text-neutral-500 mr-1">{dict.marketplace.filterNiche}</span>
-            <Link href={href({ niche: null, page: '' })}
-              className={`px-3 py-1 rounded-full border text-xs ${!niche ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'}`}>
-              {dict.marketplace.filterAllNiches}
-            </Link>
-            {niches.slice(0, 12).map(n => (
-              <Link key={n} href={href({ niche: n, page: '' })}
-                className={`px-3 py-1 rounded-full border text-xs ${niche === n ? 'border-[#00F2EA] text-[#00F2EA]' : 'border-neutral-800 text-neutral-400 hover:border-neutral-600'}`}>
-                {n}
+          <div className="space-y-2 mb-8 text-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs uppercase tracking-wide text-neutral-500 mr-1 shrink-0">{dict.marketplace.filterNiche}</span>
+              <Link href={href({ niche: null, page: '' })}
+                className={`px-3 py-1 rounded-full border text-xs ${!niche ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'}`}>
+                {dict.marketplace.filterAllNiches}
               </Link>
-            ))}
-            <span className="w-px h-4 bg-neutral-800 mx-1" />
-            {BANDS.map(b => (
-              <Link key={b} href={href({ price: price === b ? null : b, page: '' })}
-                className={`px-3 py-1 rounded-full border text-xs ${price === b ? 'border-[#FF0050] text-[#FF0050]' : 'border-neutral-800 text-neutral-400 hover:border-neutral-600'}`}>
-                {bandLabels[b]}
-              </Link>
-            ))}
-            {(niche || price) && (
-              <Link href={href({ niche: null, price: null, page: '' })} className="text-xs text-neutral-500 underline hover:text-neutral-300 ml-1">
-                {dict.marketplace.clearFilters}
-              </Link>
-            )}
+              {niches.slice(0, 12).map(n => (
+                <Link key={n} href={href({ niche: n, page: '' })}
+                  className={`px-3 py-1 rounded-full border text-xs ${niche === n ? 'border-[#00F2EA] text-[#00F2EA]' : 'border-neutral-800 text-neutral-400 hover:border-neutral-600'}`}>
+                  {n}
+                </Link>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs uppercase tracking-wide text-neutral-500 mr-1 shrink-0">{dict.marketplace.filterPrice}</span>
+              {BANDS.map(b => (
+                <Link key={b} href={href({ price: price === b ? null : b, page: '' })}
+                  className={`px-3 py-1 rounded-full border text-xs ${price === b ? 'border-[#FF0050] text-[#FF0050]' : 'border-neutral-800 text-neutral-400 hover:border-neutral-600'}`}>
+                  {bandLabels[b]}
+                </Link>
+              ))}
+              {(niche || price) && (
+                <Link href={href({ niche: null, price: null, page: '' })} className="text-xs text-neutral-500 underline hover:text-neutral-300 ml-1">
+                  {dict.marketplace.clearFilters}
+                </Link>
+              )}
+            </div>
           </div>
         )}
 
         {publicItems.length === 0 ? (
           <div className="text-center py-24 text-neutral-500 border border-dashed border-neutral-800 rounded-2xl">
-            {niche || price ? dict.marketplace.emptyFiltered : status === 'sold' ? dict.marketplace.noSoldListings : dict.marketplace.noListings}
+            {dbUnavailable
+              ? <span className="text-neutral-300">{dict.marketplace.dbUnavailable}</span>
+              : niche || price ? dict.marketplace.emptyFiltered : status === 'sold' ? dict.marketplace.noSoldListings : dict.marketplace.noListings}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
