@@ -22,6 +22,30 @@ import { HowItWorks } from '@/components/HowItWorks'
 import { SocialProofBar } from '@/components/SocialProofBar'
 import { Testimonials } from '@/components/Testimonials'
 
+// 首页社会证明：与 /api/stats 的返回值同构。本地缓存上一次成功值，
+// 数据库抖动导致接口暂时不可用时，页面上仍然是真实历史数字，而不是整条消失。
+type Stats = {
+  accountsEvaluated: number
+  totalValueAssessed: number
+  uniqueVisitors: number
+  totalFollowers: number
+  countriesReached: number
+}
+const EMPTY_STATS: Stats = { accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0, totalFollowers: 0, countriesReached: 0 }
+const STATS_CACHE_KEY = 'tv_stats_cache_v1'
+
+function readCachedStats(): Stats {
+  try {
+    const raw = localStorage.getItem(STATS_CACHE_KEY)
+    if (!raw) return EMPTY_STATS
+    const parsed = JSON.parse(raw) as Partial<Stats>
+    const merged = { ...EMPTY_STATS, ...parsed }
+    return merged
+  } catch {
+    return EMPTY_STATS
+  }
+}
+
 
 export default function HomePage() {
   const { dict } = useI18n()
@@ -36,7 +60,7 @@ export default function HomePage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [verifyModalMode, setVerifyModalMode] = useState<'evaluate' | 'unlock'>('evaluate')
-  const [stats, setStats] = useState({ accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0, totalFollowers: 0, countriesReached: 0 })
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS)
   const inputRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
 
@@ -90,14 +114,20 @@ export default function HomePage() {
     })()
   }, [])
 
-  // Fetch real stats
+  // Fetch real stats —— 只接受结构完整的真实响应；失败/503 时保留上一次成功值（含本地缓存）
   const refreshStats = useCallback(() => {
-    fetch('/api/stats', { cache: 'no-store' }).then(r => r.json()).then(data => {
-      if (data) setStats(data)
-    }).catch(() => {})
+    fetch('/api/stats', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: Stats | null) => {
+        if (!data || typeof data.accountsEvaluated !== 'number') return
+        setStats(data)
+        try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(data)) } catch {}
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
+    setStats(readCachedStats())
     refreshStats()
   }, [refreshStats])
 
