@@ -54,7 +54,13 @@ ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS price_previous_usd INT
 ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS price_changed_at TIMESTAMPTZ;
 ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS watcher_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS niche TEXT;
+ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS snapshot_avg_plays INTEGER;
 ```
+
+> 回填说明（实施时补充）：`niche` 与 `snapshot_avg_plays` 是卡片第二层（赛道 chip 与 views/video）必需的字段，
+> 原设计漏列，实施时一并加入。`niche` 目前只由种子写入；真实挂牌因 `Evaluation` 无 categories 字段暂为空，
+> 卡片与详情页对 null 降级显示。`snapshot_avg_plays` 同理。
 
 语义：
 
@@ -66,6 +72,10 @@ ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS watcher_count INTEGER 
 | `price_changed_at` | 降价时间 | `created_at + U(3, 20)d`，须早于现在 |
 | `view_count` | 详情浏览数 | 按 price 与 age 派生：`≈ U(8,40) × daysOnMarket^0.8`，上限 2,400 |
 | `watcher_count` | 收藏数 | `≈ view × U(0.04,0.09)`，向下取整 |
+| `niche` | 赛道标签（Finance/Beauty/...） | 种子取 20 个赛道定义之一；真实挂牌暂不可自动填充 |
+| `snapshot_avg_plays` | 单条视频平均播放 | `scoreProfile(...).metrics.avgPlays`，与估值同一口径 |
+| `updated_at`（既有字段，sold 行） | 成交时间 | 售出行的 `updated_at = created_at + ⌊daysOnMarket × U(0.25,0.8)⌋ d`，作为"成交周期"统计来源（无独立 sold_at 字段） |
+| `asking_price_usd` | 叫价 | `roundAsk(mid × U(0.55,0.85))`，且 `≥ low × 0.9`；`roundAsk` 按量级取整（<1K→10、<10K→100、<50K→500、<200K→1000、else→5000） |
 
 ### 3.2 生成脚本 `scripts/seed-marketplace-v2.mts`
 

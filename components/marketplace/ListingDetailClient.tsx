@@ -11,6 +11,12 @@ interface PublicListing {
   askingPriceUsd: number
   description: string | null
   status: string
+  niche?: string | null
+  isSample?: boolean
+  soldPriceUsd?: number | null
+  pricePreviousUsd?: number | null
+  viewCount?: number
+  watcherCount?: number
   snapshot: {
     tier: string | null
     valuationUsd: number | null
@@ -19,6 +25,7 @@ interface PublicListing {
     followers: number | null
     engagementRate: number | null
     evaluatedAt: string | null
+    avgPlays?: number | null
   }
 }
 interface Contact { email: string; socialType: string | null; socialHandle: string | null }
@@ -111,8 +118,20 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
       {listing.status === 'sold' && (
         <div className="flex items-center gap-2 mb-6 px-4 py-3 rounded-xl border border-[#15803d] bg-[#15803d]/10 text-[#15803d] font-semibold text-sm">
           <CheckCircle2 size={16} />{dict.soldBanner}
+          {listing.soldPriceUsd ? <span className="ml-auto text-white">— {dict.soldPriceLabel} ${listing.soldPriceUsd.toLocaleString()}</span> : null}
         </div>
       )}
+      {listing.isSample && (
+        <div className="mb-6 px-4 py-3 rounded-xl border border-dashed border-neutral-700 bg-neutral-950 text-xs text-neutral-400">
+          {dict.sampleNotice}
+        </div>
+      )}
+      <div className="flex items-center gap-3 mb-6 text-xs text-neutral-500 flex-wrap">
+        {listing.niche && <span className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400">{listing.niche}</span>}
+        {s.avgPlays != null && <span>~{s.avgPlays.toLocaleString()} {dict.perVideo}</span>}
+        {(listing.viewCount ?? 0) > 0 && <span>{listing.viewCount} views · {listing.watcherCount ?? 0} watching</span>}
+        {listing.pricePreviousUsd ? <span className="text-[#fbbf24]">Price cut from ${listing.pricePreviousUsd.toLocaleString()}</span> : null}
+      </div>
       <div className="grid grid-cols-3 gap-4 my-8">
         {[
           { label: dict.followers, value: (s.followers ?? 0).toLocaleString() },
@@ -126,9 +145,15 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
         ))}
       </div>
       {listing.description && <p className="text-neutral-300 mb-8 whitespace-pre-wrap">{listing.description}</p>}
-      <div className="flex items-baseline gap-3 mb-8">
-        <span className="text-sm text-neutral-500">{dict.dealPrice}</span>
-        <span className="text-4xl font-extrabold text-[#FF0050]">${listing.askingPriceUsd.toLocaleString()}</span>
+      <div className="flex items-baseline gap-3 mb-8 flex-wrap">
+        <span className="text-sm text-neutral-500">{listing.status === 'sold' ? dict.soldPriceLabel : dict.askPriceLabel}</span>
+        <span className="text-4xl font-extrabold text-[#FF0050]">${(listing.status === 'sold' && listing.soldPriceUsd ? listing.soldPriceUsd : listing.askingPriceUsd).toLocaleString()}</span>
+        {listing.status !== 'sold' && listing.snapshot.valuationUsd != null && (
+          <span className="text-xs text-neutral-400 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800">
+            {Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100) > 0 ? '+' : '−'}
+            {Math.abs(Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100))}% {dict.vsValuation}
+          </span>
+        )}
         <span className="text-sm text-neutral-500 flex items-center gap-1"><Clock size={14} />{dict.valuedAsOf} {s.evaluatedAt ? new Date(s.evaluatedAt).toLocaleDateString('en-US') : '—'}</span>
       </div>
 

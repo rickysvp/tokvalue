@@ -17,6 +17,22 @@ async function getSql(): Promise<NeonQueryFunction<false, false>> {
   return sql
 }
 
+// Neon 冷连接偶发 "fetch failed"：在页面层用 retryOnTransient 重试一次即可。
+// 不要在 neon 的 sql 外面包 async 包装函数——它的标签模板返回值本身就是可 await 的 Query，
+// 且嵌套 fragment 依赖这个同步返回值；包装后 fragment 会退化成 Promise，拼出错误 SQL。
+const TRANSIENT = /fetch failed|ECONNRESET|ETIMEDOUT|Error connecting to database|socket hang up/i
+
+export async function retryOnTransient<T>(fn: () => Promise<T>, retries = 1): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    const msg = String((e as { message?: string })?.message ?? '')
+    if (retries <= 0 || !TRANSIENT.test(msg)) throw e
+    await new Promise(r => setTimeout(r, 400))
+    return retryOnTransient(fn, retries - 1)
+  }
+}
+
 export interface ListingRow extends ListingSnapshot {
   id: string
   username: string
@@ -30,6 +46,14 @@ export interface ListingRow extends ListingSnapshot {
   reportCount: number
   createdAt: string
   updatedAt: string
+  niche: string | null
+  avgPlays: number | null
+  isSample: boolean
+  soldPriceUsd: number | null
+  pricePreviousUsd: number | null
+  priceChangedAt: string | null
+  viewCount: number
+  watcherCount: number
 }
 
 let initPromise: Promise<void> | null = null
@@ -63,6 +87,15 @@ function ensureInit(): Promise<void> {
       await s`CREATE UNIQUE INDEX IF NOT EXISTS idx_listings_active_username ON marketplace_listings(username) WHERE status = 'active'`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_status_created ON marketplace_listings(status, created_at DESC)`
       await s`CREATE INDEX IF NOT EXISTS idx_listings_seller ON marketplace_listings(seller_email)`
+      // 真实感字段（幂等追加）：样例标记、成交价、降价历史、浏览/收藏、赛道与近30天播放
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS is_sample BOOLEAN NOT NULL DEFAULT FALSE`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS sold_price_usd INTEGER`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS price_previous_usd INTEGER`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS price_changed_at TIMESTAMPTZ`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS watcher_count INTEGER NOT NULL DEFAULT 0`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS niche TEXT`
+      await s`ALTER TABLE marketplace_listings ADD COLUMN IF NOT EXISTS snapshot_avg_plays INTEGER`
       await s`
         CREATE TABLE IF NOT EXISTS marketplace_unlocks (
           listing_id TEXT NOT NULL,
@@ -99,6 +132,14 @@ function rowToListing(r: Record<string, unknown>): ListingRow {
     snapshotEngagementRate: r.snapshot_engagement_rate == null ? null : Number(r.snapshot_engagement_rate),
     snapshotEvaluatedAt: r.snapshot_evaluated_at == null ? null : String(r.snapshot_evaluated_at),
     createdAt: String(r.created_at), updatedAt: String(r.updated_at),
+    niche: (r.niche as string) ?? null,
+    avgPlays: r.snapshot_avg_plays == null ? null : Number(r.snapshot_avg_plays),
+    isSample: Boolean(r.is_sample),
+    soldPriceUsd: r.sold_price_usd == null ? null : Number(r.sold_price_usd),
+    pricePreviousUsd: r.price_previous_usd == null ? null : Number(r.price_previous_usd),
+    priceChangedAt: r.price_changed_at == null ? null : String(r.price_changed_at),
+    viewCount: Number(r.view_count ?? 0),
+    watcherCount: Number(r.watcher_count ?? 0),
   }
 }
 
@@ -113,8 +154,12 @@ export function toPublicListing(l: ListingRow, sellerMasked = true, revealUserna
       tier: l.snapshotTier, valuationLow: l.snapshotValuationLow, valuationHigh: l.snapshotValuationHigh,
       valuationUsd: l.snapshotValuationUsd, followers: l.snapshotFollowers,
       engagementRate: l.snapshotEngagementRate, evaluatedAt: l.snapshotEvaluatedAt,
+      avgPlays: l.avgPlays,
     },
-    createdAt: l.createdAt,
+    createdAt: l.createdAt, niche: l.niche,
+    isSample: l.isSample, soldPriceUsd: l.soldPriceUsd,
+    pricePreviousUsd: l.pricePreviousUsd, priceChangedAt: l.priceChangedAt,
+    viewCount: l.viewCount, watcherCount: l.watcherCount,
   }
 }
 
@@ -160,30 +205,84 @@ export async function countActiveListingsByEmail(email: string): Promise<number>
   return Number(rows[0]?.n ?? 0)
 }
 
-export type ListingSort = 'latest' | 'valuation_desc' | 'valuation_asc' | 'followers_desc'
+export type ListingSort = 'latest' | 'valuation_desc' | 'valuation_asc' | 'followers_desc' | 'deal_desc' | 'fresh'
 
-export async function listActiveListings(page: number, pageSize: number, sort: ListingSort, status: 'active' | 'sold' = 'active'): Promise<{ items: ListingRow[]; total: number }> {
+// 价格带白名单 → [min, max)
+export const PRICE_BANDS = {
+  lt1000: [0, 1_000] as const,
+  '1k-10k': [1_000, 10_000] as const,
+  '10k-50k': [10_000, 50_000] as const,
+  // 上界必须落在 Postgres int4 范围内：::int 转 Number.MAX_SAFE_INTEGER 会溢出报错
+  gt50k: [50_000, 100_000_000] as const,
+}
+export type PriceBand = keyof typeof PRICE_BANDS
+
+export interface ListingFilter { niche?: string | null; priceBand?: PriceBand | null }
+
+export async function listActiveListings(
+  page: number, pageSize: number, sort: ListingSort,
+  status: 'active' | 'sold' = 'active', filter: ListingFilter = {},
+): Promise<{ items: ListingRow[]; total: number }> {
   await ensureInit()
   const s = await getSql()
   const offset = (page - 1) * pageSize
-  const countRows = await s`SELECT COUNT(*)::int AS n FROM marketplace_listings WHERE status = ${status}` as Array<{ n: number }>
-  // neon tagged template 不能内联动态 ORDER BY 字符串，四种排序各写一条显式 SQL
-  const rows = sort === 'valuation_desc'
-    ? await s`
-      SELECT * FROM marketplace_listings WHERE status = ${status}
-      ORDER BY snapshot_valuation_usd DESC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
-    : sort === 'valuation_asc'
-    ? await s`
-      SELECT * FROM marketplace_listings WHERE status = ${status}
-      ORDER BY snapshot_valuation_usd ASC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
-    : sort === 'followers_desc'
-    ? await s`
-      SELECT * FROM marketplace_listings WHERE status = ${status}
-      ORDER BY snapshot_followers DESC NULLS LAST LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
-    : await s`
-      SELECT * FROM marketplace_listings WHERE status = ${status}
-      ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
+  const band = filter.priceBand ? PRICE_BANDS[filter.priceBand] : null
+  // 过滤条件统一构造成一个可复用的片段（neon 支持嵌套 fragment，值仍走参数化）
+  const where = s`status = ${status}
+    AND (${filter.niche ?? null}::text IS NULL OR niche = ${filter.niche ?? null}::text)
+    AND (${band ? band[0] : null}::int IS NULL OR asking_price_usd >= ${band ? band[0] : null}::int)
+    AND (${band ? band[1] : null}::int IS NULL OR asking_price_usd < ${band ? band[1] : null}::int)`
+  // neon tagged template 不能内联动态 ORDER BY 字符串，每种排序各写一条显式片段
+  const orderBy = sort === 'valuation_desc' ? s`ORDER BY snapshot_valuation_usd DESC NULLS LAST, created_at DESC`
+    : sort === 'valuation_asc' ? s`ORDER BY snapshot_valuation_usd ASC NULLS LAST, created_at DESC`
+    : sort === 'followers_desc' ? s`ORDER BY snapshot_followers DESC NULLS LAST, created_at DESC`
+    : sort === 'deal_desc' ? s`ORDER BY (1 - asking_price_usd::float / NULLIF(snapshot_valuation_usd, 0)) DESC NULLS LAST, created_at DESC`
+    : sort === 'fresh' ? s`ORDER BY snapshot_evaluated_at DESC NULLS LAST, created_at DESC`
+    : s`ORDER BY created_at DESC`
+
+  const countRows = await s`SELECT COUNT(*)::int AS n FROM marketplace_listings WHERE ${where}` as Array<{ n: number }>
+  const rows = await s`
+    SELECT * FROM marketplace_listings WHERE ${where}
+    ${orderBy} LIMIT ${pageSize} OFFSET ${offset}` as Array<Record<string, unknown>>
   return { items: rows.map(rowToListing), total: Number(countRows[0]?.n ?? 0) }
+}
+
+// 赛道列表（用于筛选下拉；仅取有数据的赛道）
+export async function listNiches(): Promise<string[]> {
+  await ensureInit()
+  const s = await getSql()
+  const rows = await s`
+    SELECT niche, COUNT(*)::int AS n FROM marketplace_listings
+    WHERE status = 'active' AND niche IS NOT NULL
+    GROUP BY niche ORDER BY n DESC` as Array<{ niche: string; n: number }>
+  return rows.map(r => String(r.niche))
+}
+
+// 市场概况：仅统计真实成交（有 sold_price 的行），用于 /sell 页的社会证明
+export async function getMarketplaceStats(): Promise<{
+  active: number; sold: number
+  medianDiscountPct: number | null; medianDaysToSell: number | null
+}> {
+  await ensureInit()
+  const s = await getSql()
+  const counts = await s`
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'active')::int AS active,
+      COUNT(*) FILTER (WHERE status = 'sold')::int AS sold
+    FROM marketplace_listings` as Array<{ active: number; sold: number }>
+  const deals = await s`
+    SELECT sold_price_usd::float / NULLIF(snapshot_valuation_usd, 0) AS ratio,
+           EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 AS days
+    FROM marketplace_listings
+    WHERE status = 'sold' AND sold_price_usd IS NOT NULL AND snapshot_valuation_usd > 0` as Array<{ ratio: number | null; days: number | null }>
+  const ratios = deals.map(d => Number(d.ratio)).filter(v => Number.isFinite(v)).sort((a, b) => a - b)
+  const days = deals.map(d => Number(d.days)).filter(v => Number.isFinite(v)).sort((a, b) => a - b)
+  const med = (arr: number[]) => arr.length ? arr[Math.floor(arr.length / 2)] : null
+  return {
+    active: Number(counts[0]?.active ?? 0), sold: Number(counts[0]?.sold ?? 0),
+    medianDiscountPct: ratios.length ? Math.round(med(ratios)! * 100) : null,
+    medianDaysToSell: days.length ? Math.round(med(days)!) : null,
+  }
 }
 
 export async function getListingById(id: string): Promise<ListingRow | null> {
