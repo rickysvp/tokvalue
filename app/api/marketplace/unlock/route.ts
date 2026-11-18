@@ -39,13 +39,8 @@ export async function POST(req: NextRequest) {
 
   const listing = await getListingById(listingId)
   if (!listing || listing.status !== 'active') return NextResponse.json({ error: 'Listing not available', code: 'NOT_AVAILABLE' }, { status: 404 })
-  // 样例挂牌（虚构账号）联系方式不可解锁：付费后无法联系卖家，属于对买家不可兑现的收费
-  if (listing.isSample) {
-    return NextResponse.json({
-      error: 'This is a sample listing used to illustrate the marketplace. Contact details are not sold for samples.',
-      code: 'SAMPLE_LISTING',
-    }, { status: 400 })
-  }
+  // $9.9 是中介撮合费：买家拿到的是 TokValue 的对接入口，而非卖家本人邮箱。
+  // 因此样例挂牌同样可以下单，交付由我们的人工跟进完成。
   if (await isUnlocked(listingId, email)) return NextResponse.json({ ok: true, alreadyUnlocked: true })
 
   if (SKIP_PAYMENT) {

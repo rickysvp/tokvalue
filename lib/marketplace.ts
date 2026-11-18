@@ -3,6 +3,7 @@ import type { Evaluation } from '../types'
 
 export const UNLOCK_PACKAGE_ID = 'unlock1'
 export const UNLOCK_PRICE_USD = 9.9
+export const BROKER_CONTACT_EMAIL = 'connect@tokvalue.com'
 export const MAX_ACTIVE_LISTINGS_PER_EMAIL = 5
 export const REPORT_REMOVE_THRESHOLD = 3
 export const MAX_DESCRIPTION_LENGTH = 500

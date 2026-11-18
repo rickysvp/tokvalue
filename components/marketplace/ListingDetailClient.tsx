@@ -153,22 +153,16 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
             <div className="flex items-center gap-2 text-[#00F2EA] font-semibold mb-4"><CheckCircle2 size={18} />{dict.unlocked}</div>
             <p className="mb-2">{dict.emailLabel}: <a className="text-[#00F2EA] underline" href={`mailto:${contact.email}`}>{contact.email}</a></p>
             {contact.socialType && <p>{contact.socialType}: {contact.socialHandle}</p>}
+            <p className="text-xs text-neutral-500 mt-3">{dict.introDeliveredNote}</p>
           </div>
         ) : listing.status === 'sold' ? (
           <div className="text-center text-neutral-500 py-4">
             <div className="flex items-center justify-center gap-2 mb-2"><Lock size={18} />{dict.contactHidden}</div>
             <p className="text-sm">{dict.soldBanner}</p>
           </div>
-        ) : listing.isSample ? (
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 text-neutral-400 mb-3"><Lock size={18} />{dict.contactHidden}</div>
-            <Link href="/" className="inline-block bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-6 py-3 font-bold transition-colors">
-              {dict.sampleCtaButton}
-            </Link>
-          </div>
         ) : (
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 text-neutral-400 mb-2"><Lock size={18} />{dict.contactHidden}</div>
+            <div className="flex items-center justify-center gap-2 text-neutral-400 mb-2"><Lock size={18} />{dict.contactViaBroker}</div>
             <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4">{dict.introFeeNote}</p>
             <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder={dict.emailPlaceholder}
               className="w-full max-w-xs bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 mb-3 text-sm focus:border-[#00F2EA] outline-none" />

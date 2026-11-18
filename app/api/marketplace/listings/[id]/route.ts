@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBearerToken, verifySessionToken } from '@/lib/auth'
 import { getListingById, isUnlocked, updateListing, toPublicListing } from '@/lib/marketplace-db'
+import { BROKER_CONTACT_EMAIL } from '@/lib/marketplace'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     listing: pub,
     unlocked,
     isSeller,
-    ...(unlocked ? { contact: { email: listing.contactEmail, socialType: listing.socialType, socialHandle: listing.socialHandle } } : {}),
+    // 买家拿到的是中介对接入口，不暴露卖家邮箱；卖家本人可见自己的联系方式
+    ...(unlocked
+      ? {
+          contact: isSeller
+            ? { email: listing.contactEmail, socialType: listing.socialType, socialHandle: listing.socialHandle }
+            : { email: BROKER_CONTACT_EMAIL, socialType: null, socialHandle: null },
+        }
+      : {}),
   })
 }
 
