@@ -386,14 +386,18 @@ function Hero({ dict, stats, children, compact }: { dict: Dict; stats: SellStats
           <h1 className="text-4xl font-bold mb-3 max-w-3xl leading-tight">{dict.sellHeroTitle}</h1>
           <p className="text-neutral-400 mb-6 max-w-2xl leading-relaxed">{dict.sellHeroSubtitle}</p>
           {tiles.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-              {tiles.map(([v, l]) => (
-                <div key={l} className="border border-neutral-800 rounded-xl px-4 py-3 bg-neutral-950">
-                  <div className="text-xl font-bold">{v}</div>
-                  <div className="text-[11px] text-neutral-500 leading-snug mt-0.5">{l}</div>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {tiles.map(([v, l]) => (
+                  <div key={l} className="border border-neutral-800 rounded-xl px-4 py-3 bg-neutral-950">
+                    <div className="text-xl font-bold">{v}</div>
+                    <div className="text-[11px] text-neutral-500 leading-snug mt-0.5">{l}</div>
+                  </div>
+                ))}
+              </div>
+              {/* 这几个数字来自种子样例挂牌，必须写明来源，不能当成真实成交业绩 */}
+              <p className="text-[11px] text-neutral-500 mt-2">{dict.sellStatsNote}</p>
+            </>
           )}
         </>
       )}

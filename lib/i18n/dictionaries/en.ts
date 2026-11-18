@@ -1275,6 +1275,7 @@ const en = {
     sellStatDiscount: 'typical close vs valuation',
     sellStatDays: 'median time to close',
     sellStatDeals: 'completed deals',
+    sellStatsNote: 'Figures above come from seeded sample listings while the marketplace is in early access — not verified past sales.',
     sellStatsEmpty: 'Market data appears here once the first listings close.',
     priceAnchorTitle: 'Pick your asking price',
     priceAnchorHint: 'This is the same valuation buyers will see. Most sellers list between 55% and 85% of the mid value.',
