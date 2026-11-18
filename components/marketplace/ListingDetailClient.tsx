@@ -160,10 +160,8 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
             <p className="text-sm">{dict.soldBanner}</p>
           </div>
         ) : listing.isSample ? (
-          // 样例挂牌没有可联系的卖家，接口也会拒绝解锁：不要在这里摆一个必然报错的付费按钮
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 text-neutral-400 mb-3"><Lock size={18} />{dict.contactHidden}</div>
-            <p className="text-sm text-neutral-500 max-w-sm mx-auto mb-4">{dict.sampleCtaNote}</p>
             <Link href="/" className="inline-block bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-6 py-3 font-bold transition-colors">
               {dict.sampleCtaButton}
             </Link>
