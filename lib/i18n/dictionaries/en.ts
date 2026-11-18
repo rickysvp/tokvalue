@@ -1185,7 +1185,7 @@ const en = {
   // ── Account Marketplace ──
   marketplace: {
     title: 'Account Marketplace',
-    subtitle: 'Verified valuations. Direct contact. You negotiate the deal.',
+    subtitle: 'What accounts like yours are valued at — see the numbers, then get your own in seconds.',
     listForSale: 'List This Account for Sale',
     requiresPaidReport: 'A paid full report is required to list an account.',
     askingPrice: 'Asking Price (USD)',
@@ -1224,6 +1224,14 @@ const en = {
     sampleNotice: 'Sample listing — this account is illustrative and its contact details are not for sale. Use it to see how listings are scored and priced.',
     sampleCtaNote: 'Sample account — there is no seller to contact. Check your own handle to see what a listing like this would price at.',
     sampleCtaButton: 'Evaluate my account',
+    detailCtaTitle: 'What would your account be worth?',
+    detailCtaBody: 'Same scoring model, same metrics — followers, engagement quality, posting consistency. Get your own number in about 2 minutes.',
+    detailCtaButton: 'Evaluate my account',
+    detailCtaFootnote: 'Public data only. No password, no account access.',
+    detailSoldCta: 'This one sold. Curious where your account would land?',
+    listCtaTitle: 'These numbers are valuations, not guesses',
+    listCtaBody: 'Every account here was scored on followers, engagement quality and posting consistency. Run the same model on your handle — about 2 minutes.',
+    listCtaButton: 'Check my account value',
     perVideo: 'views/video',
     soldPriceLabel: 'Sold for',
     vsValuation: 'vs valuation',

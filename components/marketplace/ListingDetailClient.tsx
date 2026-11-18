@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { getSessionToken, setSessionToken } from '@/lib/credits-client'
+import { useState } from 'react'
+import { getSessionToken } from '@/lib/credits-client'
 import { TIER_COLORS } from '@/lib/tier'
 import type { EnDict } from '@/lib/i18n/dictionaries/en'
-import { Lock, Clock, Flag, CheckCircle2 } from 'lucide-react'
+import { Clock, Flag, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 
 interface PublicListing {
@@ -29,76 +29,12 @@ interface PublicListing {
     avgPlays?: number | null
   }
 }
-interface Contact { email: string; socialType: string | null; socialHandle: string | null }
 type Dict = EnDict['marketplace']
 
-export default function ListingDetailClient({ listing, paidReturn, dict }: { listing: PublicListing; paidReturn?: { email: string }; dict: Dict }) {
-  const [contact, setContact] = useState<Contact | null>(null)
-  const [fullName, setFullName] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+// 市场页只做「展示 + 引流评估」：不提供下单、不卖联系方式。
+// 因此详情页没有任何购买入口，唯一 CTA 是指向评估。
+export default function ListingDetailClient({ listing, dict }: { listing: PublicListing; paidReturn?: { email: string }; dict: Dict }) {
   const [error, setError] = useState('')
-  const [emailInput, setEmailInput] = useState(paidReturn?.email || '')
-
-  // 已登录：拉详情看是否已解锁
-  useEffect(() => {
-    const token = getSessionToken()
-    fetch(`/api/marketplace/listings/${listing.id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.unlocked && d.contact) { setContact(d.contact); if (d.listing?.username) setFullName(d.listing.username) } })
-      .catch(() => {})
-  }, [listing.id])
-
-  // 支付回跳：轮询 claim（最多 6 次 × 3s），成功后刷新解锁状态
-  useEffect(() => {
-    if (!paidReturn) return
-    let tries = 0
-    const timer = setInterval(async () => {
-      tries++
-      try {
-        const token = getSessionToken()
-        const res = await fetch('/api/credits/claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ email: paidReturn.email }),
-        })
-        const d = await res.json()
-        if (d?.unlocked || tries >= 6) {
-          clearInterval(timer)
-          if (d?.token) setSessionToken(d.token)
-          await refreshContact()
-        }
-      } catch { if (tries >= 6) clearInterval(timer) }
-    }, 3000)
-    return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paidReturn, listing.id])
-
-  async function handleUnlock() {
-    setLoading(true); setError('')
-    try {
-      const token = getSessionToken()
-      const res = await fetch('/api/marketplace/unlock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ listingId: listing.id, email: emailInput }),
-      })
-      const d = await res.json()
-      if (d.alreadyUnlocked || d.unlocked) { await refreshContact(); return }
-      if (d.checkoutUrl) { window.location.href = d.checkoutUrl; return }
-      setError(d.code === 'UNAUTHORIZED' || d.code === 'INVALID_EMAIL' ? dict.enterEmailToPay : (d.error || dict.unlockFailed))
-    } catch { setError(dict.networkError) } finally { setLoading(false) }
-  }
-
-  async function refreshContact() {
-    const token = getSessionToken()
-    const res = await fetch(`/api/marketplace/listings/${listing.id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-    const d = await res.json()
-    if (d?.contact) {
-      setContact(d.contact)
-      if (d.listing?.username) setFullName(d.listing.username)
-      requestAnimationFrame(() => document.getElementById('contact-box')?.scrollIntoView({ behavior: 'smooth' }))
-    }
-  }
 
   async function handleReport() {
     const token = getSessionToken()
@@ -109,22 +45,20 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
 
   const s = listing.snapshot
   const color = s.tier ? TIER_COLORS[s.tier] ?? '#fff' : '#fff'
+  const deltaPct = listing.status !== 'sold' && s.valuationUsd
+    ? Math.round(((listing.askingPriceUsd - s.valuationUsd) / s.valuationUsd) * 100)
+    : null
 
   return (
     <main className="px-6 py-12 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-3xl font-bold">@{fullName ?? listing.username}</h1>
+        <h1 className="text-3xl font-bold">@{listing.username}</h1>
         {s.tier && <span className="text-sm font-bold px-3 py-1 rounded-lg" style={{ color, border: `1px solid ${color}` }}>{s.tier}</span>}
       </div>
       {listing.status === 'sold' && (
         <div className="flex items-center gap-2 mb-6 px-4 py-3 rounded-xl border border-[#15803d] bg-[#15803d]/10 text-[#15803d] font-semibold text-sm">
           <CheckCircle2 size={16} />{dict.soldBanner}
           {listing.soldPriceUsd ? <span className="ml-auto text-white">— {dict.soldPriceLabel} ${listing.soldPriceUsd.toLocaleString()}</span> : null}
-        </div>
-      )}
-      {listing.isSample && (
-        <div className="mb-6 px-4 py-3 rounded-xl border border-dashed border-neutral-700 bg-neutral-950 text-xs text-neutral-400">
-          {dict.sampleNotice}
         </div>
       )}
       <div className="flex items-center gap-3 mb-6 text-xs text-neutral-500 flex-wrap">
@@ -149,51 +83,32 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
       <div className="flex items-baseline gap-3 mb-8 flex-wrap">
         <span className="text-sm text-neutral-500">{listing.status === 'sold' ? dict.soldPriceLabel : dict.askPriceLabel}</span>
         <span className="text-4xl font-extrabold text-[#FF0050]">${(listing.status === 'sold' && listing.soldPriceUsd ? listing.soldPriceUsd : listing.askingPriceUsd).toLocaleString()}</span>
-        {listing.status !== 'sold' && listing.snapshot.valuationUsd != null && (
+        {deltaPct != null && (
           <span className="text-xs text-neutral-400 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800">
-            {Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100) > 0 ? '+' : '−'}
-            {Math.abs(Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100))}% {dict.vsValuation}
+            {deltaPct > 0 ? '+' : '−'}{Math.abs(deltaPct)}% {dict.vsValuation}
           </span>
         )}
         <span className="text-sm text-neutral-500 flex items-center gap-1"><Clock size={14} />{dict.valuedAsOf} {s.evaluatedAt ? new Date(s.evaluatedAt).toLocaleDateString('en-US') : '—'}</span>
       </div>
 
-      <div id="contact-box" className="border border-neutral-800 rounded-2xl p-6 mb-8 bg-neutral-950">
-        {contact ? (
-          <div>
-            <div className="flex items-center gap-2 text-[#00F2EA] font-semibold mb-4"><CheckCircle2 size={18} />{dict.unlocked}</div>
-            <p className="mb-2">{dict.emailLabel}: <a className="text-[#00F2EA] underline" href={`mailto:${contact.email}`}>{contact.email}</a></p>
-            {contact.socialType && <p>{contact.socialType}: {contact.socialHandle}</p>}
-          </div>
-        ) : listing.status === 'sold' ? (
-          <div className="text-center text-neutral-500 py-4">
-            <div className="flex items-center justify-center gap-2 mb-2"><Lock size={18} />{dict.contactHidden}</div>
-            <p className="text-sm">{dict.soldBanner}</p>
-          </div>
-        ) : listing.isSample ? (
-          // 样例挂牌没有可联系的卖家，接口也会拒绝解锁：不要在这里摆一个必然报错的付费按钮
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 text-neutral-400 mb-3"><Lock size={18} />{dict.contactHidden}</div>
-            <p className="text-sm text-neutral-500 max-w-sm mx-auto mb-4">{dict.sampleCtaNote}</p>
-            <Link href="/" className="inline-block bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-6 py-3 font-bold transition-colors">
-              {dict.sampleCtaButton}
-            </Link>
-          </div>
+      {/* 唯一转化出口：评估自己的账号 */}
+      <div className="border border-neutral-800 rounded-2xl p-6 mb-8 bg-neutral-950 text-center">
+        {listing.status === 'sold' ? (
+          <p className="text-sm text-neutral-500 max-w-md mx-auto">{dict.detailSoldCta}</p>
         ) : (
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 text-neutral-400 mb-4"><Lock size={18} />{dict.contactHidden}</div>
-            <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder={dict.emailPlaceholder}
-              className="w-full max-w-xs bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2.5 mb-3 text-sm focus:border-[#00F2EA] outline-none" />
-            <button onClick={handleUnlock} disabled={loading}
-              className="w-full max-w-xs bg-[#FF0050] hover:bg-[#e0004a] disabled:opacity-50 rounded-lg py-3 font-bold transition-colors">
-              {loading ? dict.loading : dict.unlockContact}
-            </button>
-            {error && <p className="text-sm text-[#FF0050] mt-2">{error}</p>}
-          </div>
+          <>
+            <p className="text-lg font-semibold mb-2">{dict.detailCtaTitle}</p>
+            <p className="text-sm text-neutral-500 max-w-md mx-auto mb-5">{dict.detailCtaBody}</p>
+          </>
         )}
+        <Link href="/" className="inline-block bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-7 py-3 font-bold transition-colors">
+          {dict.detailCtaButton}
+        </Link>
+        <p className="text-xs text-neutral-600 mt-3">{dict.detailCtaFootnote}</p>
       </div>
 
       <button onClick={handleReport} className="text-xs text-neutral-600 hover:text-neutral-400 flex items-center gap-1"><Flag size={12} />{dict.reportListing}</button>
+      {error && <p className="text-xs text-[#FF0050] mt-2">{error}</p>}
       <p className="text-xs text-neutral-600 mt-8 border-t border-neutral-800 pt-4">{dict.disclaimer}</p>
     </main>
   )

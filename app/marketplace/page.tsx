@@ -134,9 +134,21 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
               : niche || price ? dict.marketplace.emptyFiltered : status === 'sold' ? dict.marketplace.noSoldListings : dict.marketplace.noListings}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {publicItems.map(item => <ListingCard key={item.id} item={item} dict={dict} now={now} />)}
-          </div>
+          <>
+            {/* 陈列的目的就是把人推去做自己的评估 */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 rounded-xl border border-neutral-800 bg-neutral-950 px-5 py-4">
+              <div>
+                <p className="font-semibold text-sm">{dict.marketplace.listCtaTitle}</p>
+                <p className="text-xs text-neutral-500 mt-1">{dict.marketplace.listCtaBody}</p>
+              </div>
+              <Link href="/" className="shrink-0 text-center bg-[#FF0050] hover:bg-[#e0004a] rounded-lg px-5 py-2.5 text-sm font-bold transition-colors">
+                {dict.marketplace.listCtaButton}
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {publicItems.map(item => <ListingCard key={item.id} item={item} dict={dict} now={now} />)}
+            </div>
+          </>
         )}
 
         {total > 24 && (
