@@ -1221,6 +1221,7 @@ const en = {
     priceBandGt50k: '$50K+',
     clearFilters: 'Reset',
     sampleBadge: 'Sample',
+    sampleListingsNote: 'Sample listings shown for reference — real sellers appear as they join. Prices and sales are illustrative, not verified transactions.',
     sampleNotice: 'Sample listing — this account is illustrative and its contact details are not for sale. Use it to see how listings are scored and priced.',
     perVideo: 'views/video',
     soldPriceLabel: 'Sold for',

@@ -68,9 +68,6 @@ export default function ListingCard({ item, dict, now }: { item: PublicItem; dic
             {item.niche && (
               <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-400 border border-neutral-800">{item.niche}</span>
             )}
-            {item.isSample && (
-              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-500 border border-dashed border-neutral-700">{dict.marketplace.sampleBadge}</span>
-            )}
           </div>
         </div>
         <span className="flex items-center gap-2 shrink-0">
