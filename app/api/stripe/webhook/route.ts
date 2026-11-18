@@ -154,6 +154,14 @@ export async function POST(req: NextRequest) {
         const { recordUnlock } = await import('@/lib/marketplace-db')
         const isNew = await recordUnlock(listingId, email.toLowerCase())
         console.log('[creem-webhook] unlock recorded:', checkoutId, 'new:', isNew)
+        // 该商品（pack6）本身承诺 6 份报告：同一次付款同时交付 6 credits + 中介介绍，
+        // 否则结账页写"6 reports"、实际只给介绍，属于不可兑现的错配。
+        const { grantCredits } = await import('@/lib/credits-server')
+        const unlockPkg = findPackage('pack6')
+        if (unlockPkg) {
+          const { granted } = await grantCredits(email.toLowerCase(), 'pack6', unlockPkg.credits, info.orderAmount / 100, checkoutId)
+          console.log('[creem-webhook] unlock bonus credits granted:', granted, 'checkout:', checkoutId)
+        }
         if (isNew) {
           recordEvent({ event_type: 'checkout_success', email, metadata: { packageId: UNLOCK_PACKAGE_ID, listingId, amount: UNLOCK_PRICE_USD, checkoutId } }).catch(() => {})
         }

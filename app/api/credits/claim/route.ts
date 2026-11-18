@@ -1,3 +1,4 @@
+import { UNLOCK_PRICE_USD } from '@/lib/marketplace'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPendingPurchase, claimPendingPurchase, deletePendingPurchase } from '@/lib/credits-server'
 import { getBearerToken, verifySessionToken, createSessionToken } from '@/lib/auth'
@@ -125,10 +126,23 @@ export async function POST(req: NextRequest) {
     if (pending.packageId === 'unlock1' && pending.listingId) {
       const { recordUnlock } = await import('@/lib/marketplace-db')
       await recordUnlock(pending.listingId, email)
+      // 同一件 $9.99 商品同时承诺 6 份报告，这里补发 credits（以 checkoutId 幂等）
+      const { grantCredits } = await import('@/lib/credits-server')
+      const { findPackage } = await import('@/lib/credits')
+      const unlockPkg = findPackage('pack6')
+      const granted = unlockPkg
+        ? await grantCredits(email, 'pack6', unlockPkg.credits, UNLOCK_PRICE_USD, pending.checkoutId)
+        : null
       await deletePendingPurchase(email)
       recordEventFromRequest(req, { event_type: 'credit_claim', email, metadata: { type: 'unlock', listingId: pending.listingId, checkoutId: pending.checkoutId, isGuest } }).catch(() => {})
       const sessionToken = isGuest ? await createSessionToken(email) : null
-      return NextResponse.json({ claimed: true, email, credits: 0, totalPurchased: 0, unlocked: true, listingId: pending.listingId, ...(sessionToken ? { token: sessionToken } : {}) })
+      return NextResponse.json({
+        claimed: true, email,
+        credits: granted?.balance.credits ?? 0,
+        totalPurchased: granted?.balance.totalPurchased ?? 0,
+        unlocked: true, listingId: pending.listingId,
+        ...(sessionToken ? { token: sessionToken } : {}),
+      })
     }
 
     // Step 3: Grant credits (claimPendingPurchase 内部用 checkoutId 作为幂等键，

@@ -48,6 +48,11 @@ export async function POST(req: NextRequest) {
     // 本地联调：直接发放（与 checkout DEV 模式语义一致，仅限 development）
     const { recordUnlock } = await import('@/lib/marketplace-db')
     await recordUnlock(listingId, email)
+    // 与线上一致：同一笔 $9.99 同时给 6 份报告额度，便于本地验证交付口径
+    const { grantCredits } = await import('@/lib/credits-server')
+    const { findPackage } = await import('@/lib/credits')
+    const devPkg = findPackage('pack6')
+    if (devPkg) await grantCredits(email, 'pack6', devPkg.credits, UNLOCK_PRICE_USD, `dev-unlock-${listingId}-${email}`)
     return NextResponse.json({ ok: true, devMode: true, unlocked: true })
   }
 
