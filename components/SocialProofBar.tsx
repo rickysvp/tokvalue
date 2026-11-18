@@ -25,17 +25,21 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
     return null
   }
 
+  // 一律向下取整再配 "+"：1376 显示 1.3K+ 而不是 1.4K+，避免把真实数字往上抬
+  const floor1 = (n: number) => Math.floor(n * 10) / 10
+
   const formatValue = (n: number): string => {
-    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B+`
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`
-    return `${n}+`
+    if (n >= 1_000_000_000) return `${floor1(n / 1_000_000_000)}B+`
+    if (n >= 1_000_000) return `${floor1(n / 1_000_000)}M+`
+    if (n >= 1_000) return `${floor1(n / 1_000)}K+`
+    return String(n)
   }
 
   const formatCurrency = (n: number): string => {
-    if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B+`
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M+`
-    return `$${n.toLocaleString('en-US')}+`
+    if (n >= 1_000_000_000) return `$${floor1(n / 1_000_000_000)}B+`
+    if (n >= 1_000_000) return `$${floor1(n / 1_000_000)}M+`
+    if (n >= 1_000) return `$${n.toLocaleString('en-US')}+`
+    return `$${n.toLocaleString('en-US')}`
   }
 
   const countries = stats.countriesReached ?? 0
