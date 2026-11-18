@@ -134,14 +134,9 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
               : niche || price ? dict.marketplace.emptyFiltered : status === 'sold' ? dict.marketplace.noSoldListings : dict.marketplace.noListings}
           </div>
         ) : (
-          <>
-            {publicItems.some(i => i.isSample) && (
-              <p className="text-xs text-neutral-500 mb-3">{dict.marketplace.sampleListingsNote}</p>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {publicItems.map(item => <ListingCard key={item.id} item={item} dict={dict} now={now} />)}
-            </div>
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {publicItems.map(item => <ListingCard key={item.id} item={item} dict={dict} now={now} />)}
+          </div>
         )}
 
         {total > 24 && (
