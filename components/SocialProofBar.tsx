@@ -47,7 +47,7 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
     {
       icon: TrendingUp,
       value: formatValue(stats.visitors),
-      label: 'Visitors',
+      label: 'Users',
     },
     {
       icon: BarChart3,
