@@ -1222,6 +1222,8 @@ const en = {
     clearFilters: 'Reset',
     sampleBadge: 'Sample',
     sampleNotice: 'Sample listing — this account is illustrative and its contact details are not for sale. Use it to see how listings are scored and priced.',
+    sampleCtaNote: 'Sample account — there is no seller to contact. Check your own handle to see what a listing like this would price at.',
+    sampleCtaButton: 'Evaluate my account',
     perVideo: 'views/video',
     soldPriceLabel: 'Sold for',
     vsValuation: 'vs valuation',
