@@ -3,9 +3,9 @@
 import { Globe, Users, BarChart3, DollarSign, TrendingUp } from 'lucide-react'
 
 interface SocialProofStats {
-  accountsValued: number
+  accountsEvaluated: number
   totalValueAssessed: number
-  pageViews: number
+  visitors: number
   totalFollowers?: number
   countriesReached?: number
 }
@@ -17,9 +17,9 @@ interface SocialProofBarProps {
 export function SocialProofBar({ stats }: SocialProofBarProps) {
   // Don't render anything if API hasn't returned real data
   if (
-    stats.accountsValued === 0 &&
+    stats.accountsEvaluated === 0 &&
     stats.totalValueAssessed === 0 &&
-    stats.pageViews === 0 &&
+    stats.visitors === 0 &&
     (stats.totalFollowers ?? 0) === 0
   ) {
     return null
@@ -46,13 +46,13 @@ export function SocialProofBar({ stats }: SocialProofBarProps) {
   const items = [
     {
       icon: TrendingUp,
-      value: formatValue(stats.pageViews),
-      label: 'Page Views',
+      value: formatValue(stats.visitors),
+      label: 'Visitors',
     },
     {
       icon: BarChart3,
-      value: formatValue(stats.accountsValued),
-      label: 'Valuations Run',
+      value: formatValue(stats.accountsEvaluated),
+      label: 'Accounts Evaluated',
     },
     ...(countries > 0
       ? [{

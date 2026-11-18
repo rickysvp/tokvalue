@@ -4,9 +4,9 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 export const dynamic = 'force-dynamic'
 
 interface StatsPayload {
-  accountsValued: number
+  accountsEvaluated: number
   totalValueAssessed: number
-  pageViews: number
+  visitors: number
   totalFollowers: number
   countriesReached: number
 }
@@ -32,22 +32,19 @@ function db() {
 async function loadStats(): Promise<StatsPayload> {
   const rows = (await db()`
     SELECT
-      -- 每完成一次估值快照记一条事件；排除本地/预览机产生的噪声
-      (SELECT COUNT(*) FROM analytics_events
-         WHERE event_type = 'commercial_snapshot_ready'
-           AND COALESCE(metadata->>'hostname', '') NOT IN ('127.0.0.1', 'localhost')) AS accounts,
+      -- Accounts Evaluated 必须按账号去重：evaluations 一行一个账号的快照
+      (SELECT COUNT(DISTINCT LOWER(username)) FROM evaluations) AS accounts,
       (SELECT COALESCE(SUM((business_value->'totalValue'->>'mid')::numeric), 0) FROM evaluations) AS value,
       (SELECT COALESCE(SUM(follower_count), 0) FROM evaluations) AS followers,
       (SELECT COUNT(DISTINCT UPPER(TRIM(region))) FROM evaluations WHERE region IS NOT NULL AND TRIM(region) <> '') AS countries,
-      (SELECT COUNT(*) FROM analytics_events
-         WHERE event_type = 'page_view'
-           AND COALESCE(metadata->>'hostname', '') NOT IN ('127.0.0.1', 'localhost')) AS pv
+      -- Visitors 按人去重：ip_hash 优先，缺失时退化为 session_id
+      (SELECT COUNT(DISTINCT COALESCE(NULLIF(ip_hash, ''), session_id)) FROM analytics_events WHERE event_type = 'page_view') AS uv
   `) as Array<Record<string, string | number>>
   const r = rows[0] || {}
   return {
-    accountsValued: Number(r.accounts || 0),
+    accountsEvaluated: Number(r.accounts || 0),
     totalValueAssessed: Math.round(Number(r.value || 0)),
-    pageViews: Number(r.pv || 0),
+    visitors: Number(r.uv || 0),
     totalFollowers: Number(r.followers || 0),
     countriesReached: Number(r.countries || 0),
   }
