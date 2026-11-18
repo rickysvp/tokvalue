@@ -1196,7 +1196,7 @@ const en = {
     publish: 'Publish Listing',
     myListings: 'My Listings',
     myUnlocks: 'My Unlocks',
-    unlockContact: 'Request introduction — $9.9',
+    unlockContact: 'Request introduction — $9.99',
     contactViaBroker: 'Contact is arranged through TokValue',
     introFeeNote: 'One-time introduction fee. We confirm the account is still available, then connect you with the seller and pass on their terms.',
     introFeeTerms: 'The fee covers the introduction and follow-up. Payment, transfer and handover happen directly between you and the seller.',

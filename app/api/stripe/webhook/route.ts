@@ -17,7 +17,7 @@ const PRODUCT_ID_MAP: Record<string, string> = {
   pack1: process.env.CREEM_PRODUCT_ID_PACK1 || '',
   pack6: process.env.CREEM_PRODUCT_ID_PACK6 || '',
   pack30: process.env.CREEM_PRODUCT_ID_PACK30 || '',
-  unlock1: process.env.CREEM_PRODUCT_ID_UNLOCK1 || '',
+  unlock1: process.env.CREEM_PRODUCT_ID_UNLOCK1 || process.env.CREEM_PRODUCT_ID_PACK6 || '',
 }
 
 function getCreemApiBase(): string {

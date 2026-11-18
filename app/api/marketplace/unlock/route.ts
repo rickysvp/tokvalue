@@ -11,7 +11,8 @@ export const maxDuration = 25
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CREEM_API_KEY = process.env.CREEM_API_KEY || ''
 const CREEM_WEBHOOK_SECRET = process.env.CREEM_WEBHOOK_SECRET || ''
-const UNLOCK1_PRODUCT_ID = process.env.CREEM_PRODUCT_ID_UNLOCK1 || ''
+// 复用现有 $9.99 的 Creem 商品（pack6）作为中介费商品：单独建品需要改预算与结账文案
+const UNLOCK1_PRODUCT_ID = process.env.CREEM_PRODUCT_ID_UNLOCK1 || process.env.CREEM_PRODUCT_ID_PACK6 || ''
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'))
 const IS_DEV = process.env.NODE_ENV === 'development'
 const SKIP_PAYMENT = IS_DEV && process.env.DEV_SKIP_PAYMENT === 'true'
