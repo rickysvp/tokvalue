@@ -25,13 +25,13 @@ import { Testimonials } from '@/components/Testimonials'
 // 首页社会证明：与 /api/stats 的返回值同构。本地缓存上一次成功值，
 // 数据库抖动导致接口暂时不可用时，页面上仍然是真实历史数字，而不是整条消失。
 type Stats = {
-  accountsEvaluated: number
+  accountsValued: number
   totalValueAssessed: number
-  uniqueVisitors: number
+  pageViews: number
   totalFollowers: number
   countriesReached: number
 }
-const EMPTY_STATS: Stats = { accountsEvaluated: 0, totalValueAssessed: 0, uniqueVisitors: 0, totalFollowers: 0, countriesReached: 0 }
+const EMPTY_STATS: Stats = { accountsValued: 0, totalValueAssessed: 0, pageViews: 0, totalFollowers: 0, countriesReached: 0 }
 const STATS_CACHE_KEY = 'tv_stats_cache_v1'
 
 function readCachedStats(): Stats {
@@ -119,7 +119,7 @@ export default function HomePage() {
     fetch('/api/stats', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
       .then((data: Stats | null) => {
-        if (!data || typeof data.accountsEvaluated !== 'number') return
+        if (!data || typeof data.accountsValued !== 'number') return
         setStats(data)
         try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(data)) } catch {}
       })

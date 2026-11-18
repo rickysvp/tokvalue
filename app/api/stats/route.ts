@@ -4,9 +4,9 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 export const dynamic = 'force-dynamic'
 
 interface StatsPayload {
-  accountsEvaluated: number
+  accountsValued: number
   totalValueAssessed: number
-  uniqueVisitors: number
+  pageViews: number
   totalFollowers: number
   countriesReached: number
 }
@@ -32,17 +32,22 @@ function db() {
 async function loadStats(): Promise<StatsPayload> {
   const rows = (await db()`
     SELECT
-      (SELECT COUNT(*) FROM evaluations) AS accounts,
+      -- 每完成一次估值快照记一条事件；排除本地/预览机产生的噪声
+      (SELECT COUNT(*) FROM analytics_events
+         WHERE event_type = 'commercial_snapshot_ready'
+           AND COALESCE(metadata->>'hostname', '') NOT IN ('127.0.0.1', 'localhost')) AS accounts,
       (SELECT COALESCE(SUM((business_value->'totalValue'->>'mid')::numeric), 0) FROM evaluations) AS value,
       (SELECT COALESCE(SUM(follower_count), 0) FROM evaluations) AS followers,
       (SELECT COUNT(DISTINCT UPPER(TRIM(region))) FROM evaluations WHERE region IS NOT NULL AND TRIM(region) <> '') AS countries,
-      (SELECT COUNT(DISTINCT COALESCE(NULLIF(ip_hash, ''), session_id)) FROM analytics_events WHERE event_type = 'page_view') AS uv
+      (SELECT COUNT(*) FROM analytics_events
+         WHERE event_type = 'page_view'
+           AND COALESCE(metadata->>'hostname', '') NOT IN ('127.0.0.1', 'localhost')) AS pv
   `) as Array<Record<string, string | number>>
   const r = rows[0] || {}
   return {
-    accountsEvaluated: Number(r.accounts || 0),
+    accountsValued: Number(r.accounts || 0),
     totalValueAssessed: Math.round(Number(r.value || 0)),
-    uniqueVisitors: Number(r.uv || 0),
+    pageViews: Number(r.pv || 0),
     totalFollowers: Number(r.followers || 0),
     countriesReached: Number(r.countries || 0),
   }
