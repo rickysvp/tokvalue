@@ -49,7 +49,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
 
   const sortOptions: Array<{ value: ListingSort; label: string }> = [
     { value: 'latest', label: dict.marketplace.sortLatest },
-    { value: 'deal_desc', label: dict.marketplace.sortDeal },
     { value: 'fresh', label: dict.marketplace.sortFresh },
     { value: 'valuation_desc', label: dict.marketplace.sortValuationDesc },
     { value: 'valuation_asc', label: dict.marketplace.sortValuationAsc },

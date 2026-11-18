@@ -144,12 +144,6 @@ export default function ListingDetailClient({ listing, paidReturn, dict }: { lis
       <div className="flex items-baseline gap-3 mb-8 flex-wrap">
         <span className="text-sm text-neutral-500">{listing.status === 'sold' ? dict.soldPriceLabel : dict.askPriceLabel}</span>
         <span className="text-4xl font-extrabold text-[#FF0050]">${(listing.status === 'sold' && listing.soldPriceUsd ? listing.soldPriceUsd : listing.askingPriceUsd).toLocaleString()}</span>
-        {listing.status !== 'sold' && listing.snapshot.valuationUsd != null && (
-          <span className="text-xs text-neutral-400 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800">
-            {Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100) > 0 ? '+' : '−'}
-            {Math.abs(Math.round(((listing.askingPriceUsd - listing.snapshot.valuationUsd) / listing.snapshot.valuationUsd) * 100))}% {dict.vsValuation}
-          </span>
-        )}
         <span className="text-sm text-neutral-500 flex items-center gap-1"><Clock size={14} />{dict.valuedAsOf} {s.evaluatedAt ? new Date(s.evaluatedAt).toLocaleDateString('en-US') : '—'}</span>
       </div>
 

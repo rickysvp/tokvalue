@@ -51,9 +51,6 @@ export default function ListingCard({ item, dict, now }: { item: PublicItem; dic
   const erRatio = er != null ? er / TIER_ER_BENCHMARK[ftier] : null
   const erClass = erRatio == null ? 'text-neutral-400' : erRatio >= 1.3 ? 'text-[#34d399]' : erRatio < 0.9 ? 'text-[#fbbf24]' : 'text-neutral-300'
 
-  // 叫价相对估值中值的折让/溢价
-  const mid = item.snapshot.valuationUsd
-  const delta = mid ? Math.round(((item.askingPriceUsd - mid) / mid) * 100) : null
   const days = Math.max(0, Math.floor((now - new Date(item.createdAt).getTime()) / DAY))
   const staleDays = item.snapshot.evaluatedAt ? Math.floor((now - new Date(item.snapshot.evaluatedAt).getTime()) / DAY) : null
 
@@ -96,11 +93,6 @@ export default function ListingCard({ item, dict, now }: { item: PublicItem; dic
             <div className="text-[11px] uppercase tracking-wide text-neutral-500">{sold ? dict.marketplace.soldPriceLabel : dict.marketplace.askPriceLabel}</div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-[#FF0050]">{money(sold && item.soldPriceUsd ? item.soldPriceUsd : item.askingPriceUsd)}</span>
-              {delta != null && !sold && (
-                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${delta <= -15 ? 'bg-[#15803d]/20 text-[#4ade80]' : 'bg-neutral-900 text-neutral-400'}`}>
-                  {delta > 0 ? '+' : '−'}{Math.abs(delta)}% {dict.marketplace.vsValuation}
-                </span>
-              )}
             </div>
           </div>
           <span className="text-xs text-neutral-500">{days}{dict.marketplace.daysOnMarket}</span>
