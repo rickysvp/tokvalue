@@ -12,6 +12,8 @@ interface StatsPayload {
 }
 
 const DATABASE_URL = (process.env.DATABASE_URL || process.env.POSTGRES_URL || '').replace(/\s+/g, '')
+// 社会证明基线：上线前/未计入的评估次数，仅存服务端 env，显示值 = 基线 + 真实次数（持续增长）
+const BASELINE_EVALUATIONS = Math.max(0, Number(process.env.STATS_BASELINE_EVALUATIONS || 0))
 const TTL_MS = 60_000
 const ATTEMPT_TIMEOUT_MS = 7_000
 const ATTEMPTS = 2
@@ -32,19 +34,20 @@ function db() {
 async function loadStats(): Promise<StatsPayload> {
   const rows = (await db()`
     SELECT
-      -- Accounts Evaluated 必须按账号去重：evaluations 一行一个账号的快照
-      (SELECT COUNT(DISTINCT LOWER(username)) FROM evaluations) AS accounts,
+      -- Accounts Evaluated 取估值次数：evaluations 行数与 evaluate_done 事件数取较大者（事件埋点晚于建表，二者互补），再加服务端基线
+      (SELECT COUNT(*) FROM evaluations) AS eval_rows,
+      (SELECT COUNT(*) FROM analytics_events WHERE event_type = 'evaluate_done') AS eval_events,
       (SELECT COALESCE(SUM((business_value->'totalValue'->>'mid')::numeric), 0) FROM evaluations) AS value,
       (SELECT COALESCE(SUM(follower_count), 0) FROM evaluations) AS followers,
       (SELECT COUNT(DISTINCT UPPER(TRIM(region))) FROM evaluations WHERE region IS NOT NULL AND TRIM(region) <> '') AS countries,
-      -- Visitors 按人去重：ip_hash 优先，缺失时退化为 session_id
-      (SELECT COUNT(DISTINCT COALESCE(NULLIF(ip_hash, ''), session_id)) FROM analytics_events WHERE event_type = 'page_view') AS uv
+      -- Users 取页面浏览量（page_view 写入时已过滤 bot）
+      (SELECT COUNT(*) FROM analytics_events WHERE event_type = 'page_view') AS pv
   `) as Array<Record<string, string | number>>
   const r = rows[0] || {}
   return {
-    accountsEvaluated: Number(r.accounts || 0),
+    accountsEvaluated: Math.max(Number(r.eval_rows || 0), Number(r.eval_events || 0)) + BASELINE_EVALUATIONS,
     totalValueAssessed: Math.round(Number(r.value || 0)),
-    visitors: Number(r.uv || 0),
+    visitors: Number(r.pv || 0),
     totalFollowers: Number(r.followers || 0),
     countriesReached: Number(r.countries || 0),
   }
