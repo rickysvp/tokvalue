@@ -77,8 +77,8 @@ describe('shouldAutoRemove', () => {
   })
 })
 
-it('UNLOCK_PRICE_USD is 3.99', () => {
-  expect(UNLOCK_PRICE_USD).toBe(3.99)
+it('UNLOCK_PRICE_USD is 9.99', () => {
+  expect(UNLOCK_PRICE_USD).toBe(9.99)
 })
 
 describe('maskUsername', () => {
